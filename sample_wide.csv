@@ -1,0 +1,4 @@
+เลขบัตรประชาชน,ชื่อ,นามสกุล,ID แผนก,วันที่ตรวจ (ปปปป-ดด-วว),wbc,hb,hct,plt,creatinine,sgot_ast,sgpt_alt,uric_acid,venous_blood_lead,chest_xray,xray_comment,ekg,ekg_comment,bmi,bp_systolic,bp_diastolic,pulse_rate,hearing_ability,hearing_comment,far_vision_test,far_vision_comment
+1100500112233,สมชาย,ใจดี,DEPT-A01,2569-02-15,7500,13.2,39.5,250000,1.1,25,22,6.5,8.5,1,No active lung lesion,1,NSR rate 72 bpm,24.5,120,78,72,1,Normal hearing bilateral,1,VA 20/20 OU
+1100500445566,สมหญิง,รักษา,DEPT-B02,2569-02-16,8200,12.0,36.0,310000,0.8,45,52,5.2,3.2,2,Mild fibrosis bilateral lower lobes,2,Sinus tachycardia rate 105 bpm,22.1,135,88,80,2,High frequency hearing loss at 4000 Hz right ear,2,VA 20/40 OD แนะนำพบจักษุแพทย์
+1100500778899,วิชัย,สุขสันต์,DEPT-A01,2569-02-17,6800,15.1,45.2,180000,1.4,30,28,7.8,15.3,1,Clear lung fields,1,NSR rate 85 bpm no ST changes,27.8,140,92,85,1,Normal hearing bilateral,1,VA 20/20 OU with correction

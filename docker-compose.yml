@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: his_mapping_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: his_mapping
+      POSTGRES_USER: his_admin
+      POSTGRES_PASSWORD: his_secret_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  pgdata:
