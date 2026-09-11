@@ -192,6 +192,24 @@ class UploadLog(Base):
         }
 
 
+class LabMapping(Base):
+    __tablename__ = "lab_mappings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    his_lab_name = Column(String(200), unique=True, nullable=False)
+    template_column = Column(String(100), nullable=False)
+    unit_factor = Column(Numeric(10, 4), default=1.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "his_lab_name": self.his_lab_name,
+            "template_column": self.template_column,
+            "unit_factor": float(self.unit_factor) if self.unit_factor else 1.0,
+        }
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -202,3 +220,30 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    
+    # Auto-seed the database
+    db = SessionLocal()
+    try:
+        if db.query(LabMapping).count() == 0:
+            import sys
+            import os
+            
+            # Use original mapping inside config
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from mapping_config import LAB_NAME_TO_TEMPLATE
+            
+            mappings = []
+            for lab_name, template_col in LAB_NAME_TO_TEMPLATE.items():
+                mappings.append(LabMapping(
+                    his_lab_name=lab_name.lower().strip(),
+                    template_column=template_col,
+                    unit_factor=1.0
+                ))
+            db.bulk_save_objects(mappings)
+            db.commit()
+            print(f"🌱 Seeded {len(mappings)} LabMappings to database.")
+    except Exception as e:
+        db.rollback()
+        print(f"Error seeding db: {e}")
+    finally:
+        db.close()

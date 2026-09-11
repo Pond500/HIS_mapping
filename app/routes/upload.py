@@ -10,17 +10,19 @@ import json
 import os
 import sys
 import traceback
+import re
 from datetime import datetime
 
 import pandas as pd
+from rapidfuzz import process, fuzz
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
 
 # Add parent dir to path for mapping imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from mapping_config import LAB_NAME_TO_TEMPLATE, NORMAL_ABNORMAL_MAP, CLINICAL_CATEGORICAL_IN_LONG
+from mapping_config import NORMAL_ABNORMAL_MAP, CLINICAL_CATEGORICAL_IN_LONG
 
-from app.database import Employee, UploadLog, get_db
+from app.database import Employee, UploadLog, LabMapping, get_db
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
@@ -91,6 +93,38 @@ NUMERIC_FIELDS = {
 # Fields that are categorical (1=normal, 2=abnormal)
 CATEGORICAL_FIELDS = {"chest_xray", "ekg", "hearing_ability", "far_vision_test"}
 
+def get_db_mapping(db: Session):
+    """Fetch mapping config from database"""
+    records = db.query(LabMapping).all()
+    mapping_dict = {}
+    for m in records:
+        mapping_dict[m.his_lab_name.lower().strip()] = {
+            "col": m.template_column, 
+            "factor": float(m.unit_factor) if m.unit_factor else 1.0
+        }
+    return mapping_dict
+
+def get_mapped_col(lab_name, mapping_dict):
+    """Get template column and unit factor, using RapidFuzz if exact match fails"""
+    if pd.isna(lab_name):
+        return None, 1.0
+        
+    lname = str(lab_name).strip().lower()
+    if lname in mapping_dict:
+        return mapping_dict[lname]["col"], mapping_dict[lname]["factor"]
+    
+    # Fuzzy match fallback
+    choices = list(mapping_dict.keys())
+    if not choices:
+        return None, 1.0
+        
+    best_match = process.extractOne(lname, choices, scorer=fuzz.token_sort_ratio)
+    if best_match and best_match[1] >= 85:
+        # print(f"  🧠 Fuzzy Matched: '{lname}' -> '{best_match[0]}' ({str(best_match[1])}%)")
+        return mapping_dict[best_match[0]]["col"], mapping_dict[best_match[0]]["factor"]
+    
+    return None, 1.0
+
 
 def detect_file_format(df):
     """
@@ -116,7 +150,7 @@ def detect_file_format(df):
     return "wide"  # Default to wide
 
 
-def convert_long_to_wide(df):
+def convert_long_to_wide(df, mapping_dict):
     """
     Convert HIS Long/EAV format → Wide format.
     Expects columns: cid (or เลขบัตรประชาชน), lab_name, result, visit_date
@@ -149,10 +183,16 @@ def convert_long_to_wide(df):
     if "cid" not in df.columns:
         raise ValueError("ไม่พบคอลัมน์ CID/เลขบัตรประชาชน ในไฟล์")
 
-    # Map lab names → template columns
-    df["template_col"] = df["lab_name"].apply(
-        lambda x: LAB_NAME_TO_TEMPLATE.get(str(x).strip().lower())
-    )
+    # Map lab names → template columns and unit factors
+    mapped_cols = []
+    unit_factors = []
+    for x in df["lab_name"]:
+        c, f = get_mapped_col(x, mapping_dict)
+        mapped_cols.append(c)
+        unit_factors.append(f)
+        
+    df["template_col"] = mapped_cols
+    df["unit_factor"] = unit_factors
 
     # Keep only mapped rows
     mapped = df[df["template_col"].notna()].copy()
@@ -161,17 +201,41 @@ def convert_long_to_wide(df):
         unmapped_names = unmapped["lab_name"].unique().tolist()[:10]
         print(f"  ⚠️ Lab names ที่ map ไม่ได้: {unmapped_names}")
 
-    # Convert categorical results (Normal/Abnormal → 1/2) for clinical fields
+    extra_rows = []
+    # Convert categorical and handle BP regex
     for idx, row in mapped.iterrows():
         tcol = row["template_col"]
+        fac = row["unit_factor"]
+        result_val = str(row["result"]).strip()
+        
+        # Regex check for BP e.g., "120/80"
+        bp_match = re.match(r'^(\d+)\s*/\s*(\d+)$', result_val)
+        if bp_match:
+            mapped.at[idx, "template_col"] = "bp_systolic"
+            mapped.at[idx, "result"] = bp_match.group(1)
+            
+            new_row = row.copy()
+            new_row["template_col"] = "bp_diastolic"
+            new_row["result"] = bp_match.group(2)
+            extra_rows.append(new_row)
+            continue
+            
         if tcol in CLINICAL_CATEGORICAL_IN_LONG:
-            result_val = row["result"]
-            converted = _convert_categorical(result_val)
+            converted = _convert_categorical(row["result"])
             if converted is not None:
                 mapped.at[idx, "result"] = converted
 
-    # Clean comma-separated numbers (e.g. "7,500" → "7500")
-    mapped["result"] = mapped["result"].apply(_clean_numeric_string)
+    if extra_rows:
+        mapped = pd.concat([mapped, pd.DataFrame(extra_rows)], ignore_index=True)
+
+    # Clean numeric format (remove commas etc) and apply unit_factor
+    def apply_clean_and_factor(row):
+        val = _clean_numeric_string(row["result"])
+        if isinstance(val, (int, float)) and row["template_col"] in NUMERIC_FIELDS:
+            return float(val) * row["unit_factor"]
+        return val
+
+    mapped["result"] = mapped.apply(apply_clean_and_factor, axis=1)
 
     # Pivot: group by cid+visit_date, spread template_col as columns
     group_cols = ["cid"]
@@ -217,12 +281,14 @@ def _clean_numeric_string(val):
         return val  # Keep original if can't convert
 
 
-def process_wide_dataframe(df, upload_id, db):
+def process_wide_dataframe(df, upload_id, db, mapping_dict=None):
     """
     Process a Wide format DataFrame → save to database.
-    Supports UPSERT: if CID+visit_date already exists, update the record.
-    Returns (success_count, error_count, error_messages)
+    Supports UPSERT and dynamic DB mappings & fuzzy matching.
     """
+    if mapping_dict is None:
+        mapping_dict = {}
+        
     success = 0
     updated = 0
     errors_list = []
@@ -230,50 +296,88 @@ def process_wide_dataframe(df, upload_id, db):
     # Normalize column names for matching
     col_mapping = {}
     for orig_col in df.columns:
+        orig = orig_col.strip().lower()
+        found = False
+        
+        # 1. TEMPLATE_TO_DB Exact match
         for tpl_col, db_col in TEMPLATE_TO_DB.items():
-            if orig_col.strip().lower() == tpl_col.lower() or orig_col.strip() == tpl_col:
-                col_mapping[orig_col] = db_col
+            if orig == tpl_col.lower() or orig_col.strip() == tpl_col:
+                col_mapping[orig_col] = {"db_col": db_col, "factor": 1.0}
+                found = True
                 break
-        # Also try direct DB column match
-        if orig_col not in col_mapping:
-            if orig_col.strip().lower() in TEMPLATE_TO_DB.values():
-                col_mapping[orig_col] = orig_col.strip().lower()
+                
+        # 2. Match DB names directly
+        if not found and orig in TEMPLATE_TO_DB.values():
+             col_mapping[orig_col] = {"db_col": orig, "factor": 1.0}
+             found = True
+
+        # 3. Fuzzy map / DB Custom mapping map
+        if not found and mapping_dict:
+            col, fac = get_mapped_col(orig_col, mapping_dict)
+            if col:
+                # col might be template name (Thai) or db_col (English)
+                db_col = TEMPLATE_TO_DB.get(col, col)
+                if db_col in TEMPLATE_TO_DB.values():
+                    col_mapping[orig_col] = {"db_col": db_col, "factor": fac}
 
     for idx, row in df.iterrows():
         try:
             emp_data = {"upload_id": upload_id}
+            current_row_errors = []
 
-            for orig_col, db_col in col_mapping.items():
+            for orig_col, mapping_info in col_mapping.items():
+                db_col = mapping_info["db_col"]
+                factor = mapping_info["factor"]
                 val = row.get(orig_col)
 
                 # Handle NaN / None
-                if pd.isna(val):
+                if pd.isna(val) or val == "":
                     continue
 
-                # Handle date
-                if db_col == "visit_date":
-                    val = _parse_date(val)
-                # Handle numeric
-                elif db_col in NUMERIC_FIELDS:
-                    try:
+                # Regex catch for BP "120/80" in wide dataset (if under bp_systolic, bp_diastolic or generic numeric)
+                s_val = str(val).strip()
+                bp_match = re.match(r'^(\d+)\s*/\s*(\d+)$', s_val)
+                if bp_match and db_col in ("bp_systolic", "bp_diastolic", "pulse_rate"):
+                    # Apply to both if we detect BP syntax
+                    emp_data["bp_systolic"] = float(bp_match.group(1))
+                    emp_data["bp_diastolic"] = float(bp_match.group(2))
+                    continue
+
+                try:
+                    # Handle date
+                    if db_col == "visit_date":
+                        val = _parse_date(val)
+                    # Handle numeric
+                    elif db_col in NUMERIC_FIELDS:
                         # Clean commas and N/A
-                        s = str(val).strip().replace(",", "")
-                        if s.lower() in ("n/a", "na", "", "-", "--"):
+                        s = s_val.replace(",", "")
+                        if s.lower() in ("n/a", "na", "-", "--"):
                             val = None
                         else:
-                            val = float(s)
-                    except (ValueError, TypeError):
-                        val = None
-                # Handle categorical
-                elif db_col in CATEGORICAL_FIELDS:
-                    val = _convert_categorical(val)
+                            try:
+                                val = float(s) * factor
+                            except ValueError:
+                                raise ValueError(f"ค่า '{val}' ไม่ใช่ตัวเลขที่ถูกต้อง")
+                    # Handle categorical
+                    elif db_col in CATEGORICAL_FIELDS:
+                        val = _convert_categorical(val)
+                        
+                except ValueError as e:
+                    current_row_errors.append(f"คอลัมน์ {orig_col} ({str(e)})")
+                    continue
 
                 if val is not None:
                     emp_data[db_col] = val
 
-            # Skip rows without CID
+            # Skip rows without CID or Date, but track the error
             cid = emp_data.get("cid")
             if not cid:
+                current_row_errors.append("ไม่พบข้อมูลเลขบัตรประชาชน (CID)")
+            if not emp_data.get("visit_date"):
+                current_row_errors.append("ไม่พบข้อมูลวันที่ตรวจ (Visit Date)")
+
+            if len(current_row_errors) > 0:
+                errors_list.append(f"Row {idx + 1}: " + " | ".join(current_row_errors))
                 continue
 
             # Ensure CID is string
@@ -288,9 +392,9 @@ def process_wide_dataframe(df, upload_id, db):
 
             if existing:
                 # Update existing record
-                for key, val in emp_data.items():
-                    if key != "cid" and key != "visit_date" and val is not None:
-                        setattr(existing, key, val)
+                for key, v in emp_data.items():
+                    if key != "cid" and key != "visit_date" and v is not None:
+                        setattr(existing, key, v)
                 updated += 1
             else:
                 # Insert new record
@@ -300,7 +404,7 @@ def process_wide_dataframe(df, upload_id, db):
 
         except Exception as e:
             db.rollback()
-            errors_list.append(f"Row {idx + 1}: {str(e)}")
+            errors_list.append(f"Row {idx + 1} (System Error): {str(e)}")
 
     db.commit()
     return success + updated, len(errors_list), errors_list
@@ -308,11 +412,17 @@ def process_wide_dataframe(df, upload_id, db):
 
 def _parse_date(val):
     """Parse date from various formats (supports both BE and CE years)."""
+    if pd.isna(val) or str(val).strip() == "":
+        return None
+        
     if isinstance(val, datetime):
         return val.date()
 
     s = str(val).strip()
-    for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y"]:
+    if s.lower() in ("n/a", "na", "-", "--"):
+        return None
+        
+    for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%y"]:
         try:
             dt = datetime.strptime(s, fmt)
             # If year > 2500, assume Buddhist Era
@@ -321,16 +431,27 @@ def _parse_date(val):
             return dt.date()
         except ValueError:
             continue
-    return None
+    raise ValueError(f"รูปแบบวันที่ไม่ถูกต้อง ควรเป็น ปปปป-ดด-วว")
 
 
 def _convert_categorical(val):
-    """Convert normal/abnormal values to 1/2."""
+    """Convert normal/abnormal values to 1/2. Throws ValueError if unknown."""
+    if pd.isna(val) or str(val).strip() == "":
+        return None
+        
     if isinstance(val, (int, float)):
-        return int(val) if val in (1, 2) else None
+        if val in (1, 2):
+            return int(val)
+        raise ValueError("ค่าตัวเลขต้องเป็น 1 (ปกติ) หรือ 2 (ผิดปกติ) เท่านั้น")
 
     normalized = str(val).strip().lower()
-    return NORMAL_ABNORMAL_MAP.get(normalized)
+    if normalized in ("n/a", "na", "-", "--"):
+        return None
+        
+    mapped = NORMAL_ABNORMAL_MAP.get(normalized)
+    if mapped is None:
+        raise ValueError(f"คำว่า ไม่รองรับ โปรดใช้คำว่า 'ปกติ/ผิดปกติ', 'normal/abnormal', '1/2' หรือปล่อยว่าง")
+    return mapped
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +490,9 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
         formats_detected = []
         sheets_processed = []
 
+        # Fetch DB mapping
+        mapping_dict = get_db_mapping(db)
+
         if ext == "csv":
             # CSV: single sheet
             df = pd.read_csv(bytes_io)
@@ -377,8 +501,8 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
                 fmt = detect_file_format(df)
                 formats_detected.append(fmt)
                 if fmt == "long":
-                    df = convert_long_to_wide(df)
-                s, e, msgs = process_wide_dataframe(df, log.id, db)
+                    df = convert_long_to_wide(df, mapping_dict)
+                s, e, msgs = process_wide_dataframe(df, log.id, db, mapping_dict)
                 total_success += s
                 total_errors += e
                 all_error_msgs.extend(msgs)
@@ -400,9 +524,9 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
                 print(f"  📋 Sheet '{sheet_name}': {len(df)} rows, format={fmt}")
 
                 if fmt == "long":
-                    df = convert_long_to_wide(df)
+                    df = convert_long_to_wide(df, mapping_dict)
 
-                s, e, msgs = process_wide_dataframe(df, log.id, db)
+                s, e, msgs = process_wide_dataframe(df, log.id, db, mapping_dict)
                 total_success += s
                 total_errors += e
                 all_error_msgs.extend([f"[{sheet_name}] {m}" for m in msgs])

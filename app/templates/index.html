@@ -27,6 +27,7 @@
                 <button class="tab-btn active" data-tab="upload" id="tab-upload-btn">📤 Upload</button>
                 <button class="tab-btn" data-tab="dashboard" id="tab-dashboard-btn">📊 Dashboard</button>
                 <button class="tab-btn" data-tab="logs" id="tab-logs-btn">📋 Logs</button>
+                <button class="tab-btn" data-tab="settings" id="tab-settings-btn">⚙️ Settings</button>
             </div>
         </div>
     </header>
@@ -243,6 +244,38 @@
                 </div>
             </div>
 
+            <!-- ──── TAB: Settings ──── -->
+            <div class="tab-content" id="tab-settings">
+                <div class="card">
+                    <div class="card-title">⚙️ กำหนดค่า Mapping รหัส Lab</div>
+                    
+                    <div style="background:var(--bg-secondary); padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid var(--border-color);">
+                        <h4>➕ เพิ่ม Mapping ใหม่</h4>
+                        <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap;">
+                            <input type="text" id="mapHisName" placeholder="ชื่อ Lab ใน HIS (เช่น v.b.p)" style="flex:1; min-width:200px;">
+                            <input type="text" id="mapTemplateCol" placeholder="ชื่อ Column ใน Template (เช่น venous_blood_lead)" style="flex:1; min-width:200px;">
+                            <input type="number" id="mapUnitFactor" placeholder="Unit Factor (เริ่มต้น 1.0)" step="0.0001" value="1.0" style="width:180px;">
+                            <button class="btn btn-primary" onclick="addMapping()">เพิ่ม</button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>ชื่อ Lab ใน HIS</th>
+                                    <th>Template Column</th>
+                                    <th>Unit Factor</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mappingsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -263,6 +296,7 @@
 
                 if (btn.dataset.tab === 'dashboard') refreshDashboard();
                 if (btn.dataset.tab === 'logs') loadLogs();
+                if (btn.dataset.tab === 'settings') loadMappings();
             });
         });
 
@@ -594,6 +628,67 @@
             } catch (err) {
                 alert('❌ เกิดข้อผิดพลาด: ' + err.message);
             }
+        }
+
+        // ══════════════════════════════════════
+        // SETTINGS MAPPINGS
+        // ══════════════════════════════════════
+
+        async function loadMappings() {
+            try {
+                const mappings = await fetch('/api/mappings/').then(r => r.json());
+                const tbody = document.getElementById('mappingsBody');
+                
+                tbody.innerHTML = mappings.map((m, i) => `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td style="font-weight:600;">${m.his_lab_name}</td>
+                        <td><span class="badge badge-normal">${m.template_column}</span></td>
+                        <td>${m.unit_factor}</td>
+                        <td><button class="btn btn-danger btn-sm" onclick="deleteMapping(${m.id})">❌</button></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function addMapping() {
+            const name = document.getElementById('mapHisName').value;
+            const col = document.getElementById('mapTemplateCol').value;
+            const factor = document.getElementById('mapUnitFactor').value || 1.0;
+            
+            if (!name || !col) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
+            
+            try {
+                const res = await fetch('/api/mappings/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        his_lab_name: name,
+                        template_column: col,
+                        unit_factor: parseFloat(factor)
+                    })
+                });
+                if (res.ok) {
+                    document.getElementById('mapHisName').value = '';
+                    document.getElementById('mapTemplateCol').value = '';
+                    loadMappings();
+                } else {
+                    const data = await res.json();
+                    alert(data.detail || 'เกิดข้อผิดพลาด');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+        
+        async function deleteMapping(id) {
+            if (!confirm('ยืนยันลบ Mapping นี้?')) return;
+            try {
+                await fetch('/api/mappings/' + id, {method: 'DELETE'});
+                loadMappings();
+            } catch (err) {}
         }
 
         // ── Initialize ──
