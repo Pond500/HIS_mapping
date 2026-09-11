@@ -31,3 +31,4 @@ uploads/
 
 # Secrets
 .env
+storage/

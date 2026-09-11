@@ -20,7 +20,13 @@ docker compose up -d postgres              # DB only, then run the app locally f
 .venv/bin/python legacy/main.py            # old standalone CLI pipeline (no DB needed)
 ```
 
-`legacy/` holds the pre-POC CLI pipeline and the old ad-hoc `test_*.py` scripts, which write real rows to the live DB. The original mock files are in `mock_data/original/`. `init.sql` is no longer mounted into Postgres. The schema is moving to Alembic (plan in docs/requirements.md).
+`legacy/` holds the pre-POC CLI pipeline and the old ad-hoc `test_*.py` scripts, which write real rows to the live DB. The original mock files are in `mock_data/original/`. Uploaded originals are kept in `storage/uploads/` (gitignored, mounted into the app container).
+
+```bash
+.venv/bin/alembic upgrade head                                 # apply migrations (the app container does this on start)
+.venv/bin/alembic revision --autogenerate -m "..."             # after changing app/models.py
+.venv/bin/alembic check                                        # models and DB in sync?
+```
 
 ## Architecture
 
@@ -34,18 +40,12 @@ There are two separate code paths that share `mapping_config.py`:
    - `process_wide_dataframe` maps each column to a DB column in this order: `TEMPLATE_TO_DB` exact match (Thai template headers → English DB names), then a direct DB column name, then a DB mapping or fuzzy match. It validates values per row (numeric, categorical 1/2, dates where a year > 2500 is treated as Buddhist Era) and **upserts** on `(cid, visit_date)`. Row errors are collected as Thai messages and are not raised.
    - Lab-name mapping goes through `get_mapped_col`: an exact lowercase match against the `lab_mappings` table, then a RapidFuzz `token_sort_ratio` fallback at ≥ 85.
 
-### Where mappings live
+### Template, schema and mappings
 
-- `mapping_config.py`: `TEMPLATE_COLUMNS` (the exact column order of the output template, which must match `result_template_v1.1.xlsx`), `LAB_NAME_TO_TEMPLATE`, `NORMAL_ABNORMAL_MAP`, `CLINICAL_CATEGORICAL_IN_LONG`, and related constants.
-- `lab_mappings` DB table: `init_db()` seeds it from `LAB_NAME_TO_TEMPLATE` only when the table is empty. After that, the web app reads only the DB. Edits to the config dict won't reach an existing DB. Use the `/api/mappings` CRUD routes (`app/routes/mapping.py`) or clear the table.
-- `app/routes/upload.py` has its own `TEMPLATE_TO_DB`, `NUMERIC_FIELDS` and `CATEGORICAL_FIELDS`.
-
-### Schema is defined in three places
-
-Adding or renaming a template field means keeping all of these in sync:
-- `init.sql`, which runs only on first Postgres volume creation.
-- The SQLAlchemy models in `app/database.py`, including `Employee.to_dict()`. `create_all` builds missing tables but never alters existing ones.
-- `TEMPLATE_TO_DB` and the field sets in `upload.py`, `TEMPLATE_COLUMNS` in `mapping_config.py`, and the Excel export in `app/routes/dashboard.py`.
+- `app/template.py` is the **single source of truth** for the 45 template columns: DB name, template header, kind (id/text/date/numeric/categorical) and precision. The `Employee` model columns, the export headers and the field sets in `upload.py` are all derived from it.
+- `app/models.py` holds all tables. `app/database.py` only has the engine, session and `Base`. The schema is managed **only by Alembic** (`alembic/versions/`). There is no `create_all` and no `init.sql`. The tables are hospitals, source_files, file_profiles, lab_mappings, employees, value_provenance, extra_results, conflicts, value_history, pending_reviews and agent_decisions. docs/requirements.md D6/D12/D13 explains why each one exists.
+- `lab_mappings` has two layers: `hospital_id IS NULL` is the central dictionary, and a non-null value is a hospital override. `target_column` is a template column, or `__extra__`/`__ignore__`. Migration `0002_seed` seeds the central layer from a **frozen snapshot** of `mapping_config.LAB_NAME_TO_TEMPLATE`, so editing `mapping_config.py` does not change the DB. It also creates the `UNSPECIFIED` hospital, which uploads use until a hospital picker exists.
+- `profusion` is text (ILO values like `"1/0"`), not numeric.
 
 ### Frontend
 

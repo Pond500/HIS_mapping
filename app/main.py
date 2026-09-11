@@ -15,7 +15,6 @@ from fastapi.templating import Jinja2Templates
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.database import init_db
 from app.routes import dashboard, upload, mapping
 
 # ---------------------------------------------------------------------------
@@ -42,14 +41,3 @@ app.include_router(mapping.router)
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse(request, "index.html")
-
-
-# ---------------------------------------------------------------------------
-# Startup
-# ---------------------------------------------------------------------------
-
-@app.on_event("startup")
-def startup():
-    init_db()
-    print("🏥 HIS Mapping Web App started!")
-    print("   Open http://localhost:8000 in your browser")

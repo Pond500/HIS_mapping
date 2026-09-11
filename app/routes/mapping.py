@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from pydantic import BaseModel
 
-from app.database import LabMapping, get_db
+from app.database import get_db
+from app.models import LabMapping
+from app.template import RESULT_COLUMNS
 
 router = APIRouter(prefix="/api/mappings", tags=["mappings"])
 
@@ -23,7 +25,7 @@ class LabMappingCreate(BaseModel):
 @router.get("/")
 def get_mappings(db: Session = Depends(get_db)):
     """ดึงข้อมูล mapping ทั้งหมด เรียงตามเวลาที่เพิ่มเข้ามา"""
-    mappings = db.query(LabMapping).order_by(desc(LabMapping.created_at)).all()
+    mappings = db.query(LabMapping).order_by(LabMapping.hospital_id.is_(None), desc(LabMapping.created_at)).all()
     return [m.to_dict() for m in mappings]
 
 
@@ -33,14 +35,20 @@ def create_mapping(mapping: LabMappingCreate, db: Session = Depends(get_db)):
     his_lab_name = mapping.his_lab_name.lower().strip()
     
     # เช็คซ้ำ
-    existing = db.query(LabMapping).filter(LabMapping.his_lab_name == his_lab_name).first()
+    if mapping.template_column not in RESULT_COLUMNS:
+        raise HTTPException(status_code=400, detail="ไม่มีคอลัมน์นี้ใน template")
+
+    existing = db.query(LabMapping).filter(
+        LabMapping.hospital_id.is_(None), LabMapping.source_name == his_lab_name).first()
     if existing:
         raise HTTPException(status_code=400, detail="ชื่อ Lab นี้ถูกแมปไปแล้ว")
 
     new_mapping = LabMapping(
-        his_lab_name=his_lab_name,
-        template_column=mapping.template_column,
-        unit_factor=mapping.unit_factor
+        hospital_id=None,
+        source_name=his_lab_name,
+        target_column=mapping.template_column,
+        unit_factor=mapping.unit_factor,
+        origin="human",
     )
     db.add(new_mapping)
     db.commit()
@@ -52,7 +60,7 @@ def create_mapping(mapping: LabMappingCreate, db: Session = Depends(get_db)):
 @router.delete("/{mapping_id}")
 def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
     """ลบการแมปออก"""
-    mapping = db.query(LabMapping).get(mapping_id)
+    mapping = db.get(LabMapping, mapping_id)
     if not mapping:
         raise HTTPException(status_code=404, detail="ไม่พบการแมปนี้")
         

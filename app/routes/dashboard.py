@@ -10,10 +10,12 @@ from datetime import datetime
 import openpyxl
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, desc
+from sqlalchemy import desc, func, text
 from sqlalchemy.orm import Session
 
-from app.database import Employee, UploadLog, get_db
+from app.database import get_db
+from app.models import Employee, SourceFile
+from app.template import COLUMNS, HEADERS
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -22,7 +24,7 @@ router = APIRouter(prefix="/api", tags=["dashboard"])
 def get_stats(db: Session = Depends(get_db)):
     """สถิติรวมสำหรับ dashboard."""
     total = db.query(func.count(Employee.id)).scalar() or 0
-    total_uploads = db.query(func.count(UploadLog.id)).scalar() or 0
+    total_uploads = db.query(func.count(SourceFile.id)).scalar() or 0
 
     # Count abnormal results
     xray_abnormal = db.query(func.count(Employee.id)).filter(Employee.chest_xray == 2).scalar() or 0
@@ -37,7 +39,7 @@ def get_stats(db: Session = Depends(get_db)):
     vision_normal = db.query(func.count(Employee.id)).filter(Employee.far_vision_test == 1).scalar() or 0
 
     # Latest upload
-    latest = db.query(UploadLog).order_by(desc(UploadLog.created_at)).first()
+    latest = db.query(SourceFile).order_by(desc(SourceFile.uploaded_at)).first()
 
     return {
         "total_employees": total,
@@ -91,7 +93,7 @@ def get_employees(
 @router.get("/employees/{employee_id}")
 def get_employee(employee_id: int, db: Session = Depends(get_db)):
     """ดูรายละเอียดพนักงานรายคน."""
-    emp = db.query(Employee).get(employee_id)
+    emp = db.get(Employee, employee_id)
     if not emp:
         return {"error": "ไม่พบข้อมูล"}
     return emp.to_dict()
@@ -100,15 +102,15 @@ def get_employee(employee_id: int, db: Session = Depends(get_db)):
 @router.get("/upload-logs")
 def get_upload_logs(db: Session = Depends(get_db)):
     """ประวัติการ upload."""
-    logs = db.query(UploadLog).order_by(desc(UploadLog.created_at)).limit(50).all()
+    logs = db.query(SourceFile).order_by(desc(SourceFile.uploaded_at)).limit(50).all()
     return [l.to_dict() for l in logs]
 
 
 @router.delete("/employees")
 def delete_all_employees(db: Session = Depends(get_db)):
-    """ลบข้อมูลทั้งหมด."""
-    count = db.query(Employee).delete()
-    db.query(UploadLog).delete()
+    """ลบข้อมูลผลตรวจและไฟล์ทั้งหมด (mapping และโรงพยาบาลยังอยู่)."""
+    count = db.query(Employee).count()
+    db.execute(text("TRUNCATE employees, source_files RESTART IDENTITY CASCADE"))
     db.commit()
     return {"deleted": count}
 
@@ -122,30 +124,8 @@ def export_excel(db: Session = Depends(get_db)):
     ws = wb.active
     ws.title = "Employees"
 
-    headers = [
-        "เลขบัตรประชาชน", "ชื่อ", "นามสกุล", "ID แผนก", "วันที่ตรวจ (ปปปป-ดด-วว)",
-        "venous_blood_lead", "wbc", "hb", "hct", "plt",
-        "neutrophil", "lymphocyte", "monocyte", "eosinophil", "basophil",
-        "creatinine", "sgot_ast", "sgpt_alt", "alp", "tb", "db",
-        "uric_acid", "chest_xray", "xray_comment", "profusion",
-        "primary_lesion", "secondary_lesion", "rbc_che", "plasma_che_bche",
-        "ekg", "ekg_comment", "bmi", "bp_systolic", "bp_diastolic", "pulse_rate",
-        "spirometry_fvc_percent", "spirometry_fev1_percent",
-        "spirometry_fvc", "spirometry_fev1", "spirometry_fev1_fvc", "spirometry_height",
-        "hearing_ability", "hearing_comment", "far_vision_test", "far_vision_comment",
-    ]
-    db_fields = [
-        "cid", "first_name", "last_name", "department_id", "visit_date",
-        "venous_blood_lead", "wbc", "hb", "hct", "plt",
-        "neutrophil", "lymphocyte", "monocyte", "eosinophil", "basophil",
-        "creatinine", "sgot_ast", "sgpt_alt", "alp", "tb", "db",
-        "uric_acid", "chest_xray", "xray_comment", "profusion",
-        "primary_lesion", "secondary_lesion", "rbc_che", "plasma_che_bche",
-        "ekg", "ekg_comment", "bmi", "bp_systolic", "bp_diastolic", "pulse_rate",
-        "spirometry_fvc_percent", "spirometry_fev1_percent",
-        "spirometry_fvc", "spirometry_fev1", "spirometry_fev1_fvc", "spirometry_height",
-        "hearing_ability", "hearing_comment", "far_vision_test", "far_vision_comment",
-    ]
+    headers = HEADERS
+    db_fields = COLUMNS
 
     for col_idx, h in enumerate(headers, 1):
         ws.cell(row=1, column=col_idx, value=h)

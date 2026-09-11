@@ -5,8 +5,8 @@ File upload endpoint: receives CSV/XLSX files, runs mapping pipeline,
 and saves results to PostgreSQL.
 """
 
+import hashlib
 import io
-import json
 import os
 import sys
 import traceback
@@ -22,84 +22,32 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from mapping_config import NORMAL_ABNORMAL_MAP, CLINICAL_CATEGORICAL_IN_LONG
 
-from app.database import Employee, UploadLog, LabMapping, get_db
+from app.database import get_db
+from app.models import Employee, Hospital, LabMapping, SourceFile
+from app.template import TEMPLATE_FIELDS
+
+# Original uploaded files are kept here (D12: keep the source of every value)
+STORAGE_DIR = os.environ.get("STORAGE_DIR", os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage", "uploads"))
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
 
 # ---------------------------------------------------------------------------
-# Column mapping: template column → DB column
+# Column sets — derived from app/template.py (single source of truth)
 # ---------------------------------------------------------------------------
-TEMPLATE_TO_DB = {
-    "เลขบัตรประชาชน": "cid",
-    "ชื่อ": "first_name",
-    "นามสกุล": "last_name",
-    "ID แผนก": "department_id",
-    "วันที่ตรวจ (ปปปป-ดด-วว)": "visit_date",
-    "venous_blood_lead": "venous_blood_lead",
-    "wbc": "wbc",
-    "hb": "hb",
-    "hct": "hct",
-    "plt": "plt",
-    "neutrophil": "neutrophil",
-    "lymphocyte": "lymphocyte",
-    "monocyte": "monocyte",
-    "eosinophil": "eosinophil",
-    "basophil": "basophil",
-    "creatinine": "creatinine",
-    "sgot_ast": "sgot_ast",
-    "sgpt_alt": "sgpt_alt",
-    "alp": "alp",
-    "tb": "tb",
-    "db": "db",
-    "uric_acid": "uric_acid",
-    "chest_xray": "chest_xray",
-    "xray_comment": "xray_comment",
-    "profusion": "profusion",
-    "primary_lesion": "primary_lesion",
-    "secondary_lesion": "secondary_lesion",
-    "rbc_che": "rbc_che",
-    "plasma_che_bche": "plasma_che_bche",
-    "ekg": "ekg",
-    "ekg_comment": "ekg_comment",
-    "bmi": "bmi",
-    "bp_systolic": "bp_systolic",
-    "bp_diastolic": "bp_diastolic",
-    "pulse_rate": "pulse_rate",
-    "spirometry_fvc_percent": "spirometry_fvc_percent",
-    "spirometry_fev1_percent": "spirometry_fev1_percent",
-    "spirometry_fvc": "spirometry_fvc",
-    "spirometry_fev1": "spirometry_fev1",
-    "spirometry_fev1_fvc": "spirometry_fev1_fvc",
-    "spirometry_height": "spirometry_height",
-    "hearing_ability": "hearing_ability",
-    "hearing_comment": "hearing_comment",
-    "far_vision_test": "far_vision_test",
-    "far_vision_comment": "far_vision_comment",
-}
-
-# Fields that are numeric
-NUMERIC_FIELDS = {
-    "venous_blood_lead", "wbc", "hb", "hct", "plt",
-    "neutrophil", "lymphocyte", "monocyte", "eosinophil", "basophil",
-    "creatinine", "sgot_ast", "sgpt_alt", "alp", "tb", "db",
-    "uric_acid", "profusion", "rbc_che", "plasma_che_bche",
-    "bmi", "bp_systolic", "bp_diastolic", "pulse_rate",
-    "spirometry_fvc_percent", "spirometry_fev1_percent",
-    "spirometry_fvc", "spirometry_fev1", "spirometry_fev1_fvc",
-    "spirometry_height",
-}
-
-# Fields that are categorical (1=normal, 2=abnormal)
-CATEGORICAL_FIELDS = {"chest_xray", "ekg", "hearing_ability", "far_vision_test"}
+TEMPLATE_TO_DB = {f.header: f.column for f in TEMPLATE_FIELDS}
+NUMERIC_FIELDS = {f.column for f in TEMPLATE_FIELDS if f.kind == "numeric"}
+CATEGORICAL_FIELDS = {f.column for f in TEMPLATE_FIELDS if f.kind == "categorical"}
 
 def get_db_mapping(db: Session):
     """Fetch mapping config from database"""
-    records = db.query(LabMapping).all()
+    # Central dictionary only for now; hospital overrides come with the new pipeline
+    records = db.query(LabMapping).filter(LabMapping.hospital_id.is_(None)).all()
     mapping_dict = {}
     for m in records:
-        mapping_dict[m.his_lab_name.lower().strip()] = {
-            "col": m.template_column, 
+        mapping_dict[m.source_name.lower().strip()] = {
+            "col": m.target_column,
             "factor": float(m.unit_factor) if m.unit_factor else 1.0
         }
     return mapping_dict
@@ -281,7 +229,7 @@ def _clean_numeric_string(val):
         return val  # Keep original if can't convert
 
 
-def process_wide_dataframe(df, upload_id, db, mapping_dict=None):
+def process_wide_dataframe(df, upload_id, db, mapping_dict=None, hospital_id=None):
     """
     Process a Wide format DataFrame → save to database.
     Supports UPSERT and dynamic DB mappings & fuzzy matching.
@@ -322,7 +270,7 @@ def process_wide_dataframe(df, upload_id, db, mapping_dict=None):
 
     for idx, row in df.iterrows():
         try:
-            emp_data = {"upload_id": upload_id}
+            emp_data = {"source_file_id": upload_id, "hospital_id": hospital_id}
             current_row_errors = []
 
             for orig_col, mapping_info in col_mapping.items():
@@ -472,15 +420,23 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
     if ext not in ("csv", "xlsx", "xls"):
         return {"success": False, "error": "รองรับเฉพาะไฟล์ .csv และ .xlsx เท่านั้น"}
 
-    # Create upload log
-    log = UploadLog(filename=filename, file_type=ext, status="processing")
+    # Keep the original file, then register it
+    content = await file.read()
+    sha = hashlib.sha256(content).hexdigest()
+    os.makedirs(STORAGE_DIR, exist_ok=True)
+    stored_path = os.path.join(STORAGE_DIR, f"{sha}.{ext}")
+    with open(stored_path, "wb") as fh:
+        fh.write(content)
+
+    hospital = db.query(Hospital).filter(Hospital.code == "UNSPECIFIED").one()
+    log = SourceFile(hospital_id=hospital.id, filename=filename, file_type=ext,
+                     sha256=sha, stored_path=stored_path, status="processing",
+                     stats={}, errors=[])
     db.add(log)
     db.commit()
     db.refresh(log)
 
     try:
-        # Read file content
-        content = await file.read()
         bytes_io = io.BytesIO(content)
 
         total_rows = 0
@@ -502,7 +458,7 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
                 formats_detected.append(fmt)
                 if fmt == "long":
                     df = convert_long_to_wide(df, mapping_dict)
-                s, e, msgs = process_wide_dataframe(df, log.id, db, mapping_dict)
+                s, e, msgs = process_wide_dataframe(df, log.id, db, mapping_dict, log.hospital_id)
                 total_success += s
                 total_errors += e
                 all_error_msgs.extend(msgs)
@@ -526,7 +482,7 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
                 if fmt == "long":
                     df = convert_long_to_wide(df, mapping_dict)
 
-                s, e, msgs = process_wide_dataframe(df, log.id, db, mapping_dict)
+                s, e, msgs = process_wide_dataframe(df, log.id, db, mapping_dict, log.hospital_id)
                 total_success += s
                 total_errors += e
                 all_error_msgs.extend([f"[{sheet_name}] {m}" for m in msgs])
@@ -534,15 +490,14 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
 
         if total_rows == 0:
             log.status = "failed"
-            log.errors = json.dumps(["ไฟล์ไม่มีข้อมูล"], ensure_ascii=False)
+            log.errors = ["ไฟล์ไม่มีข้อมูล"]
             db.commit()
             return {"success": False, "error": "ไฟล์ไม่มีข้อมูล"}
 
         # Update log
-        log.total_rows = total_rows
-        log.success_rows = total_success
-        log.error_rows = total_errors
-        log.errors = json.dumps(all_error_msgs[:50], ensure_ascii=False) if all_error_msgs else None
+        log.stats = {"total_rows": total_rows, "success_rows": total_success,
+                     "error_rows": total_errors}
+        log.errors = all_error_msgs[:50]
         log.status = "completed"
         db.commit()
 
@@ -558,7 +513,8 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
         }
 
     except Exception as e:
+        db.rollback()
         log.status = "failed"
-        log.errors = json.dumps([str(e)], ensure_ascii=False)
+        log.errors = [str(e)]
         db.commit()
         return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
