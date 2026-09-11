@@ -1,0 +1,63 @@
+"""
+run.py
+======
+Rules-only pipeline (no LLM): read -> profile -> map -> extract -> store.
+One transaction per file: it either lands completely or not at all.
+"""
+
+import os
+
+from sqlalchemy.orm import Session
+
+from app.models import Hospital, SourceFile
+from app.pipeline.extract import extract
+from app.pipeline.mapper import Mapper
+from app.pipeline.profiler import profile_sheet
+from app.pipeline.reader import read_file
+from app.pipeline.store import save
+
+
+def get_or_create_hospital(db: Session, code: str | None) -> Hospital:
+    code = (code or "UNSPECIFIED").strip()
+    h = db.query(Hospital).filter(Hospital.code == code).one_or_none()
+    if h is None:
+        h = Hospital(code=code, name=code)
+        db.add(h)
+        db.flush()
+    return h
+
+
+def process_file(db: Session, sf: SourceFile) -> dict:
+    """Runs the pipeline for a registered SourceFile. Commits on success, rolls back on error."""
+    try:
+        with open(sf.stored_path, "rb") as fh:
+            data = fh.read()
+        sheets = read_file(data, os.path.splitext(sf.stored_path)[1])
+        mapper = Mapper(db, sf.hospital_id)
+        specs = [profile_sheet(s, mapper.known_labels()) for s in sheets]
+        ex = extract(sheets, specs, mapper)
+        stored = save(db, sf, ex)
+        kinds = {}
+        for r in ex.reviews:
+            kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
+        sf.stats = {
+            "sheets": [{"name": s.sheet, "layout": s.layout} for s in specs],
+            "observations": ex.stats["observations"],
+            "cells_ok": ex.stats["cells_ok"],
+            **stored,
+            "reviews_by_kind": kinds,
+            # UI compatibility
+            "total_rows": ex.stats["observations"],
+            "success_rows": stored["stored"],
+            "error_rows": len(ex.reviews),
+        }
+        sf.errors = []
+        sf.status = "awaiting_review" if ex.reviews or stored["conflicts"] else "completed"
+        db.commit()
+        return sf.stats
+    except Exception as e:
+        db.rollback()
+        sf = db.merge(sf)
+        sf.status, sf.errors = "failed", [f"{type(e).__name__}: {e}"]
+        db.commit()
+        raise

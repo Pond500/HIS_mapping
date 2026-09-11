@@ -89,9 +89,9 @@ def snapshot(upload_ids: list) -> dict:
 # ---------------------------------------------------------------------------
 
 
-class BaselineSUT:
-    """The pre-agent upload endpoint (exact + RapidFuzz mapping), via HTTP in-process."""
-    name = "baseline"
+class HttpSUT:
+    """Calls an upload endpoint in-process (FastAPI TestClient)."""
+    endpoint = "/api/upload"
 
     def __init__(self):
         from fastapi.testclient import TestClient
@@ -100,13 +100,23 @@ class BaselineSUT:
 
     def upload(self, path: str, hospital: str):
         with open(path, "rb") as fh:
-            r = self.client.post("/api/upload", files={"file": (os.path.basename(path), fh)},
+            r = self.client.post(self.endpoint, files={"file": (os.path.basename(path), fh)},
                                  data={"hospital": hospital})
         body = r.json()
         return body.get("upload_id"), body
 
 
-SUTS = {"baseline": BaselineSUT}
+class BaselineSUT(HttpSUT):
+    """Pre-POC exact + RapidFuzz mapping (app/routes/upload_legacy.py)."""
+    name, endpoint = "baseline", "/api/legacy/upload"
+
+
+class RulesSUT(HttpSUT):
+    """New pipeline, rules only — no LLM (app/pipeline)."""
+    name, endpoint = "rules", "/api/upload"
+
+
+SUTS = {"baseline": BaselineSUT, "rules": RulesSUT}
 
 
 # ---------------------------------------------------------------------------

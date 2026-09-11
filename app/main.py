@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.routes import dashboard, upload, mapping
+from app.routes import dashboard, mapping, upload, upload_legacy
 
 # ---------------------------------------------------------------------------
 # Create app
@@ -30,6 +30,7 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # Routes
 app.include_router(upload.router)
+app.include_router(upload_legacy.router)
 app.include_router(dashboard.router)
 app.include_router(mapping.router)
 
