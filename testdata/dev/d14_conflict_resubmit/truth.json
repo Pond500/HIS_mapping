@@ -28,16 +28,26 @@
     "delimiter": ",",
     "split_sheets": false,
     "full_name": false,
-    "label_overrides": {}
+    "label_overrides": {},
+    "id_headers": {
+     "cid": "cid",
+     "first_name": "fname",
+     "last_name": "lname",
+     "department_id": "department_id",
+     "visit_date": "vstdate",
+     "lab_name": "lab_name",
+     "result": "result",
+     "unit": "unit"
+    }
    },
    "headers": {
-    "เลขบัตรประชาชน": "cid",
-    "ชื่อ": "first_name",
-    "Last Name": "last_name",
-    "Dept": "department_id",
-    "วันที่ตรวจ": "visit_date",
-    "Test": "lab_name",
-    "Result": "result"
+    "cid": "cid",
+    "fname": "first_name",
+    "lname": "last_name",
+    "department_id": "department_id",
+    "vstdate": "visit_date",
+    "lab_name": "lab_name",
+    "result": "result"
    },
    "lab_names": {
     "BPb": {
@@ -1993,16 +2003,26 @@
     "delimiter": ",",
     "split_sheets": false,
     "full_name": false,
-    "label_overrides": {}
+    "label_overrides": {},
+    "id_headers": {
+     "cid": "cid",
+     "first_name": "fname",
+     "last_name": "lname",
+     "department_id": "department_id",
+     "visit_date": "vstdate",
+     "lab_name": "lab_name",
+     "result": "result",
+     "unit": "unit"
+    }
    },
    "headers": {
-    "เลขบัตรประชาชน": "cid",
-    "ชื่อ": "first_name",
-    "Last Name": "last_name",
-    "Dept": "department_id",
-    "วันที่ตรวจ": "visit_date",
-    "Test": "lab_name",
-    "Result": "result"
+    "cid": "cid",
+    "fname": "first_name",
+    "lname": "last_name",
+    "department_id": "department_id",
+    "vstdate": "visit_date",
+    "lab_name": "lab_name",
+    "result": "result"
    },
    "lab_names": {
     "BPb": {

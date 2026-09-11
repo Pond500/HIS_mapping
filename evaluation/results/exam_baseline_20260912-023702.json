@@ -1,0 +1,1221 @@
+{
+ "sut": "baseline",
+ "set": "exam",
+ "headline": {
+  "auto_precision": null,
+  "automation": 0.0,
+  "automation_repeat": 0.0,
+  "silent_errors": 0,
+  "silent_drops": 13391,
+  "flagged_for_human": 0,
+  "expected_cells": 13391,
+  "conflicts_found": "0/5",
+  "invalid_cid_flagged": "0/2",
+  "censored_flagged": "0/6",
+  "extras_found": "0/160",
+  "buckets": {
+   "missing_silent": 13391,
+   "derived_missing_silent": 154
+  }
+ },
+ "cases": [
+  {
+   "case": "e01_long_thai_units",
+   "buckets": {
+    "missing_silent": 1468
+   },
+   "expected_cells": 1468,
+   "per_upload": [
+    {
+     "missing_silent": 1468
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "first_name",
+     "expected": "สมหญิง"
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "last_name",
+     "expected": "แก้วมณี"
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "department_id",
+     "expected": "PROD-01"
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "venous_blood_lead",
+     "expected": 16.71
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "wbc",
+     "expected": 6480.0
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "hb",
+     "expected": 12.0
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "hct",
+     "expected": 34.7
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "plt",
+     "expected": 338468.0
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "neutrophil",
+     "expected": 61.1
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "lymphocyte",
+     "expected": 41.2
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "monocyte",
+     "expected": 4.5
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "eosinophil",
+     "expected": 6.1
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "basophil",
+     "expected": 1.6
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "creatinine",
+     "expected": 1.19
+    },
+    {
+     "cid": "1031006246311",
+     "date": "2026-01-28",
+     "column": "sgot_ast",
+     "expected": 29.0
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 40,
+    "last_name": 40,
+    "department_id": 40,
+    "venous_blood_lead": 40,
+    "creatinine": 40,
+    "alp": 40,
+    "db": 40,
+    "ekg": 40
+   },
+   "seconds": 0.14
+  },
+  {
+   "case": "e02_wide_semicolon_csv",
+   "buckets": {
+    "missing_silent": 1461
+   },
+   "expected_cells": 1461,
+   "per_upload": [
+    {
+     "missing_silent": 1461
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 6,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "first_name",
+     "expected": "นพดล"
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "last_name",
+     "expected": "วงษ์ดี"
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "department_id",
+     "expected": "WELD-02"
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "venous_blood_lead",
+     "expected": 28.8
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "hb",
+     "expected": 10.7
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "hct",
+     "expected": 31.6
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "neutrophil",
+     "expected": 59.6
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "lymphocyte",
+     "expected": 42.4
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "monocyte",
+     "expected": 8.7
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "eosinophil",
+     "expected": 4.0
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "basophil",
+     "expected": 0.1
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "creatinine",
+     "expected": 0.89
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "sgot_ast",
+     "expected": 22.0
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "sgpt_alt",
+     "expected": 38.0
+    },
+    {
+     "cid": "1014821093411",
+     "date": "2026-02-14",
+     "column": "alp",
+     "expected": 43.0
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 40,
+    "last_name": 40,
+    "department_id": 40,
+    "plasma_che_bche": 40,
+    "spirometry_fvc": 40,
+    "hearing_ability": 40,
+    "monocyte": 39,
+    "ekg": 39
+   },
+   "seconds": 0.02
+  },
+  {
+   "case": "e03_multisheet_long",
+   "buckets": {
+    "missing_silent": 1497
+   },
+   "expected_cells": 1497,
+   "per_upload": [
+    {
+     "missing_silent": 1497
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "first_name",
+     "expected": "สมหญิง"
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "last_name",
+     "expected": "สายชล"
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "department_id",
+     "expected": "PROD-02"
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "wbc",
+     "expected": 7794.0
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "hb",
+     "expected": 15.5
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "hct",
+     "expected": 44.3
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "plt",
+     "expected": 419308.0
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "neutrophil",
+     "expected": 50.2
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "lymphocyte",
+     "expected": 40.4
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "monocyte",
+     "expected": 6.9
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "eosinophil",
+     "expected": 7.5
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "basophil",
+     "expected": 1.9
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "creatinine",
+     "expected": 0.69
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "sgot_ast",
+     "expected": 37.0
+    },
+    {
+     "cid": "1309817928450",
+     "date": "2026-08-16",
+     "column": "sgpt_alt",
+     "expected": 87.0
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 40,
+    "last_name": 40,
+    "department_id": 40,
+    "hb": 40,
+    "eosinophil": 40,
+    "basophil": 40,
+    "db": 40,
+    "rbc_che": 40
+   },
+   "seconds": 0.11
+  },
+  {
+   "case": "e04_transposed_units",
+   "buckets": {
+    "missing_silent": 381
+   },
+   "expected_cells": 381,
+   "per_upload": [
+    {
+     "missing_silent": 381
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "first_name",
+     "expected": "กนกพร"
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "last_name",
+     "expected": "ใจดี"
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "department_id",
+     "expected": "PROD-01"
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "venous_blood_lead",
+     "expected": 32.3
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "wbc",
+     "expected": 6530.0
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "hb",
+     "expected": 11.8
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "plt",
+     "expected": 321773.0
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "neutrophil",
+     "expected": 63.8
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "lymphocyte",
+     "expected": 38.9
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "monocyte",
+     "expected": 3.7
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "eosinophil",
+     "expected": 3.5
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "basophil",
+     "expected": 1.3
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "creatinine",
+     "expected": 0.94
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "sgot_ast",
+     "expected": 67.0
+    },
+    {
+     "cid": "2515241954971",
+     "date": "2026-06-01",
+     "column": "sgpt_alt",
+     "expected": 84.0
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 10,
+    "last_name": 10,
+    "department_id": 10,
+    "venous_blood_lead": 10,
+    "wbc": 10,
+    "hb": 10,
+    "plt": 10,
+    "neutrophil": 10
+   },
+   "seconds": 0.02
+  },
+  {
+   "case": "e05_extras_traps",
+   "buckets": {
+    "missing_silent": 1518
+   },
+   "expected_cells": 1518,
+   "per_upload": [
+    {
+     "missing_silent": 1518
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 160,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "first_name",
+     "expected": "สมชาย"
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "last_name",
+     "expected": "พันธุ์ดี"
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "department_id",
+     "expected": "PROD-02"
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "venous_blood_lead",
+     "expected": 6.4
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "wbc",
+     "expected": 7284.0
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "hb",
+     "expected": 14.4
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "hct",
+     "expected": 40.3
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "plt",
+     "expected": 363072.0
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "neutrophil",
+     "expected": 43.2
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "lymphocyte",
+     "expected": 20.3
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "monocyte",
+     "expected": 7.9
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "eosinophil",
+     "expected": 5.5
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "basophil",
+     "expected": 1.0
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "creatinine",
+     "expected": 1.34
+    },
+    {
+     "cid": "1001479237980",
+     "date": "2026-04-10",
+     "column": "sgot_ast",
+     "expected": 28.0
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 40,
+    "last_name": 40,
+    "department_id": 40,
+    "neutrophil": 40,
+    "basophil": 40,
+    "sgpt_alt": 40,
+    "db": 40,
+    "uric_acid": 40
+   },
+   "seconds": 0.03
+  },
+  {
+   "case": "e06_comment_text",
+   "buckets": {
+    "missing_silent": 1641,
+    "derived_missing_silent": 154
+   },
+   "expected_cells": 1641,
+   "per_upload": [
+    {
+     "missing_silent": 802
+    },
+    {
+     "missing_silent": 839
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "first_name",
+     "expected": "อรุณ"
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "last_name",
+     "expected": "ศรีสุข"
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "department_id",
+     "expected": "QC-03"
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "chest_xray",
+     "expected": 1
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "xray_comment",
+     "expected": "Clear lung fields"
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "ekg",
+     "expected": 1
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "ekg_comment",
+     "expected": "Sinus rhythm, normal axis"
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "bmi",
+     "expected": 22.6
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "bp_systolic",
+     "expected": 136.0
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "bp_diastolic",
+     "expected": 95.0
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "pulse_rate",
+     "expected": 72.0
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "spirometry_fvc_percent",
+     "expected": 88.5
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "spirometry_fev1_percent",
+     "expected": 65.9
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "spirometry_fvc",
+     "expected": 3.9
+    },
+    {
+     "cid": "1171588973040",
+     "date": "2026-02-02",
+     "column": "spirometry_fev1",
+     "expected": 3.21
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 80,
+    "last_name": 80,
+    "department_id": 80,
+    "spirometry_fvc": 79,
+    "hearing_ability": 79,
+    "hearing_comment": 79,
+    "far_vision_test": 79,
+    "far_vision_comment": 79
+   },
+   "seconds": 0.08
+  },
+  {
+   "case": "e07_conflict_bad_cid",
+   "buckets": {
+    "missing_silent": 1492
+   },
+   "expected_cells": 1492,
+   "per_upload": [
+    {
+     "missing_silent": 1418
+    },
+    {
+     "missing_silent": 74
+    }
+   ],
+   "conflicts": {
+    "expected": 5,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 2,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "first_name",
+     "expected": "พิมพ์ชนก"
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "last_name",
+     "expected": "แก้วมณี"
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "department_id",
+     "expected": "CHEM-02"
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "venous_blood_lead",
+     "expected": 20.9
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "wbc",
+     "expected": 6283.0
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "hb",
+     "expected": 13.4
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "hct",
+     "expected": 40.9
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "plt",
+     "expected": 197951.0
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "neutrophil",
+     "expected": 41.9
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "lymphocyte",
+     "expected": 18.4
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "monocyte",
+     "expected": 9.1
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "eosinophil",
+     "expected": 2.3
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "basophil",
+     "expected": 0.5
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "creatinine",
+     "expected": 0.5
+    },
+    {
+     "cid": "1090409456169",
+     "date": "2026-07-05",
+     "column": "sgot_ast",
+     "expected": 22.0
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 40,
+    "last_name": 40,
+    "department_id": 40,
+    "wbc": 40,
+    "neutrophil": 40,
+    "lymphocyte": 40,
+    "basophil": 40,
+    "db": 40
+   },
+   "seconds": 0.02
+  },
+  {
+   "case": "e08_subset_mixed_everything",
+   "buckets": {
+    "missing_silent": 924
+   },
+   "expected_cells": 924,
+   "per_upload": [
+    {
+     "missing_silent": 924
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "first_name",
+     "expected": "จำปา"
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "last_name",
+     "expected": "มณีรัตน์"
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "department_id",
+     "expected": "PROD-01"
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "venous_blood_lead",
+     "expected": 17.5
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "hct",
+     "expected": 32.9
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "plt",
+     "expected": 170419.0
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "lymphocyte",
+     "expected": 18.4
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "basophil",
+     "expected": 1.5
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "sgot_ast",
+     "expected": 27.0
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "alp",
+     "expected": 49.0
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "tb",
+     "expected": 0.84
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "db",
+     "expected": 0.13
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "chest_xray",
+     "expected": 1
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "xray_comment",
+     "expected": "Clear lung fields"
+    },
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "rbc_che",
+     "expected": 7387.0
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 40,
+    "last_name": 40,
+    "department_id": 40,
+    "venous_blood_lead": 39,
+    "plt": 39,
+    "tb": 39,
+    "bp_systolic": 39,
+    "alp": 38
+   },
+   "seconds": 0.07
+  },
+  {
+   "case": "e09_repeat_hospital",
+   "buckets": {
+    "missing_silent": 3009
+   },
+   "expected_cells": 3009,
+   "per_upload": [
+    {
+     "missing_silent": 1515
+    },
+    {
+     "missing_silent": 1494
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "first_name",
+     "expected": "สุรชัย"
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "last_name",
+     "expected": "มณีรัตน์"
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "department_id",
+     "expected": "PAINT-01"
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "venous_blood_lead",
+     "expected": 5.9
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "wbc",
+     "expected": 4490.0
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "hb",
+     "expected": 11.3
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "hct",
+     "expected": 31.8
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "plt",
+     "expected": 169743.0
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "neutrophil",
+     "expected": 61.3
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "lymphocyte",
+     "expected": 38.3
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "monocyte",
+     "expected": 9.5
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "eosinophil",
+     "expected": 1.9
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "basophil",
+     "expected": 1.7
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "creatinine",
+     "expected": 1.04
+    },
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "sgot_ast",
+     "expected": 68.0
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 80,
+    "last_name": 80,
+    "department_id": 80,
+    "alp": 80,
+    "db": 80,
+    "bp_diastolic": 80,
+    "venous_blood_lead": 79,
+    "hb": 79
+   },
+   "seconds": 0.05
+  }
+ ]
+}

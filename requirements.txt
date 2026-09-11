@@ -26,3 +26,6 @@ pydantic==2.13.5
 # Config / tests
 python-dotenv==1.2.3
 pytest==9.1.1
+
+# TestClient for the evaluation harness
+httpx==0.28.1

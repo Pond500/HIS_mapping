@@ -14,6 +14,10 @@ from dataclasses import dataclass, field
 
 from testgen.render import Style as S
 
+# identity headers as a HOSxP-style export names them (the old code knows these)
+HOSXP = {"cid": "cid", "first_name": "fname", "last_name": "lname", "department_id": "department_id",
+         "visit_date": "vstdate", "lab_name": "lab_name", "result": "result", "unit": "unit"}
+
 
 @dataclass
 class Upload:
@@ -36,7 +40,7 @@ class Case:
 
 DEV = [
     Case("d01_long_basic", "Long แบบ HOSxP ชื่อ lab ที่ระบบรู้จัก วันที่ ISO (ควรผ่านเองเกือบทั้งหมด)",
-         [Upload("H01", S(layout="long", labels="known"), filename="lab_export.xlsx")]),
+         [Upload("H01", S(layout="long", labels="known", id_headers=HOSXP), filename="lab_export.xlsx")]),
     Case("d02_long_thai_preamble", "Long หัวไทย มีหัวรายงาน 3 แถว วันที่ dd/mm/พ.ศ. คอลัมน์หน่วย ชื่อ lab ไทย Hb เป็น g/L",
          [Upload("H02", S(layout="long", labels="novel", unit_mode="column", alt_units=True,
                           date_fmt="dmy_be", preamble=3), filename="ผลตรวจสุขภาพ.xlsx")]),
@@ -74,8 +78,8 @@ DEV = [
          [Upload("H13", S(layout="long", labels="known", value_noise=True, noise_cols=True),
                  filename="noisy.xlsx")]),
     Case("d14_conflict_resubmit", "ส่งไฟล์แก้ไขซ้ำ: ค่าเหมือนเดิมต้องข้าม ค่าที่ต่างต้องเป็นข้อมูลขัดแย้ง",
-         [Upload("H14", S(layout="long", labels="known"), filename="batch1.xlsx"),
-          Upload("H14", S(layout="long", labels="known"), filename="batch1_corrected.xlsx",
+         [Upload("H14", S(layout="long", labels="known", id_headers=HOSXP), filename="batch1.xlsx"),
+          Upload("H14", S(layout="long", labels="known", id_headers=HOSXP), filename="batch1_corrected.xlsx",
                  modify=6, same_layout_as=0)]),
     Case("d15_repeat_hospital", "รพ.เดิมส่งรอบสอง รูปแบบเดิม คนใหม่ (รอบสองควรไม่ต้องถามคน)",
          [Upload("H15", S(layout="long", labels="novel", unit_mode="column", date_fmt="dmy_be"),
@@ -127,4 +131,10 @@ EXAM = [
     Case("e08_subset_mixed_everything", "คอลัมน์บางส่วน วันที่ปน ค่าขยะ หน่วยในค่า",
          [Upload("X08", S(layout="long", labels="mixed", columns="subset", date_fmt="mixed",
                           unit_mode="inline", value_noise=True), filename="mixed.xlsx")]),
+    Case("e09_repeat_hospital", "รพ.เดิมส่งรอบสอง รูปแบบเดิม คนใหม่ (วัดเป้าทำเองได้ ≥ 95%)",
+         [Upload("X09", S(layout="wide", labels="novel", unit_mode="header", alt_units=True, preamble=1,
+                          date_fmt="dmy_be"), filename="lot1.xlsx"),
+          Upload("X09", S(layout="wide", labels="novel", unit_mode="header", alt_units=True, preamble=1,
+                          date_fmt="dmy_be"), records="B", filename="lot2.xlsx", same_layout_as=0)],
+         groups=["A", "B"]),
 ]

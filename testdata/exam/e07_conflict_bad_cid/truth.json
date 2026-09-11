@@ -28,7 +28,8 @@
     "delimiter": "\t",
     "split_sheets": false,
     "full_name": false,
-    "label_overrides": {}
+    "label_overrides": {},
+    "id_headers": {}
    },
    "headers": {
     "National ID": "cid",
@@ -1967,7 +1968,8 @@
     "delimiter": "\t",
     "split_sheets": false,
     "full_name": false,
-    "label_overrides": {}
+    "label_overrides": {},
+    "id_headers": {}
    },
    "headers": {
     "National ID": "cid",

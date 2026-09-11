@@ -30,7 +30,8 @@
     "full_name": false,
     "label_overrides": {
      "tb": "TB"
-    }
+    },
+    "id_headers": {}
    },
    "headers": {
     "เลขประจำตัวประชาชน": "cid",
@@ -1260,7 +1261,8 @@
     "delimiter": ",",
     "split_sheets": false,
     "full_name": false,
-    "label_overrides": {}
+    "label_overrides": {},
+    "id_headers": {}
    },
    "headers": {
     "เลขบัตรประชาชน": "cid",

@@ -53,6 +53,7 @@ class Style:
     split_sheets: bool = False  # xlsx: CBC / Chemistry / PE sheets
     full_name: bool = False     # one "ชื่อ-สกุล" column
     label_overrides: dict = field(default_factory=dict)  # force a label for a column
+    id_headers: dict = field(default_factory=dict)       # force identity headers (role -> header)
 
 
 class Pools:
@@ -124,8 +125,9 @@ def render(records: list[Record], style: Style, set_name: str, path: str, hospit
     units = {c: _choose_unit(c, style, pools) for c in cols}
     extra_labels = rng.sample(sorted(pools.extras), k=min(4, len(pools.extras))) if style.extras else []
     noise = rng.sample(pools.noise, k=2) if style.noise_cols else []
-    id_hdr = {role: (FIELDS_BY_COLUMN[role].header if style.labels == "template" and role in FIELDS_BY_COLUMN
-                     else rng.choice(pool)) for role, pool in pools.id_headers.items()}
+    id_hdr = {role: (style.id_headers.get(role)
+                     or (FIELDS_BY_COLUMN[role].header if style.labels == "template" and role in FIELDS_BY_COLUMN
+                         else rng.choice(pool))) for role, pool in pools.id_headers.items()}
     if style.full_name:
         id_hdr["full_name"] = rng.choice(["ชื่อ-สกุล", "ชื่อ - นามสกุล", "Name"])
 
