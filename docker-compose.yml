@@ -22,7 +22,7 @@ services:
       # inside the compose network the DB host is "postgres", not localhost
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     ports:
-      - "127.0.0.1:8000:8000"   # localhost only
+      - "127.0.0.1:${APP_PORT:-8000}:8000"   # localhost only
     depends_on:
       postgres:
         condition: service_healthy
