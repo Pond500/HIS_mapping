@@ -1,0 +1,20 @@
+{
+ "e01_long_thai_units/truth.json": "df9364ce1329f66c5815f935d7264ac4db2aaf092f6ab07fed1e71990d688224",
+ "e01_long_thai_units/\u0e23\u0e32\u0e22\u0e07\u0e32\u0e19\u0e1c\u0e25\u0e41\u0e25\u0e47\u0e1a.xlsx": "dfd1704f6699eeb274f0bf6fa0552532f761880c09b8a1aefa448d0c522b755b",
+ "e02_wide_semicolon_csv/export.csv": "411c55865b18d2b6e87ffac415032e0cc6f2357db3a9fb5fb2f3a04b492356b5",
+ "e02_wide_semicolon_csv/truth.json": "677b2430ac6bdb1b95acde1407e620727103dc463d0bc968fc5642e90af0bb2c",
+ "e03_multisheet_long/his_dump.xlsx": "aef2fe58cd49bc3297f24ad7738e5f3f7241bcd0ab2f0c8a5eb6625e66532d9b",
+ "e03_multisheet_long/truth.json": "4520c7b7417316e74b25bcf66fb1f941b06e9d8ccda43143ab9e8943a0c77fc2",
+ "e04_transposed_units/truth.json": "6e8991526354b5f6560c3219fd2b75fc99f532504f2f3f641bf53f69ff7a1d22",
+ "e04_transposed_units/vertical.xlsx": "98c1b432cad8f19baa33b940d2e920a889d5638cdb5d2f8d981602a3fc04c1b5",
+ "e05_extras_traps/extended_panel.xlsx": "d90d36c9500877b391f3f0fb0b7359f88bda109dc8d82486ba6181b9e73794ca",
+ "e05_extras_traps/truth.json": "5dedda7ac0d70b7c88478d25b9acc8e9906be67aefb66010e49011bf41838dc0",
+ "e06_comment_text/pe_comment_only.xlsx": "c6a5f544a8832befc6384bccabfc394775b1e5a5761188c1772e5ccf2b854dcf",
+ "e06_comment_text/pe_text.xlsx": "e781f7d084f206a3f45227748b41626e958b7319465deba8ef2f849010653a99",
+ "e06_comment_text/truth.json": "18c38a12f4642b902167ba8ffddfdd7db8c2e327c635d6384c9dddec21da5c9c",
+ "e07_conflict_bad_cid/first.tsv.csv": "03edc3a792a45dd7747a728d894e25daca3095c270b925eb8af061e88d225c54",
+ "e07_conflict_bad_cid/second.tsv.csv": "76282d1dd0db489a6e1418e9118d2c1596004e21cbf81cc3bfceaa14057aac6b",
+ "e07_conflict_bad_cid/truth.json": "64e69336a440cf88973d5d1c7dc4f664a72dbffa9045c72bf89c246b46ea2c66",
+ "e08_subset_mixed_everything/mixed.xlsx": "498430f6bb81ee128be970bb586072b615847abbd84fbb4443d6edfa00219eb8",
+ "e08_subset_mixed_everything/truth.json": "afaf42f24827254b738c599e3fd4838085e664ee166f7ab4b36cbe59728b7ac3"
+}

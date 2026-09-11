@@ -1,0 +1,3090 @@
+{
+ "case": "d10_comment_only",
+ "desc": "มีแต่ข้อความ comment ไม่มีช่อง 1/2 (ต้องจัดประเภทจากข้อความ)",
+ "set": "dev",
+ "uploads": [
+  {
+   "file": "pe_comments.xlsx",
+   "hospital": "H10",
+   "style": {
+    "layout": "wide",
+    "labels": "known",
+    "columns": "pe",
+    "unit_mode": "none",
+    "alt_units": false,
+    "date_fmt": "iso",
+    "cid_fmt": "plain",
+    "bad_cid_rate": 0.0,
+    "categorical": "comment_only",
+    "bp_combined": false,
+    "extras": false,
+    "tb_is_tuberculosis": false,
+    "noise_cols": false,
+    "value_noise": false,
+    "preamble": 0,
+    "group_header": false,
+    "fmt": "xlsx",
+    "encoding": "utf-8",
+    "delimiter": ",",
+    "split_sheets": false,
+    "full_name": false,
+    "label_overrides": {}
+   },
+   "headers": {
+    "เลขประจำตัวประชาชน": "cid",
+    "fname": "first_name",
+    "lname": "last_name",
+    "department_id": "department_id",
+    "วันที่รับบริการ": "visit_date",
+    "Xray Comment": "xray_comment",
+    "ILO Profusion": "profusion",
+    "primary_lesion": "primary_lesion",
+    "secondary_lesion": "secondary_lesion",
+    "EKG Comment": "ekg_comment",
+    "BMI": "bmi",
+    "SBP": "bp_systolic",
+    "Diastolic": "bp_diastolic",
+    "Pulse": "pulse_rate",
+    "FVC%": "spirometry_fvc_percent",
+    "FEV1%": "spirometry_fev1_percent",
+    "FVC": "spirometry_fvc",
+    "FEV1": "spirometry_fev1",
+    "FEV1/FVC": "spirometry_fev1_fvc",
+    "Spirometry Height": "spirometry_height",
+    "Hearing Comment": "hearing_comment",
+    "Vision Comment": "far_vision_comment"
+   },
+   "lab_names": {
+    "Xray Comment": {
+     "target": "xray_comment",
+     "factor": 1.0,
+     "unit": null
+    },
+    "ILO Profusion": {
+     "target": "profusion",
+     "factor": 1.0,
+     "unit": null
+    },
+    "primary_lesion": {
+     "target": "primary_lesion",
+     "factor": 1.0,
+     "unit": null
+    },
+    "secondary_lesion": {
+     "target": "secondary_lesion",
+     "factor": 1.0,
+     "unit": null
+    },
+    "EKG Comment": {
+     "target": "ekg_comment",
+     "factor": 1.0,
+     "unit": null
+    },
+    "BMI": {
+     "target": "bmi",
+     "factor": 1.0,
+     "unit": "kg/m²"
+    },
+    "SBP": {
+     "target": "bp_systolic",
+     "factor": 1.0,
+     "unit": "mmHg"
+    },
+    "Diastolic": {
+     "target": "bp_diastolic",
+     "factor": 1.0,
+     "unit": "mmHg"
+    },
+    "Pulse": {
+     "target": "pulse_rate",
+     "factor": 1.0,
+     "unit": "bpm"
+    },
+    "FVC%": {
+     "target": "spirometry_fvc_percent",
+     "factor": 1.0,
+     "unit": "% predicted"
+    },
+    "FEV1%": {
+     "target": "spirometry_fev1_percent",
+     "factor": 1.0,
+     "unit": "% predicted"
+    },
+    "FVC": {
+     "target": "spirometry_fvc",
+     "factor": 1.0,
+     "unit": "L"
+    },
+    "FEV1": {
+     "target": "spirometry_fev1",
+     "factor": 1.0,
+     "unit": "L"
+    },
+    "FEV1/FVC": {
+     "target": "spirometry_fev1_fvc",
+     "factor": 1.0,
+     "unit": "%"
+    },
+    "Spirometry Height": {
+     "target": "spirometry_height",
+     "factor": 1.0,
+     "unit": "cm"
+    },
+    "Hearing Comment": {
+     "target": "hearing_comment",
+     "factor": 1.0,
+     "unit": null
+    },
+    "Vision Comment": {
+     "target": "far_vision_comment",
+     "factor": 1.0,
+     "unit": null
+    }
+   },
+   "records": [
+    {
+     "cid": "7452161106124",
+     "first_name": "สุดา",
+     "last_name": "ทองคำ",
+     "department_id": "PAINT-01",
+     "visit_date": "2026-04-17",
+     "values": {
+      "chest_xray": 2,
+      "xray_comment": "Fibrosis RUL",
+      "profusion": "1/1",
+      "primary_lesion": "r",
+      "ekg": 2,
+      "ekg_comment": "Atrial fibrillation",
+      "bmi": 31.3,
+      "bp_systolic": 129.0,
+      "bp_diastolic": 89.0,
+      "pulse_rate": 86.0,
+      "spirometry_fvc_percent": 82.6,
+      "spirometry_fev1_percent": 103.7,
+      "spirometry_fvc": 3.44,
+      "spirometry_fev1": 2.35,
+      "spirometry_fev1_fvc": 68.3,
+      "spirometry_height": 178.0,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "2088619374024",
+     "first_name": "จำปา",
+     "last_name": "วงศ์สวัสดิ์",
+     "department_id": "PROD-01",
+     "visit_date": "2026-01-12",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 34.3,
+      "bp_systolic": 99.0,
+      "bp_diastolic": 57.0,
+      "pulse_rate": 77.0,
+      "spirometry_fvc_percent": 117.5,
+      "spirometry_fev1_percent": 77.6,
+      "spirometry_fvc": 3.59,
+      "spirometry_fev1": 2.72,
+      "spirometry_fev1_fvc": 75.8,
+      "spirometry_height": 175.7,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "7837313431643",
+     "first_name": "ศิริพร",
+     "last_name": "สุขเกษม",
+     "department_id": "WELD-02",
+     "visit_date": "2026-06-22",
+     "values": {
+      "chest_xray": 2,
+      "xray_comment": "Fibrosis RUL",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 33.6,
+      "bp_systolic": 126.0,
+      "bp_diastolic": 73.0,
+      "pulse_rate": 89.0,
+      "spirometry_fvc_percent": 87.8,
+      "spirometry_fev1_percent": 85.8,
+      "spirometry_fvc": 3.29,
+      "spirometry_fev1": 2.38,
+      "spirometry_fev1_fvc": 72.3,
+      "spirometry_height": 150.1,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 2,
+      "far_vision_comment": "Myopia needs correction"
+     }
+    },
+    {
+     "cid": "3516305333441",
+     "first_name": "ณัฐพล",
+     "last_name": "ศรีสุข",
+     "department_id": "CHEM-02",
+     "visit_date": "2026-02-20",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 28.5,
+      "bp_systolic": 138.0,
+      "bp_diastolic": 83.0,
+      "pulse_rate": 81.0,
+      "spirometry_fvc_percent": 103.7,
+      "spirometry_fev1_percent": 103.0,
+      "spirometry_fvc": 4.85,
+      "spirometry_fev1": 3.68,
+      "spirometry_fev1_fvc": 75.9,
+      "spirometry_height": 170.3,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "1594049629830",
+     "first_name": "จำปา",
+     "last_name": "สุขเกษม",
+     "department_id": "WELD-02",
+     "visit_date": "2026-01-16",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "Normal sinus rhythm",
+      "bmi": 29.2,
+      "bp_systolic": 118.0,
+      "bp_diastolic": 69.0,
+      "pulse_rate": 64.0,
+      "spirometry_fvc_percent": 94.9,
+      "spirometry_fev1_percent": 104.7,
+      "spirometry_fvc": 2.59,
+      "spirometry_fev1": 2.21,
+      "spirometry_fev1_fvc": 85.3,
+      "spirometry_height": 164.0,
+      "hearing_ability": 2,
+      "hearing_comment": "Bilateral SNHL at 4000 Hz",
+      "far_vision_test": 2,
+      "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+     }
+    },
+    {
+     "cid": "4099467621552",
+     "first_name": "วีระ",
+     "last_name": "รุ่งเรือง",
+     "department_id": "CHEM-02",
+     "visit_date": "2026-05-07",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 21.5,
+      "bp_systolic": 119.0,
+      "bp_diastolic": 79.0,
+      "pulse_rate": 63.0,
+      "spirometry_fvc_percent": 67.2,
+      "spirometry_fvc": 3.0,
+      "spirometry_fev1": 2.1,
+      "spirometry_fev1_fvc": 70.0,
+      "spirometry_height": 180.7,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "4304154286714",
+     "first_name": "มาลี",
+     "last_name": "วงศ์สวัสดิ์",
+     "department_id": "WELD-02",
+     "visit_date": "2026-05-11",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 1,
+      "ekg_comment": "Normal sinus rhythm",
+      "bmi": 18.4,
+      "bp_systolic": 125.0,
+      "bp_diastolic": 85.0,
+      "pulse_rate": 90.0,
+      "spirometry_fvc_percent": 103.9,
+      "spirometry_fev1_percent": 103.8,
+      "spirometry_fvc": 2.74,
+      "spirometry_fev1": 1.88,
+      "spirometry_fev1_fvc": 68.6,
+      "spirometry_height": 174.1,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "1818791364869",
+     "first_name": "จำปา",
+     "last_name": "ทองคำ",
+     "department_id": "ADMIN-01",
+     "visit_date": "2026-04-19",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 33.4,
+      "bp_systolic": 113.0,
+      "bp_diastolic": 78.0,
+      "pulse_rate": 75.0,
+      "spirometry_fvc_percent": 80.1,
+      "spirometry_fev1_percent": 84.1,
+      "spirometry_fvc": 4.16,
+      "spirometry_fev1": 3.51,
+      "spirometry_fev1_fvc": 84.4,
+      "spirometry_height": 171.8,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "5606637942761",
+     "first_name": "ศิริพร",
+     "last_name": "ใจดี",
+     "department_id": "PROD-02",
+     "visit_date": "2026-05-11",
+     "values": {
+      "chest_xray": 2,
+      "xray_comment": "Pleural thickening left",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 27.1,
+      "bp_systolic": 124.0,
+      "bp_diastolic": 80.0,
+      "pulse_rate": 58.0,
+      "spirometry_fvc_percent": 110.0,
+      "spirometry_fev1_percent": 86.3,
+      "spirometry_fvc": 2.55,
+      "spirometry_fev1": 2.14,
+      "spirometry_fev1_fvc": 83.9,
+      "spirometry_height": 158.4,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "3500707363594",
+     "first_name": "สุดา",
+     "last_name": "ใจดี",
+     "department_id": "ADMIN-01",
+     "visit_date": "2026-01-27",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 2,
+      "ekg_comment": "ST depression V4-V6",
+      "bmi": 31.3,
+      "bp_systolic": 151.0,
+      "bp_diastolic": 103.0,
+      "pulse_rate": 84.0,
+      "spirometry_fvc_percent": 109.4,
+      "spirometry_fev1_percent": 110.5,
+      "spirometry_fvc": 3.97,
+      "spirometry_fev1": 3.21,
+      "spirometry_fev1_fvc": 80.9,
+      "spirometry_height": 173.2,
+      "hearing_ability": 2,
+      "hearing_comment": "Mild hearing loss left",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "7100521960319",
+     "first_name": "วันเพ็ญ",
+     "last_name": "รุ่งเรือง",
+     "department_id": "CHEM-02",
+     "visit_date": "2026-01-14",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 35.9,
+      "bp_systolic": 141.0,
+      "bp_diastolic": 90.0,
+      "pulse_rate": 79.0,
+      "spirometry_fvc_percent": 80.3,
+      "spirometry_fev1_percent": 98.1,
+      "spirometry_fvc": 5.29,
+      "spirometry_fev1": 4.14,
+      "spirometry_fev1_fvc": 78.3,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "1087192501075",
+     "first_name": "สมหญิง",
+     "last_name": "บุญมา",
+     "department_id": "ADMIN-01",
+     "visit_date": "2026-08-01",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 35.5,
+      "bp_systolic": 118.0,
+      "bp_diastolic": 82.0,
+      "pulse_rate": 59.0,
+      "spirometry_fvc_percent": 91.6,
+      "spirometry_fev1_percent": 103.1,
+      "spirometry_fvc": 3.36,
+      "spirometry_fev1": 2.51,
+      "spirometry_fev1_fvc": 74.7,
+      "spirometry_height": 161.2,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "2618370685383",
+     "first_name": "อรุณ",
+     "last_name": "วงศ์สวัสดิ์",
+     "department_id": "WELD-02",
+     "visit_date": "2026-04-18",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 20.1,
+      "bp_systolic": 110.0,
+      "bp_diastolic": 64.0,
+      "spirometry_fvc_percent": 93.8,
+      "spirometry_fev1_percent": 95.8,
+      "spirometry_fvc": 2.83,
+      "spirometry_fev1": 2.01,
+      "spirometry_fev1_fvc": 71.0,
+      "spirometry_height": 163.8,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "8100013988365",
+     "first_name": "ชัยวัฒน์",
+     "last_name": "สายชล",
+     "department_id": "PAINT-01",
+     "visit_date": "2026-02-06",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 2,
+      "ekg_comment": "ST depression V4-V6",
+      "bmi": 34.0,
+      "bp_systolic": 123.0,
+      "bp_diastolic": 74.0,
+      "pulse_rate": 82.0,
+      "spirometry_fvc_percent": 109.2,
+      "spirometry_fev1_percent": 78.7,
+      "spirometry_fvc": 2.77,
+      "spirometry_fev1": 2.0,
+      "spirometry_fev1_fvc": 72.2,
+      "spirometry_height": 154.2,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "7410276964822",
+     "first_name": "วันเพ็ญ",
+     "last_name": "อินทร์แก้ว",
+     "department_id": "QC-03",
+     "visit_date": "2026-06-02",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "Normal sinus rhythm",
+      "bmi": 24.4,
+      "bp_systolic": 156.0,
+      "bp_diastolic": 100.0,
+      "pulse_rate": 97.0,
+      "spirometry_fvc_percent": 82.5,
+      "spirometry_fev1_percent": 101.4,
+      "spirometry_fvc": 3.46,
+      "spirometry_fev1": 2.68,
+      "spirometry_fev1_fvc": 77.5,
+      "spirometry_height": 178.8,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "3088845026706",
+     "first_name": "นพดล",
+     "last_name": "ศรีสุข",
+     "department_id": "PAINT-01",
+     "visit_date": "2026-01-05",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 23.8,
+      "bp_systolic": 129.0,
+      "bp_diastolic": 85.0,
+      "spirometry_fvc_percent": 112.2,
+      "spirometry_fev1_percent": 89.3,
+      "spirometry_fvc": 4.27,
+      "spirometry_fev1": 3.46,
+      "spirometry_fev1_fvc": 81.0,
+      "spirometry_height": 157.4,
+      "hearing_ability": 2,
+      "hearing_comment": "Bilateral SNHL at 4000 Hz",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "2522703911787",
+     "first_name": "วีระ",
+     "last_name": "พันธุ์ดี",
+     "department_id": "WELD-02",
+     "visit_date": "2026-02-15",
+     "values": {
+      "chest_xray": 2,
+      "xray_comment": "พบฝ้าที่ปอดขวา",
+      "profusion": "0/1",
+      "primary_lesion": "p",
+      "secondary_lesion": "p",
+      "ekg": 2,
+      "ekg_comment": "LVH",
+      "bmi": 29.8,
+      "bp_systolic": 162.0,
+      "bp_diastolic": 101.0,
+      "pulse_rate": 66.0,
+      "spirometry_fvc_percent": 104.3,
+      "spirometry_fev1_percent": 81.4,
+      "spirometry_fvc": 2.41,
+      "spirometry_fev1": 1.74,
+      "spirometry_fev1_fvc": 72.2,
+      "spirometry_height": 171.6,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "8584946248715",
+     "first_name": "ประยุทธ",
+     "last_name": "ใจดี",
+     "department_id": "WELD-02",
+     "visit_date": "2026-06-12",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 27.5,
+      "bp_systolic": 98.0,
+      "bp_diastolic": 59.0,
+      "pulse_rate": 58.0,
+      "spirometry_fvc_percent": 109.6,
+      "spirometry_fev1_percent": 74.3,
+      "spirometry_fvc": 2.68,
+      "spirometry_fev1": 2.35,
+      "spirometry_fev1_fvc": 87.7,
+      "spirometry_height": 179.0,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "2612032041422",
+     "first_name": "พิมพ์ชนก",
+     "last_name": "มณีรัตน์",
+     "department_id": "CHEM-02",
+     "visit_date": "2026-08-01",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "ปอดปกติ",
+      "ekg": 2,
+      "ekg_comment": "ST depression V4-V6",
+      "bmi": 35.3,
+      "bp_systolic": 100.0,
+      "bp_diastolic": 58.0,
+      "pulse_rate": 96.0,
+      "spirometry_fvc_percent": 88.6,
+      "spirometry_fev1_percent": 117.0,
+      "spirometry_fvc": 3.22,
+      "spirometry_fev1": 2.36,
+      "spirometry_fev1_fvc": 73.3,
+      "spirometry_height": 162.8,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 2,
+      "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+     }
+    },
+    {
+     "cid": "5321942038168",
+     "first_name": "สมชาย",
+     "last_name": "วงษ์ดี",
+     "department_id": "PROD-01",
+     "visit_date": "2026-08-07",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "ปอดปกติ",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 21.5,
+      "bp_systolic": 123.0,
+      "bp_diastolic": 74.0,
+      "pulse_rate": 63.0,
+      "spirometry_fvc_percent": 88.7,
+      "spirometry_fev1_percent": 100.8,
+      "spirometry_fvc": 2.36,
+      "spirometry_fev1": 1.72,
+      "spirometry_fev1_fvc": 72.9,
+      "spirometry_height": 149.2,
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "1488988860068",
+     "first_name": "จำปา",
+     "last_name": "มณีรัตน์",
+     "department_id": "CHEM-02",
+     "visit_date": "2026-03-27",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 1,
+      "ekg_comment": "Normal sinus rhythm",
+      "bmi": 20.2,
+      "bp_systolic": 110.0,
+      "bp_diastolic": 62.0,
+      "pulse_rate": 102.0,
+      "spirometry_fvc_percent": 82.6,
+      "spirometry_fev1_percent": 89.4,
+      "spirometry_fvc": 4.77,
+      "spirometry_fev1": 4.02,
+      "spirometry_fev1_fvc": 84.3,
+      "spirometry_height": 159.8,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 2,
+      "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+     }
+    },
+    {
+     "cid": "5905461427653",
+     "first_name": "สุรชัย",
+     "last_name": "ทองคำ",
+     "department_id": "PROD-02",
+     "visit_date": "2026-05-09",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 1,
+      "ekg_comment": "Normal sinus rhythm",
+      "bmi": 30.5,
+      "bp_systolic": 130.0,
+      "bp_diastolic": 73.0,
+      "pulse_rate": 78.0,
+      "spirometry_fev1_percent": 67.2,
+      "spirometry_fvc": 5.2,
+      "spirometry_fev1": 3.84,
+      "spirometry_fev1_fvc": 73.8,
+      "spirometry_height": 163.5,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 2,
+      "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+     }
+    },
+    {
+     "cid": "1462421942459",
+     "first_name": "สมหญิง",
+     "last_name": "กลิ่นหอม",
+     "department_id": "QC-03",
+     "visit_date": "2026-03-28",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 30.3,
+      "bp_systolic": 128.0,
+      "bp_diastolic": 82.0,
+      "pulse_rate": 68.0,
+      "spirometry_fvc_percent": 76.0,
+      "spirometry_fev1_percent": 81.7,
+      "spirometry_fvc": 3.56,
+      "spirometry_fev1_fvc": 69.7,
+      "spirometry_height": 149.6
+     }
+    },
+    {
+     "cid": "5175472683017",
+     "first_name": "สมหญิง",
+     "last_name": "สายชล",
+     "department_id": "WELD-02",
+     "visit_date": "2026-01-15",
+     "values": {
+      "chest_xray": 2,
+      "xray_comment": "พบฝ้าที่ปอดขวา",
+      "bmi": 29.8,
+      "bp_systolic": 154.0,
+      "bp_diastolic": 93.0,
+      "pulse_rate": 72.0,
+      "spirometry_fvc_percent": 107.9,
+      "spirometry_fev1_percent": 61.1,
+      "spirometry_fvc": 4.08,
+      "spirometry_fev1": 3.33,
+      "spirometry_fev1_fvc": 81.6,
+      "spirometry_height": 170.0,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "2411862063217",
+     "first_name": "ธนพล",
+     "last_name": "สุขเกษม",
+     "department_id": "QC-03",
+     "visit_date": "2026-04-13",
+     "values": {
+      "chest_xray": 2,
+      "xray_comment": "พบฝ้าที่ปอดขวา",
+      "profusion": "1/1",
+      "primary_lesion": "q",
+      "secondary_lesion": "p",
+      "ekg": 1,
+      "ekg_comment": "Normal sinus rhythm",
+      "bmi": 26.1,
+      "bp_systolic": 127.0,
+      "bp_diastolic": 89.0,
+      "pulse_rate": 103.0,
+      "spirometry_fvc_percent": 80.8,
+      "spirometry_fev1_percent": 75.9,
+      "spirometry_fvc": 4.67,
+      "spirometry_fev1": 3.4,
+      "spirometry_fev1_fvc": 72.8,
+      "spirometry_height": 177.4,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 2,
+      "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+     }
+    },
+    {
+     "cid": "1412023501771",
+     "first_name": "รัตนา",
+     "last_name": "สุขเกษม",
+     "department_id": "PAINT-01",
+     "visit_date": "2026-07-24",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 29.8,
+      "bp_systolic": 108.0,
+      "bp_diastolic": 65.0,
+      "spirometry_fvc_percent": 70.0,
+      "spirometry_fev1_percent": 66.1,
+      "spirometry_fvc": 4.99,
+      "spirometry_fev1": 3.97,
+      "spirometry_fev1_fvc": 79.6,
+      "spirometry_height": 183.2,
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "8261144768521",
+     "first_name": "วันเพ็ญ",
+     "last_name": "รุ่งเรือง",
+     "department_id": "QC-03",
+     "visit_date": "2026-04-11",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "Normal sinus rhythm",
+      "bmi": 26.6,
+      "bp_systolic": 124.0,
+      "bp_diastolic": 87.0,
+      "pulse_rate": 85.0,
+      "spirometry_fvc_percent": 92.0,
+      "spirometry_fev1_percent": 100.8,
+      "spirometry_fvc": 4.87,
+      "spirometry_fev1": 3.57,
+      "spirometry_fev1_fvc": 73.3,
+      "spirometry_height": 167.5,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "6154975691092",
+     "first_name": "วันเพ็ญ",
+     "last_name": "มณีรัตน์",
+     "department_id": "PROD-01",
+     "visit_date": "2026-01-27",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "ปอดปกติ",
+      "ekg": 1,
+      "ekg_comment": "Normal sinus rhythm",
+      "bp_systolic": 140.0,
+      "bp_diastolic": 80.0,
+      "pulse_rate": 54.0,
+      "spirometry_fvc_percent": 110.4,
+      "spirometry_fev1_percent": 79.4,
+      "spirometry_fvc": 3.64,
+      "spirometry_fev1": 3.17,
+      "spirometry_fev1_fvc": 87.1,
+      "spirometry_height": 162.8,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "7211992802667",
+     "first_name": "อำนาจ",
+     "last_name": "ใจดี",
+     "department_id": "WH-01",
+     "visit_date": "2026-05-13",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "bmi": 33.1,
+      "bp_systolic": 141.0,
+      "bp_diastolic": 94.0,
+      "pulse_rate": 70.0,
+      "spirometry_fvc_percent": 108.8,
+      "spirometry_fev1_percent": 95.2,
+      "spirometry_fvc": 4.32,
+      "spirometry_fev1": 3.4,
+      "spirometry_fev1_fvc": 78.7,
+      "spirometry_height": 156.2,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "5396959764333",
+     "first_name": "พิมพ์ชนก",
+     "last_name": "กลิ่นหอม",
+     "department_id": "WELD-02",
+     "visit_date": "2026-03-13",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "ปอดปกติ",
+      "ekg": 2,
+      "ekg_comment": "ST depression V4-V6",
+      "bmi": 25.8,
+      "bp_systolic": 111.0,
+      "bp_diastolic": 64.0,
+      "pulse_rate": 61.0,
+      "spirometry_fvc_percent": 86.2,
+      "spirometry_fev1_percent": 101.5,
+      "spirometry_fvc": 3.56,
+      "spirometry_fev1": 2.61,
+      "spirometry_fev1_fvc": 73.3,
+      "spirometry_height": 180.6,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "5352045148627",
+     "first_name": "ธนพล",
+     "last_name": "สายชล",
+     "department_id": "CHEM-02",
+     "visit_date": "2026-04-13",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "ปอดปกติ",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 25.0,
+      "bp_systolic": 100.0,
+      "bp_diastolic": 64.0,
+      "pulse_rate": 54.0,
+      "spirometry_fvc_percent": 88.7,
+      "spirometry_fev1_percent": 66.2,
+      "spirometry_fvc": 2.27,
+      "spirometry_fev1_fvc": 71.4,
+      "spirometry_height": 170.8,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 2,
+      "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+     }
+    },
+    {
+     "cid": "2635195611115",
+     "first_name": "ประยุทธ",
+     "last_name": "อินทร์แก้ว",
+     "department_id": "PROD-01",
+     "visit_date": "2026-01-13",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 2,
+      "ekg_comment": "ST depression V4-V6",
+      "bmi": 22.1,
+      "bp_systolic": 163.0,
+      "bp_diastolic": 92.0,
+      "spirometry_fvc_percent": 94.6,
+      "spirometry_fev1_percent": 100.3,
+      "spirometry_fvc": 5.29,
+      "spirometry_fev1": 3.65,
+      "spirometry_fev1_fvc": 69.0,
+      "spirometry_height": 154.7,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "1904337681094",
+     "first_name": "รัตนา",
+     "last_name": "มณีรัตน์",
+     "department_id": "WELD-02",
+     "visit_date": "2026-06-23",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 25.2,
+      "bp_diastolic": 72.0,
+      "pulse_rate": 99.0,
+      "spirometry_fvc_percent": 96.9,
+      "spirometry_fev1_percent": 93.6,
+      "spirometry_fvc": 3.04,
+      "spirometry_fev1": 2.31,
+      "spirometry_fev1_fvc": 76.0,
+      "spirometry_height": 181.0,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 2,
+      "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+     }
+    },
+    {
+     "cid": "4574709524881",
+     "first_name": "นพดล",
+     "last_name": "มณีรัตน์",
+     "department_id": "WH-01",
+     "visit_date": "2026-02-06",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "No active lung lesion",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 22.6,
+      "bp_systolic": 128.0,
+      "bp_diastolic": 78.0,
+      "pulse_rate": 65.0,
+      "spirometry_fvc_percent": 72.0,
+      "spirometry_fev1_percent": 103.2,
+      "spirometry_fvc": 2.23,
+      "spirometry_fev1": 1.71,
+      "spirometry_fev1_fvc": 76.7,
+      "spirometry_height": 169.9,
+      "hearing_ability": 2,
+      "hearing_comment": "Mild hearing loss left",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "7799995668433",
+     "first_name": "สุดา",
+     "last_name": "รุ่งเรือง",
+     "department_id": "WELD-02",
+     "visit_date": "2026-06-25",
+     "values": {
+      "chest_xray": 2,
+      "xray_comment": "Fibrosis RUL",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 30.2,
+      "bp_systolic": 112.0,
+      "bp_diastolic": 71.0,
+      "pulse_rate": 82.0,
+      "spirometry_fvc_percent": 89.4,
+      "spirometry_fev1_percent": 69.6,
+      "spirometry_fvc": 4.38,
+      "spirometry_fev1": 3.29,
+      "spirometry_fev1_fvc": 75.1,
+      "spirometry_height": 168.6,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "5891817315335",
+     "first_name": "ปราณี",
+     "last_name": "ศรีสุข",
+     "department_id": "WH-01",
+     "visit_date": "2026-05-02",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 2,
+      "ekg_comment": "ST depression V4-V6",
+      "bmi": 29.2,
+      "bp_systolic": 151.0,
+      "bp_diastolic": 87.0,
+      "pulse_rate": 69.0,
+      "spirometry_fvc_percent": 68.4,
+      "spirometry_fev1_percent": 99.1,
+      "spirometry_fvc": 4.12,
+      "spirometry_fev1": 2.98,
+      "spirometry_fev1_fvc": 72.3,
+      "spirometry_height": 164.3,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "สายตาปกติ"
+     }
+    },
+    {
+     "cid": "7147311493885",
+     "first_name": "สุรชัย",
+     "last_name": "วงศ์สวัสดิ์",
+     "department_id": "CHEM-02",
+     "visit_date": "2026-08-27",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 1,
+      "ekg_comment": "NSR",
+      "bmi": 33.1,
+      "bp_systolic": 154.0,
+      "bp_diastolic": 93.0,
+      "pulse_rate": 95.0,
+      "spirometry_fvc_percent": 73.5,
+      "spirometry_fev1_percent": 71.3,
+      "spirometry_fvc": 4.92,
+      "spirometry_fev1_fvc": 70.5,
+      "spirometry_height": 158.8,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "1772606264578",
+     "first_name": "อรุณ",
+     "last_name": "สุขเกษม",
+     "department_id": "PROD-02",
+     "visit_date": "2026-06-20",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "Normal chest",
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 34.7,
+      "bp_systolic": 128.0,
+      "bp_diastolic": 86.0,
+      "pulse_rate": 69.0,
+      "spirometry_fvc_percent": 117.6,
+      "spirometry_fev1_percent": 116.2,
+      "spirometry_fvc": 2.76,
+      "spirometry_fev1": 2.23,
+      "spirometry_fev1_fvc": 80.8,
+      "spirometry_height": 151.8,
+      "hearing_ability": 1,
+      "hearing_comment": "การได้ยินปกติ",
+      "far_vision_test": 2,
+      "far_vision_comment": "Myopia needs correction"
+     }
+    },
+    {
+     "cid": "8622067774298",
+     "first_name": "สุรชัย",
+     "last_name": "วงษ์ดี",
+     "department_id": "CHEM-02",
+     "visit_date": "2026-02-07",
+     "values": {
+      "ekg": 1,
+      "ekg_comment": "คลื่นหัวใจปกติ",
+      "bmi": 21.6,
+      "bp_systolic": 110.0,
+      "bp_diastolic": 62.0,
+      "pulse_rate": 91.0,
+      "spirometry_fvc_percent": 89.7,
+      "spirometry_fev1_percent": 98.1,
+      "spirometry_fvc": 2.59,
+      "spirometry_fev1": 1.93,
+      "spirometry_fev1_fvc": 74.5,
+      "spirometry_height": 169.1,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    },
+    {
+     "cid": "8574405384551",
+     "first_name": "นพดล",
+     "last_name": "บุญมา",
+     "department_id": "CHEM-02",
+     "visit_date": "2026-04-01",
+     "values": {
+      "chest_xray": 1,
+      "xray_comment": "ปอดปกติ",
+      "ekg": 2,
+      "ekg_comment": "Atrial fibrillation",
+      "bmi": 19.5,
+      "bp_systolic": 141.0,
+      "bp_diastolic": 95.0,
+      "pulse_rate": 102.0,
+      "spirometry_fvc_percent": 95.6,
+      "spirometry_fev1_percent": 74.8,
+      "spirometry_fev1": 3.55,
+      "spirometry_fev1_fvc": 84.9,
+      "spirometry_height": 181.1,
+      "hearing_ability": 1,
+      "hearing_comment": "Normal hearing bilateral",
+      "far_vision_test": 1,
+      "far_vision_comment": "VA 20/20 both eyes"
+     }
+    }
+   ],
+   "flagged": [],
+   "extras": [],
+   "derived_columns": [
+    "chest_xray",
+    "ekg",
+    "hearing_ability",
+    "far_vision_test"
+   ]
+  }
+ ],
+ "expected": [
+  {
+   "cid": "1087192501075",
+   "first_name": "สมหญิง",
+   "last_name": "บุญมา",
+   "department_id": "ADMIN-01",
+   "visit_date": "2026-08-01",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 35.5,
+    "bp_systolic": 118.0,
+    "bp_diastolic": 82.0,
+    "pulse_rate": 59.0,
+    "spirometry_fvc_percent": 91.6,
+    "spirometry_fev1_percent": 103.1,
+    "spirometry_fvc": 3.36,
+    "spirometry_fev1": 2.51,
+    "spirometry_fev1_fvc": 74.7,
+    "spirometry_height": 161.2,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "1412023501771",
+   "first_name": "รัตนา",
+   "last_name": "สุขเกษม",
+   "department_id": "PAINT-01",
+   "visit_date": "2026-07-24",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 29.8,
+    "bp_systolic": 108.0,
+    "bp_diastolic": 65.0,
+    "spirometry_fvc_percent": 70.0,
+    "spirometry_fev1_percent": 66.1,
+    "spirometry_fvc": 4.99,
+    "spirometry_fev1": 3.97,
+    "spirometry_fev1_fvc": 79.6,
+    "spirometry_height": 183.2,
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "1462421942459",
+   "first_name": "สมหญิง",
+   "last_name": "กลิ่นหอม",
+   "department_id": "QC-03",
+   "visit_date": "2026-03-28",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 30.3,
+    "bp_systolic": 128.0,
+    "bp_diastolic": 82.0,
+    "pulse_rate": 68.0,
+    "spirometry_fvc_percent": 76.0,
+    "spirometry_fev1_percent": 81.7,
+    "spirometry_fvc": 3.56,
+    "spirometry_fev1_fvc": 69.7,
+    "spirometry_height": 149.6
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "1488988860068",
+   "first_name": "จำปา",
+   "last_name": "มณีรัตน์",
+   "department_id": "CHEM-02",
+   "visit_date": "2026-03-27",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 1,
+    "ekg_comment": "Normal sinus rhythm",
+    "bmi": 20.2,
+    "bp_systolic": 110.0,
+    "bp_diastolic": 62.0,
+    "pulse_rate": 102.0,
+    "spirometry_fvc_percent": 82.6,
+    "spirometry_fev1_percent": 89.4,
+    "spirometry_fvc": 4.77,
+    "spirometry_fev1": 4.02,
+    "spirometry_fev1_fvc": 84.3,
+    "spirometry_height": 159.8,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 2,
+    "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "1594049629830",
+   "first_name": "จำปา",
+   "last_name": "สุขเกษม",
+   "department_id": "WELD-02",
+   "visit_date": "2026-01-16",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "Normal sinus rhythm",
+    "bmi": 29.2,
+    "bp_systolic": 118.0,
+    "bp_diastolic": 69.0,
+    "pulse_rate": 64.0,
+    "spirometry_fvc_percent": 94.9,
+    "spirometry_fev1_percent": 104.7,
+    "spirometry_fvc": 2.59,
+    "spirometry_fev1": 2.21,
+    "spirometry_fev1_fvc": 85.3,
+    "spirometry_height": 164.0,
+    "hearing_ability": 2,
+    "hearing_comment": "Bilateral SNHL at 4000 Hz",
+    "far_vision_test": 2,
+    "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "1772606264578",
+   "first_name": "อรุณ",
+   "last_name": "สุขเกษม",
+   "department_id": "PROD-02",
+   "visit_date": "2026-06-20",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 34.7,
+    "bp_systolic": 128.0,
+    "bp_diastolic": 86.0,
+    "pulse_rate": 69.0,
+    "spirometry_fvc_percent": 117.6,
+    "spirometry_fev1_percent": 116.2,
+    "spirometry_fvc": 2.76,
+    "spirometry_fev1": 2.23,
+    "spirometry_fev1_fvc": 80.8,
+    "spirometry_height": 151.8,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 2,
+    "far_vision_comment": "Myopia needs correction"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "1818791364869",
+   "first_name": "จำปา",
+   "last_name": "ทองคำ",
+   "department_id": "ADMIN-01",
+   "visit_date": "2026-04-19",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 33.4,
+    "bp_systolic": 113.0,
+    "bp_diastolic": 78.0,
+    "pulse_rate": 75.0,
+    "spirometry_fvc_percent": 80.1,
+    "spirometry_fev1_percent": 84.1,
+    "spirometry_fvc": 4.16,
+    "spirometry_fev1": 3.51,
+    "spirometry_fev1_fvc": 84.4,
+    "spirometry_height": 171.8,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "1904337681094",
+   "first_name": "รัตนา",
+   "last_name": "มณีรัตน์",
+   "department_id": "WELD-02",
+   "visit_date": "2026-06-23",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 25.2,
+    "bp_diastolic": 72.0,
+    "pulse_rate": 99.0,
+    "spirometry_fvc_percent": 96.9,
+    "spirometry_fev1_percent": 93.6,
+    "spirometry_fvc": 3.04,
+    "spirometry_fev1": 2.31,
+    "spirometry_fev1_fvc": 76.0,
+    "spirometry_height": 181.0,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 2,
+    "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "2088619374024",
+   "first_name": "จำปา",
+   "last_name": "วงศ์สวัสดิ์",
+   "department_id": "PROD-01",
+   "visit_date": "2026-01-12",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 34.3,
+    "bp_systolic": 99.0,
+    "bp_diastolic": 57.0,
+    "pulse_rate": 77.0,
+    "spirometry_fvc_percent": 117.5,
+    "spirometry_fev1_percent": 77.6,
+    "spirometry_fvc": 3.59,
+    "spirometry_fev1": 2.72,
+    "spirometry_fev1_fvc": 75.8,
+    "spirometry_height": 175.7,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "2411862063217",
+   "first_name": "ธนพล",
+   "last_name": "สุขเกษม",
+   "department_id": "QC-03",
+   "visit_date": "2026-04-13",
+   "values": {
+    "chest_xray": 2,
+    "xray_comment": "พบฝ้าที่ปอดขวา",
+    "profusion": "1/1",
+    "primary_lesion": "q",
+    "secondary_lesion": "p",
+    "ekg": 1,
+    "ekg_comment": "Normal sinus rhythm",
+    "bmi": 26.1,
+    "bp_systolic": 127.0,
+    "bp_diastolic": 89.0,
+    "pulse_rate": 103.0,
+    "spirometry_fvc_percent": 80.8,
+    "spirometry_fev1_percent": 75.9,
+    "spirometry_fvc": 4.67,
+    "spirometry_fev1": 3.4,
+    "spirometry_fev1_fvc": 72.8,
+    "spirometry_height": 177.4,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 2,
+    "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "2522703911787",
+   "first_name": "วีระ",
+   "last_name": "พันธุ์ดี",
+   "department_id": "WELD-02",
+   "visit_date": "2026-02-15",
+   "values": {
+    "chest_xray": 2,
+    "xray_comment": "พบฝ้าที่ปอดขวา",
+    "profusion": "0/1",
+    "primary_lesion": "p",
+    "secondary_lesion": "p",
+    "ekg": 2,
+    "ekg_comment": "LVH",
+    "bmi": 29.8,
+    "bp_systolic": 162.0,
+    "bp_diastolic": 101.0,
+    "pulse_rate": 66.0,
+    "spirometry_fvc_percent": 104.3,
+    "spirometry_fev1_percent": 81.4,
+    "spirometry_fvc": 2.41,
+    "spirometry_fev1": 1.74,
+    "spirometry_fev1_fvc": 72.2,
+    "spirometry_height": 171.6,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "2612032041422",
+   "first_name": "พิมพ์ชนก",
+   "last_name": "มณีรัตน์",
+   "department_id": "CHEM-02",
+   "visit_date": "2026-08-01",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "ปอดปกติ",
+    "ekg": 2,
+    "ekg_comment": "ST depression V4-V6",
+    "bmi": 35.3,
+    "bp_systolic": 100.0,
+    "bp_diastolic": 58.0,
+    "pulse_rate": 96.0,
+    "spirometry_fvc_percent": 88.6,
+    "spirometry_fev1_percent": 117.0,
+    "spirometry_fvc": 3.22,
+    "spirometry_fev1": 2.36,
+    "spirometry_fev1_fvc": 73.3,
+    "spirometry_height": 162.8,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 2,
+    "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "2618370685383",
+   "first_name": "อรุณ",
+   "last_name": "วงศ์สวัสดิ์",
+   "department_id": "WELD-02",
+   "visit_date": "2026-04-18",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 20.1,
+    "bp_systolic": 110.0,
+    "bp_diastolic": 64.0,
+    "spirometry_fvc_percent": 93.8,
+    "spirometry_fev1_percent": 95.8,
+    "spirometry_fvc": 2.83,
+    "spirometry_fev1": 2.01,
+    "spirometry_fev1_fvc": 71.0,
+    "spirometry_height": 163.8,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "2635195611115",
+   "first_name": "ประยุทธ",
+   "last_name": "อินทร์แก้ว",
+   "department_id": "PROD-01",
+   "visit_date": "2026-01-13",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 2,
+    "ekg_comment": "ST depression V4-V6",
+    "bmi": 22.1,
+    "bp_systolic": 163.0,
+    "bp_diastolic": 92.0,
+    "spirometry_fvc_percent": 94.6,
+    "spirometry_fev1_percent": 100.3,
+    "spirometry_fvc": 5.29,
+    "spirometry_fev1": 3.65,
+    "spirometry_fev1_fvc": 69.0,
+    "spirometry_height": 154.7,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "3088845026706",
+   "first_name": "นพดล",
+   "last_name": "ศรีสุข",
+   "department_id": "PAINT-01",
+   "visit_date": "2026-01-05",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 23.8,
+    "bp_systolic": 129.0,
+    "bp_diastolic": 85.0,
+    "spirometry_fvc_percent": 112.2,
+    "spirometry_fev1_percent": 89.3,
+    "spirometry_fvc": 4.27,
+    "spirometry_fev1": 3.46,
+    "spirometry_fev1_fvc": 81.0,
+    "spirometry_height": 157.4,
+    "hearing_ability": 2,
+    "hearing_comment": "Bilateral SNHL at 4000 Hz",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "3500707363594",
+   "first_name": "สุดา",
+   "last_name": "ใจดี",
+   "department_id": "ADMIN-01",
+   "visit_date": "2026-01-27",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 2,
+    "ekg_comment": "ST depression V4-V6",
+    "bmi": 31.3,
+    "bp_systolic": 151.0,
+    "bp_diastolic": 103.0,
+    "pulse_rate": 84.0,
+    "spirometry_fvc_percent": 109.4,
+    "spirometry_fev1_percent": 110.5,
+    "spirometry_fvc": 3.97,
+    "spirometry_fev1": 3.21,
+    "spirometry_fev1_fvc": 80.9,
+    "spirometry_height": 173.2,
+    "hearing_ability": 2,
+    "hearing_comment": "Mild hearing loss left",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "3516305333441",
+   "first_name": "ณัฐพล",
+   "last_name": "ศรีสุข",
+   "department_id": "CHEM-02",
+   "visit_date": "2026-02-20",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 28.5,
+    "bp_systolic": 138.0,
+    "bp_diastolic": 83.0,
+    "pulse_rate": 81.0,
+    "spirometry_fvc_percent": 103.7,
+    "spirometry_fev1_percent": 103.0,
+    "spirometry_fvc": 4.85,
+    "spirometry_fev1": 3.68,
+    "spirometry_fev1_fvc": 75.9,
+    "spirometry_height": 170.3,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "4099467621552",
+   "first_name": "วีระ",
+   "last_name": "รุ่งเรือง",
+   "department_id": "CHEM-02",
+   "visit_date": "2026-05-07",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 21.5,
+    "bp_systolic": 119.0,
+    "bp_diastolic": 79.0,
+    "pulse_rate": 63.0,
+    "spirometry_fvc_percent": 67.2,
+    "spirometry_fvc": 3.0,
+    "spirometry_fev1": 2.1,
+    "spirometry_fev1_fvc": 70.0,
+    "spirometry_height": 180.7,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "4304154286714",
+   "first_name": "มาลี",
+   "last_name": "วงศ์สวัสดิ์",
+   "department_id": "WELD-02",
+   "visit_date": "2026-05-11",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 1,
+    "ekg_comment": "Normal sinus rhythm",
+    "bmi": 18.4,
+    "bp_systolic": 125.0,
+    "bp_diastolic": 85.0,
+    "pulse_rate": 90.0,
+    "spirometry_fvc_percent": 103.9,
+    "spirometry_fev1_percent": 103.8,
+    "spirometry_fvc": 2.74,
+    "spirometry_fev1": 1.88,
+    "spirometry_fev1_fvc": 68.6,
+    "spirometry_height": 174.1,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "4574709524881",
+   "first_name": "นพดล",
+   "last_name": "มณีรัตน์",
+   "department_id": "WH-01",
+   "visit_date": "2026-02-06",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 22.6,
+    "bp_systolic": 128.0,
+    "bp_diastolic": 78.0,
+    "pulse_rate": 65.0,
+    "spirometry_fvc_percent": 72.0,
+    "spirometry_fev1_percent": 103.2,
+    "spirometry_fvc": 2.23,
+    "spirometry_fev1": 1.71,
+    "spirometry_fev1_fvc": 76.7,
+    "spirometry_height": 169.9,
+    "hearing_ability": 2,
+    "hearing_comment": "Mild hearing loss left",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "5175472683017",
+   "first_name": "สมหญิง",
+   "last_name": "สายชล",
+   "department_id": "WELD-02",
+   "visit_date": "2026-01-15",
+   "values": {
+    "chest_xray": 2,
+    "xray_comment": "พบฝ้าที่ปอดขวา",
+    "bmi": 29.8,
+    "bp_systolic": 154.0,
+    "bp_diastolic": 93.0,
+    "pulse_rate": 72.0,
+    "spirometry_fvc_percent": 107.9,
+    "spirometry_fev1_percent": 61.1,
+    "spirometry_fvc": 4.08,
+    "spirometry_fev1": 3.33,
+    "spirometry_fev1_fvc": 81.6,
+    "spirometry_height": 170.0,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "5321942038168",
+   "first_name": "สมชาย",
+   "last_name": "วงษ์ดี",
+   "department_id": "PROD-01",
+   "visit_date": "2026-08-07",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "ปอดปกติ",
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 21.5,
+    "bp_systolic": 123.0,
+    "bp_diastolic": 74.0,
+    "pulse_rate": 63.0,
+    "spirometry_fvc_percent": 88.7,
+    "spirometry_fev1_percent": 100.8,
+    "spirometry_fvc": 2.36,
+    "spirometry_fev1": 1.72,
+    "spirometry_fev1_fvc": 72.9,
+    "spirometry_height": 149.2,
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "5352045148627",
+   "first_name": "ธนพล",
+   "last_name": "สายชล",
+   "department_id": "CHEM-02",
+   "visit_date": "2026-04-13",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "ปอดปกติ",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 25.0,
+    "bp_systolic": 100.0,
+    "bp_diastolic": 64.0,
+    "pulse_rate": 54.0,
+    "spirometry_fvc_percent": 88.7,
+    "spirometry_fev1_percent": 66.2,
+    "spirometry_fvc": 2.27,
+    "spirometry_fev1_fvc": 71.4,
+    "spirometry_height": 170.8,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 2,
+    "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "5396959764333",
+   "first_name": "พิมพ์ชนก",
+   "last_name": "กลิ่นหอม",
+   "department_id": "WELD-02",
+   "visit_date": "2026-03-13",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "ปอดปกติ",
+    "ekg": 2,
+    "ekg_comment": "ST depression V4-V6",
+    "bmi": 25.8,
+    "bp_systolic": 111.0,
+    "bp_diastolic": 64.0,
+    "pulse_rate": 61.0,
+    "spirometry_fvc_percent": 86.2,
+    "spirometry_fev1_percent": 101.5,
+    "spirometry_fvc": 3.56,
+    "spirometry_fev1": 2.61,
+    "spirometry_fev1_fvc": 73.3,
+    "spirometry_height": 180.6,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "5606637942761",
+   "first_name": "ศิริพร",
+   "last_name": "ใจดี",
+   "department_id": "PROD-02",
+   "visit_date": "2026-05-11",
+   "values": {
+    "chest_xray": 2,
+    "xray_comment": "Pleural thickening left",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 27.1,
+    "bp_systolic": 124.0,
+    "bp_diastolic": 80.0,
+    "pulse_rate": 58.0,
+    "spirometry_fvc_percent": 110.0,
+    "spirometry_fev1_percent": 86.3,
+    "spirometry_fvc": 2.55,
+    "spirometry_fev1": 2.14,
+    "spirometry_fev1_fvc": 83.9,
+    "spirometry_height": 158.4,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "5891817315335",
+   "first_name": "ปราณี",
+   "last_name": "ศรีสุข",
+   "department_id": "WH-01",
+   "visit_date": "2026-05-02",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 2,
+    "ekg_comment": "ST depression V4-V6",
+    "bmi": 29.2,
+    "bp_systolic": 151.0,
+    "bp_diastolic": 87.0,
+    "pulse_rate": 69.0,
+    "spirometry_fvc_percent": 68.4,
+    "spirometry_fev1_percent": 99.1,
+    "spirometry_fvc": 4.12,
+    "spirometry_fev1": 2.98,
+    "spirometry_fev1_fvc": 72.3,
+    "spirometry_height": 164.3,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "5905461427653",
+   "first_name": "สุรชัย",
+   "last_name": "ทองคำ",
+   "department_id": "PROD-02",
+   "visit_date": "2026-05-09",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 1,
+    "ekg_comment": "Normal sinus rhythm",
+    "bmi": 30.5,
+    "bp_systolic": 130.0,
+    "bp_diastolic": 73.0,
+    "pulse_rate": 78.0,
+    "spirometry_fev1_percent": 67.2,
+    "spirometry_fvc": 5.2,
+    "spirometry_fev1": 3.84,
+    "spirometry_fev1_fvc": 73.8,
+    "spirometry_height": 163.5,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 2,
+    "far_vision_comment": "สายตาสั้น ควรตัดแว่น"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "6154975691092",
+   "first_name": "วันเพ็ญ",
+   "last_name": "มณีรัตน์",
+   "department_id": "PROD-01",
+   "visit_date": "2026-01-27",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "ปอดปกติ",
+    "ekg": 1,
+    "ekg_comment": "Normal sinus rhythm",
+    "bp_systolic": 140.0,
+    "bp_diastolic": 80.0,
+    "pulse_rate": 54.0,
+    "spirometry_fvc_percent": 110.4,
+    "spirometry_fev1_percent": 79.4,
+    "spirometry_fvc": 3.64,
+    "spirometry_fev1": 3.17,
+    "spirometry_fev1_fvc": 87.1,
+    "spirometry_height": 162.8,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "7100521960319",
+   "first_name": "วันเพ็ญ",
+   "last_name": "รุ่งเรือง",
+   "department_id": "CHEM-02",
+   "visit_date": "2026-01-14",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 35.9,
+    "bp_systolic": 141.0,
+    "bp_diastolic": 90.0,
+    "pulse_rate": 79.0,
+    "spirometry_fvc_percent": 80.3,
+    "spirometry_fev1_percent": 98.1,
+    "spirometry_fvc": 5.29,
+    "spirometry_fev1": 4.14,
+    "spirometry_fev1_fvc": 78.3,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "7147311493885",
+   "first_name": "สุรชัย",
+   "last_name": "วงศ์สวัสดิ์",
+   "department_id": "CHEM-02",
+   "visit_date": "2026-08-27",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 33.1,
+    "bp_systolic": 154.0,
+    "bp_diastolic": 93.0,
+    "pulse_rate": 95.0,
+    "spirometry_fvc_percent": 73.5,
+    "spirometry_fev1_percent": 71.3,
+    "spirometry_fvc": 4.92,
+    "spirometry_fev1_fvc": 70.5,
+    "spirometry_height": 158.8,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "7211992802667",
+   "first_name": "อำนาจ",
+   "last_name": "ใจดี",
+   "department_id": "WH-01",
+   "visit_date": "2026-05-13",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "Normal chest",
+    "bmi": 33.1,
+    "bp_systolic": 141.0,
+    "bp_diastolic": 94.0,
+    "pulse_rate": 70.0,
+    "spirometry_fvc_percent": 108.8,
+    "spirometry_fev1_percent": 95.2,
+    "spirometry_fvc": 4.32,
+    "spirometry_fev1": 3.4,
+    "spirometry_fev1_fvc": 78.7,
+    "spirometry_height": 156.2,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "7410276964822",
+   "first_name": "วันเพ็ญ",
+   "last_name": "อินทร์แก้ว",
+   "department_id": "QC-03",
+   "visit_date": "2026-06-02",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "Normal sinus rhythm",
+    "bmi": 24.4,
+    "bp_systolic": 156.0,
+    "bp_diastolic": 100.0,
+    "pulse_rate": 97.0,
+    "spirometry_fvc_percent": 82.5,
+    "spirometry_fev1_percent": 101.4,
+    "spirometry_fvc": 3.46,
+    "spirometry_fev1": 2.68,
+    "spirometry_fev1_fvc": 77.5,
+    "spirometry_height": 178.8,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "7452161106124",
+   "first_name": "สุดา",
+   "last_name": "ทองคำ",
+   "department_id": "PAINT-01",
+   "visit_date": "2026-04-17",
+   "values": {
+    "chest_xray": 2,
+    "xray_comment": "Fibrosis RUL",
+    "profusion": "1/1",
+    "primary_lesion": "r",
+    "ekg": 2,
+    "ekg_comment": "Atrial fibrillation",
+    "bmi": 31.3,
+    "bp_systolic": 129.0,
+    "bp_diastolic": 89.0,
+    "pulse_rate": 86.0,
+    "spirometry_fvc_percent": 82.6,
+    "spirometry_fev1_percent": 103.7,
+    "spirometry_fvc": 3.44,
+    "spirometry_fev1": 2.35,
+    "spirometry_fev1_fvc": 68.3,
+    "spirometry_height": 178.0,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "7799995668433",
+   "first_name": "สุดา",
+   "last_name": "รุ่งเรือง",
+   "department_id": "WELD-02",
+   "visit_date": "2026-06-25",
+   "values": {
+    "chest_xray": 2,
+    "xray_comment": "Fibrosis RUL",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 30.2,
+    "bp_systolic": 112.0,
+    "bp_diastolic": 71.0,
+    "pulse_rate": 82.0,
+    "spirometry_fvc_percent": 89.4,
+    "spirometry_fev1_percent": 69.6,
+    "spirometry_fvc": 4.38,
+    "spirometry_fev1": 3.29,
+    "spirometry_fev1_fvc": 75.1,
+    "spirometry_height": 168.6,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "7837313431643",
+   "first_name": "ศิริพร",
+   "last_name": "สุขเกษม",
+   "department_id": "WELD-02",
+   "visit_date": "2026-06-22",
+   "values": {
+    "chest_xray": 2,
+    "xray_comment": "Fibrosis RUL",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 33.6,
+    "bp_systolic": 126.0,
+    "bp_diastolic": 73.0,
+    "pulse_rate": 89.0,
+    "spirometry_fvc_percent": 87.8,
+    "spirometry_fev1_percent": 85.8,
+    "spirometry_fvc": 3.29,
+    "spirometry_fev1": 2.38,
+    "spirometry_fev1_fvc": 72.3,
+    "spirometry_height": 150.1,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 2,
+    "far_vision_comment": "Myopia needs correction"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "8100013988365",
+   "first_name": "ชัยวัฒน์",
+   "last_name": "สายชล",
+   "department_id": "PAINT-01",
+   "visit_date": "2026-02-06",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 2,
+    "ekg_comment": "ST depression V4-V6",
+    "bmi": 34.0,
+    "bp_systolic": 123.0,
+    "bp_diastolic": 74.0,
+    "pulse_rate": 82.0,
+    "spirometry_fvc_percent": 109.2,
+    "spirometry_fev1_percent": 78.7,
+    "spirometry_fvc": 2.77,
+    "spirometry_fev1": 2.0,
+    "spirometry_fev1_fvc": 72.2,
+    "spirometry_height": 154.2,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "8261144768521",
+   "first_name": "วันเพ็ญ",
+   "last_name": "รุ่งเรือง",
+   "department_id": "QC-03",
+   "visit_date": "2026-04-11",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "Normal sinus rhythm",
+    "bmi": 26.6,
+    "bp_systolic": 124.0,
+    "bp_diastolic": 87.0,
+    "pulse_rate": 85.0,
+    "spirometry_fvc_percent": 92.0,
+    "spirometry_fev1_percent": 100.8,
+    "spirometry_fvc": 4.87,
+    "spirometry_fev1": 3.57,
+    "spirometry_fev1_fvc": 73.3,
+    "spirometry_height": 167.5,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "สายตาปกติ"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "8574405384551",
+   "first_name": "นพดล",
+   "last_name": "บุญมา",
+   "department_id": "CHEM-02",
+   "visit_date": "2026-04-01",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "ปอดปกติ",
+    "ekg": 2,
+    "ekg_comment": "Atrial fibrillation",
+    "bmi": 19.5,
+    "bp_systolic": 141.0,
+    "bp_diastolic": 95.0,
+    "pulse_rate": 102.0,
+    "spirometry_fvc_percent": 95.6,
+    "spirometry_fev1_percent": 74.8,
+    "spirometry_fev1": 3.55,
+    "spirometry_fev1_fvc": 84.9,
+    "spirometry_height": 181.1,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "8584946248715",
+   "first_name": "ประยุทธ",
+   "last_name": "ใจดี",
+   "department_id": "WELD-02",
+   "visit_date": "2026-06-12",
+   "values": {
+    "chest_xray": 1,
+    "xray_comment": "No active lung lesion",
+    "ekg": 1,
+    "ekg_comment": "NSR",
+    "bmi": 27.5,
+    "bp_systolic": 98.0,
+    "bp_diastolic": 59.0,
+    "pulse_rate": 58.0,
+    "spirometry_fvc_percent": 109.6,
+    "spirometry_fev1_percent": 74.3,
+    "spirometry_fvc": 2.68,
+    "spirometry_fev1": 2.35,
+    "spirometry_fev1_fvc": 87.7,
+    "spirometry_height": 179.0,
+    "hearing_ability": 1,
+    "hearing_comment": "การได้ยินปกติ",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  },
+  {
+   "cid": "8622067774298",
+   "first_name": "สุรชัย",
+   "last_name": "วงษ์ดี",
+   "department_id": "CHEM-02",
+   "visit_date": "2026-02-07",
+   "values": {
+    "ekg": 1,
+    "ekg_comment": "คลื่นหัวใจปกติ",
+    "bmi": 21.6,
+    "bp_systolic": 110.0,
+    "bp_diastolic": 62.0,
+    "pulse_rate": 91.0,
+    "spirometry_fvc_percent": 89.7,
+    "spirometry_fev1_percent": 98.1,
+    "spirometry_fvc": 2.59,
+    "spirometry_fev1": 1.93,
+    "spirometry_fev1_fvc": 74.5,
+    "spirometry_height": 169.1,
+    "hearing_ability": 1,
+    "hearing_comment": "Normal hearing bilateral",
+    "far_vision_test": 1,
+    "far_vision_comment": "VA 20/20 both eyes"
+   },
+   "hospital": "H10"
+  }
+ ],
+ "conflicts": [],
+ "flagged": [],
+ "extras": [],
+ "derived": [
+  {
+   "cid": "7452161106124",
+   "visit_date": "2026-04-17",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "7452161106124",
+   "visit_date": "2026-04-17",
+   "column": "ekg"
+  },
+  {
+   "cid": "7452161106124",
+   "visit_date": "2026-04-17",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "7452161106124",
+   "visit_date": "2026-04-17",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "2088619374024",
+   "visit_date": "2026-01-12",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "2088619374024",
+   "visit_date": "2026-01-12",
+   "column": "ekg"
+  },
+  {
+   "cid": "2088619374024",
+   "visit_date": "2026-01-12",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "2088619374024",
+   "visit_date": "2026-01-12",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "7837313431643",
+   "visit_date": "2026-06-22",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "7837313431643",
+   "visit_date": "2026-06-22",
+   "column": "ekg"
+  },
+  {
+   "cid": "7837313431643",
+   "visit_date": "2026-06-22",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "7837313431643",
+   "visit_date": "2026-06-22",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "3516305333441",
+   "visit_date": "2026-02-20",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "3516305333441",
+   "visit_date": "2026-02-20",
+   "column": "ekg"
+  },
+  {
+   "cid": "3516305333441",
+   "visit_date": "2026-02-20",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "3516305333441",
+   "visit_date": "2026-02-20",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "1594049629830",
+   "visit_date": "2026-01-16",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "1594049629830",
+   "visit_date": "2026-01-16",
+   "column": "ekg"
+  },
+  {
+   "cid": "1594049629830",
+   "visit_date": "2026-01-16",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "1594049629830",
+   "visit_date": "2026-01-16",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "4099467621552",
+   "visit_date": "2026-05-07",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "4099467621552",
+   "visit_date": "2026-05-07",
+   "column": "ekg"
+  },
+  {
+   "cid": "4099467621552",
+   "visit_date": "2026-05-07",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "4099467621552",
+   "visit_date": "2026-05-07",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "4304154286714",
+   "visit_date": "2026-05-11",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "4304154286714",
+   "visit_date": "2026-05-11",
+   "column": "ekg"
+  },
+  {
+   "cid": "4304154286714",
+   "visit_date": "2026-05-11",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "4304154286714",
+   "visit_date": "2026-05-11",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "1818791364869",
+   "visit_date": "2026-04-19",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "1818791364869",
+   "visit_date": "2026-04-19",
+   "column": "ekg"
+  },
+  {
+   "cid": "1818791364869",
+   "visit_date": "2026-04-19",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "1818791364869",
+   "visit_date": "2026-04-19",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "5606637942761",
+   "visit_date": "2026-05-11",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "5606637942761",
+   "visit_date": "2026-05-11",
+   "column": "ekg"
+  },
+  {
+   "cid": "5606637942761",
+   "visit_date": "2026-05-11",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "5606637942761",
+   "visit_date": "2026-05-11",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "3500707363594",
+   "visit_date": "2026-01-27",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "3500707363594",
+   "visit_date": "2026-01-27",
+   "column": "ekg"
+  },
+  {
+   "cid": "3500707363594",
+   "visit_date": "2026-01-27",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "3500707363594",
+   "visit_date": "2026-01-27",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "7100521960319",
+   "visit_date": "2026-01-14",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "7100521960319",
+   "visit_date": "2026-01-14",
+   "column": "ekg"
+  },
+  {
+   "cid": "7100521960319",
+   "visit_date": "2026-01-14",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "7100521960319",
+   "visit_date": "2026-01-14",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "1087192501075",
+   "visit_date": "2026-08-01",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "1087192501075",
+   "visit_date": "2026-08-01",
+   "column": "ekg"
+  },
+  {
+   "cid": "1087192501075",
+   "visit_date": "2026-08-01",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "1087192501075",
+   "visit_date": "2026-08-01",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "2618370685383",
+   "visit_date": "2026-04-18",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "2618370685383",
+   "visit_date": "2026-04-18",
+   "column": "ekg"
+  },
+  {
+   "cid": "2618370685383",
+   "visit_date": "2026-04-18",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "2618370685383",
+   "visit_date": "2026-04-18",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "8100013988365",
+   "visit_date": "2026-02-06",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "8100013988365",
+   "visit_date": "2026-02-06",
+   "column": "ekg"
+  },
+  {
+   "cid": "8100013988365",
+   "visit_date": "2026-02-06",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "8100013988365",
+   "visit_date": "2026-02-06",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "7410276964822",
+   "visit_date": "2026-06-02",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "7410276964822",
+   "visit_date": "2026-06-02",
+   "column": "ekg"
+  },
+  {
+   "cid": "7410276964822",
+   "visit_date": "2026-06-02",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "7410276964822",
+   "visit_date": "2026-06-02",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "3088845026706",
+   "visit_date": "2026-01-05",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "3088845026706",
+   "visit_date": "2026-01-05",
+   "column": "ekg"
+  },
+  {
+   "cid": "3088845026706",
+   "visit_date": "2026-01-05",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "3088845026706",
+   "visit_date": "2026-01-05",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "2522703911787",
+   "visit_date": "2026-02-15",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "2522703911787",
+   "visit_date": "2026-02-15",
+   "column": "ekg"
+  },
+  {
+   "cid": "2522703911787",
+   "visit_date": "2026-02-15",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "2522703911787",
+   "visit_date": "2026-02-15",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "8584946248715",
+   "visit_date": "2026-06-12",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "8584946248715",
+   "visit_date": "2026-06-12",
+   "column": "ekg"
+  },
+  {
+   "cid": "8584946248715",
+   "visit_date": "2026-06-12",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "8584946248715",
+   "visit_date": "2026-06-12",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "2612032041422",
+   "visit_date": "2026-08-01",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "2612032041422",
+   "visit_date": "2026-08-01",
+   "column": "ekg"
+  },
+  {
+   "cid": "2612032041422",
+   "visit_date": "2026-08-01",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "2612032041422",
+   "visit_date": "2026-08-01",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "5321942038168",
+   "visit_date": "2026-08-07",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "5321942038168",
+   "visit_date": "2026-08-07",
+   "column": "ekg"
+  },
+  {
+   "cid": "5321942038168",
+   "visit_date": "2026-08-07",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "1488988860068",
+   "visit_date": "2026-03-27",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "1488988860068",
+   "visit_date": "2026-03-27",
+   "column": "ekg"
+  },
+  {
+   "cid": "1488988860068",
+   "visit_date": "2026-03-27",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "1488988860068",
+   "visit_date": "2026-03-27",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "5905461427653",
+   "visit_date": "2026-05-09",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "5905461427653",
+   "visit_date": "2026-05-09",
+   "column": "ekg"
+  },
+  {
+   "cid": "5905461427653",
+   "visit_date": "2026-05-09",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "5905461427653",
+   "visit_date": "2026-05-09",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "1462421942459",
+   "visit_date": "2026-03-28",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "1462421942459",
+   "visit_date": "2026-03-28",
+   "column": "ekg"
+  },
+  {
+   "cid": "5175472683017",
+   "visit_date": "2026-01-15",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "5175472683017",
+   "visit_date": "2026-01-15",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "5175472683017",
+   "visit_date": "2026-01-15",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "2411862063217",
+   "visit_date": "2026-04-13",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "2411862063217",
+   "visit_date": "2026-04-13",
+   "column": "ekg"
+  },
+  {
+   "cid": "2411862063217",
+   "visit_date": "2026-04-13",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "2411862063217",
+   "visit_date": "2026-04-13",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "1412023501771",
+   "visit_date": "2026-07-24",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "1412023501771",
+   "visit_date": "2026-07-24",
+   "column": "ekg"
+  },
+  {
+   "cid": "1412023501771",
+   "visit_date": "2026-07-24",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "8261144768521",
+   "visit_date": "2026-04-11",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "8261144768521",
+   "visit_date": "2026-04-11",
+   "column": "ekg"
+  },
+  {
+   "cid": "8261144768521",
+   "visit_date": "2026-04-11",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "8261144768521",
+   "visit_date": "2026-04-11",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "6154975691092",
+   "visit_date": "2026-01-27",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "6154975691092",
+   "visit_date": "2026-01-27",
+   "column": "ekg"
+  },
+  {
+   "cid": "6154975691092",
+   "visit_date": "2026-01-27",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "6154975691092",
+   "visit_date": "2026-01-27",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "7211992802667",
+   "visit_date": "2026-05-13",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "7211992802667",
+   "visit_date": "2026-05-13",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "7211992802667",
+   "visit_date": "2026-05-13",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "5396959764333",
+   "visit_date": "2026-03-13",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "5396959764333",
+   "visit_date": "2026-03-13",
+   "column": "ekg"
+  },
+  {
+   "cid": "5396959764333",
+   "visit_date": "2026-03-13",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "5396959764333",
+   "visit_date": "2026-03-13",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "5352045148627",
+   "visit_date": "2026-04-13",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "5352045148627",
+   "visit_date": "2026-04-13",
+   "column": "ekg"
+  },
+  {
+   "cid": "5352045148627",
+   "visit_date": "2026-04-13",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "5352045148627",
+   "visit_date": "2026-04-13",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "2635195611115",
+   "visit_date": "2026-01-13",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "2635195611115",
+   "visit_date": "2026-01-13",
+   "column": "ekg"
+  },
+  {
+   "cid": "2635195611115",
+   "visit_date": "2026-01-13",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "2635195611115",
+   "visit_date": "2026-01-13",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "1904337681094",
+   "visit_date": "2026-06-23",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "1904337681094",
+   "visit_date": "2026-06-23",
+   "column": "ekg"
+  },
+  {
+   "cid": "1904337681094",
+   "visit_date": "2026-06-23",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "1904337681094",
+   "visit_date": "2026-06-23",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "4574709524881",
+   "visit_date": "2026-02-06",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "4574709524881",
+   "visit_date": "2026-02-06",
+   "column": "ekg"
+  },
+  {
+   "cid": "4574709524881",
+   "visit_date": "2026-02-06",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "4574709524881",
+   "visit_date": "2026-02-06",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "7799995668433",
+   "visit_date": "2026-06-25",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "7799995668433",
+   "visit_date": "2026-06-25",
+   "column": "ekg"
+  },
+  {
+   "cid": "7799995668433",
+   "visit_date": "2026-06-25",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "7799995668433",
+   "visit_date": "2026-06-25",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "5891817315335",
+   "visit_date": "2026-05-02",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "5891817315335",
+   "visit_date": "2026-05-02",
+   "column": "ekg"
+  },
+  {
+   "cid": "5891817315335",
+   "visit_date": "2026-05-02",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "5891817315335",
+   "visit_date": "2026-05-02",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "7147311493885",
+   "visit_date": "2026-08-27",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "7147311493885",
+   "visit_date": "2026-08-27",
+   "column": "ekg"
+  },
+  {
+   "cid": "7147311493885",
+   "visit_date": "2026-08-27",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "7147311493885",
+   "visit_date": "2026-08-27",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "1772606264578",
+   "visit_date": "2026-06-20",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "1772606264578",
+   "visit_date": "2026-06-20",
+   "column": "ekg"
+  },
+  {
+   "cid": "1772606264578",
+   "visit_date": "2026-06-20",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "1772606264578",
+   "visit_date": "2026-06-20",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "8622067774298",
+   "visit_date": "2026-02-07",
+   "column": "ekg"
+  },
+  {
+   "cid": "8622067774298",
+   "visit_date": "2026-02-07",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "8622067774298",
+   "visit_date": "2026-02-07",
+   "column": "far_vision_test"
+  },
+  {
+   "cid": "8574405384551",
+   "visit_date": "2026-04-01",
+   "column": "chest_xray"
+  },
+  {
+   "cid": "8574405384551",
+   "visit_date": "2026-04-01",
+   "column": "ekg"
+  },
+  {
+   "cid": "8574405384551",
+   "visit_date": "2026-04-01",
+   "column": "hearing_ability"
+  },
+  {
+   "cid": "8574405384551",
+   "visit_date": "2026-04-01",
+   "column": "far_vision_test"
+  }
+ ]
+}
