@@ -11,12 +11,16 @@ Core Logic: แปลงข้อมูลจาก HIS (Long/EAV) → Template 
   5. Export  — เขียนผลลัพธ์ลง Excel ตาม template
 """
 
+import os
+import sys
 from datetime import datetime
 from typing import Optional
 
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
+# mapping_config.py lives in the repo root
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mapping_config import (
     CATEGORICAL_FIELDS,
     COMMENT_FIELDS,

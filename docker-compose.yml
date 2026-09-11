@@ -3,15 +3,29 @@ services:
     image: postgres:15-alpine
     container_name: his_mapping_db
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: his_mapping
-      POSTGRES_USER: his_admin
-      POSTGRES_PASSWORD: his_secret_2026
+    env_file: .env
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"   # localhost only
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      retries: 20
+
+  app:
+    build: .
+    container_name: his_mapping_app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # inside the compose network the DB host is "postgres", not localhost
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:8000:8000"   # localhost only
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:

@@ -7,6 +7,7 @@ PostgreSQL connection + SQLAlchemy models
 import os
 from datetime import datetime
 
+from dotenv import load_dotenv
 from sqlalchemy import (
     Column, DateTime, Integer, Numeric, SmallInteger, String, Text,
     create_engine
@@ -18,10 +19,9 @@ from sqlalchemy.orm import sessionmaker
 # Database URL
 # ---------------------------------------------------------------------------
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://his_admin:his_secret_2026@localhost:5432/his_mapping"
-)
+load_dotenv()
+
+DATABASE_URL = os.environ["DATABASE_URL"]  # set in .env (see .env.example)
 
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

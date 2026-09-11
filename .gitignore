@@ -28,3 +28,6 @@ uploads/
 # Logs
 *.log
 ~$*
+
+# Secrets
+.env

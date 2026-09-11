@@ -10,22 +10,23 @@ Converts Thai hospital information system (HIS) health-check data (occupational 
 
 ## Commands
 
+Python 3.12. Config comes from `.env`, which is gitignored. Copy it from `.env.example`. `DATABASE_URL` is required and uses the psycopg3 driver (`postgresql+psycopg://`).
+
 ```bash
-pip install -r requirements.txt            # pandas pinned to 1.3.5 with numpy<2
-docker compose up -d                       # Postgres 15 on :5432 (db/user/pass: his_mapping / his_admin / his_secret_2026)
-uvicorn app.main:app --reload              # web app at http://localhost:8000 (run from repo root)
-python3 main.py                            # standalone CLI pipeline: sample data → output_result.xlsx (no DB needed)
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+docker compose up -d --build               # Postgres + app, both bound to 127.0.0.1 (app on :8000)
+docker compose up -d postgres              # DB only, then run the app locally for --reload:
+.venv/bin/uvicorn app.main:app --reload    # run from repo root
+.venv/bin/python legacy/main.py            # old standalone CLI pipeline (no DB needed)
 ```
 
-`DATABASE_URL` overrides the default Postgres connection string in `app/database.py`.
-
-There is no test framework, linter or build step. `test_pipeline.py`, `test_pipeline2.py` and `test_validation.py` are ad-hoc scripts that run against the live Postgres DB and print results (`python3 test_validation.py`). They write real rows, using `upload_id` 999/888.
+`legacy/` holds the pre-POC CLI pipeline and the old ad-hoc `test_*.py` scripts, which write real rows to the live DB. The original mock files are in `mock_data/original/`. `init.sql` is no longer mounted into Postgres. The schema is moving to Alembic (plan in docs/requirements.md).
 
 ## Architecture
 
 There are two separate code paths that share `mapping_config.py`:
 
-1. **Legacy CLI pipeline**: `main.py` → `his_to_template.py` (`run_pipeline`: load → map lab names → pivot to wide → transform values, e.g. Normal→1/Abnormal→2 and CE→BE dates → export Excel with openpyxl). Input comes from the in-memory fixtures in `sample_his_data.py`.
+1. **Legacy CLI pipeline** (`legacy/`): `main.py` → `his_to_template.py` (`run_pipeline`: load → map lab names → pivot to wide → transform values, e.g. Normal→1/Abnormal→2 and CE→BE dates → export Excel with openpyxl). Input comes from the in-memory fixtures in `sample_his_data.py`.
 
 2. **FastAPI web app** (`app/`): upload CSV/XLSX → map → upsert into Postgres → dashboard/export. The web app does **not** use `his_to_template.py`. It reimplements the logic in `app/routes/upload.py`:
    - `detect_file_format` decides long vs wide from column names. Each XLSX sheet is detected and processed on its own.
