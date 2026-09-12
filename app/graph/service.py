@@ -7,6 +7,7 @@ a reviewer survives restarts.
 """
 
 import os
+import time
 
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
@@ -60,7 +61,15 @@ def _cfg(file_id: int) -> dict:
 
 def run_upload(file_id: int) -> dict:
     """Runs the graph for a newly registered file until it finishes or waits for a human."""
-    graph().invoke({"source_file_id": file_id}, _cfg(file_id))
+    t0 = time.time()
+    try:
+        graph().invoke({"source_file_id": file_id}, _cfg(file_id))
+    finally:
+        with SessionLocal() as db:   # system time per file, shown on the dashboard (D5)
+            sf = db.get(SourceFile, file_id)
+            if sf is not None:
+                sf.stats = {**(sf.stats or {}), "duration_s": round(time.time() - t0, 1)}
+                db.commit()
     return status(file_id)
 
 

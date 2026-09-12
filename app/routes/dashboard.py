@@ -14,7 +14,8 @@ from sqlalchemy import desc, func, text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Employee, SourceFile
+from app.models import (AgentDecision, Conflict, Employee, LabMapping, PendingReview, SourceFile, ValueHistory,
+                        ValueProvenance)
 from app.template import COLUMNS, HEADERS
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
@@ -152,3 +153,49 @@ def export_excel(db: Session = Depends(get_db)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=export_result.xlsx"},
     )
+
+
+AUTO_ORIGINS = ("seed", "agent_auto")          # mapping_id NULL = template/rule match, also automatic
+HUMAN_ORIGINS = ("human", "agent_approved")
+
+
+@router.get("/metrics")
+def metrics(db: Session = Depends(get_db)):
+    """
+    Measured system numbers (D5). No assumed staff times here — the time-saving calculator on
+    the page takes the agency's own numbers.
+
+    automatic  cells stored through a rule, the dictionary or an AI mapping accepted on agreement
+    assisted   cells stored through a mapping a reviewer approved or set
+    waiting    cells still waiting for a reviewer (estimated from open reviews)
+    """
+    rows = (db.query(ValueProvenance.mapping_id, LabMapping.origin, func.count(ValueProvenance.id))
+            .outerjoin(LabMapping, LabMapping.id == ValueProvenance.mapping_id)
+            .group_by(ValueProvenance.mapping_id, LabMapping.origin).all())
+    automatic = sum(n for mid, origin, n in rows if mid is None or origin in AUTO_ORIGINS)
+    assisted = sum(n for mid, origin, n in rows if origin in HUMAN_ORIGINS)
+    # a value a reviewer chose on the conflicts page was a human decision, whatever its mapping
+    replaced = db.query(func.count(ValueHistory.id)).filter(ValueHistory.reason == "conflict_resolved").scalar()
+    automatic, assisted = automatic - replaced, assisted + replaced
+    waiting = 0
+    for kind, payload in db.query(PendingReview.kind, PendingReview.payload).filter(PendingReview.status == "open"):
+        waiting += int((payload or {}).get("count") or 0) if kind == "mapping" else 1
+    files = db.query(SourceFile).filter(SourceFile.status != "failed").all()
+    durations = [f.stats.get("duration_s") for f in files if (f.stats or {}).get("duration_s") is not None]
+    cost = float(db.query(func.coalesce(func.sum(AgentDecision.cost_usd), 0)).scalar() or 0)
+    decided = db.query(func.count(PendingReview.id)).filter(PendingReview.status != "open").scalar()
+    total = automatic + assisted + waiting
+    return {
+        "files": len(files),
+        "hospitals": len({f.hospital_id for f in files}),     # hospitals that actually sent files
+        "people_visits": db.query(func.count(Employee.id)).scalar(),
+        "cells": {"automatic": automatic, "assisted": assisted, "waiting": waiting},
+        "automation_rate": automatic / total if total else None,
+        "open_reviews": db.query(func.count(PendingReview.id)).filter(PendingReview.status == "open").scalar(),
+        "human_decisions": decided,
+        "open_conflicts": db.query(func.count(Conflict.id)).filter(Conflict.status == "open").scalar(),
+        "llm_calls": db.query(func.count(AgentDecision.id)).scalar(),
+        "llm_cost_usd": round(cost, 4),
+        "llm_cost_per_file_usd": round(cost / len(files), 4) if files else None,
+        "avg_seconds_per_file": round(sum(durations) / len(durations), 1) if durations else None,
+    }

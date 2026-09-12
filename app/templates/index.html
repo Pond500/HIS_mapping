@@ -115,6 +115,29 @@
             <!-- ──── TAB: Dashboard ──── -->
             <div class="tab-content" id="tab-dashboard">
 
+                <!-- System metrics (measured, D5) -->
+                <div class="card">
+                    <div class="card-title">📈 ตัวชี้วัดของระบบ <span class="field-hint">วัดจากข้อมูลที่อยู่ในระบบนี้จริง</span></div>
+                    <div class="stats-grid" id="metricsGrid"></div>
+                </div>
+
+                <!-- Time-saving calculator: the agency's own numbers, no assumed staff times (D5) -->
+                <div class="card">
+                    <div class="card-title">⏱️ คำนวณเวลาที่ประหยัดได้ — กรอกตัวเลขของหน่วยงานคุณ</div>
+                    <p class="review-intro">
+                        ระบบไม่ได้เดาเวลาทำงานของเจ้าหน้าที่ไว้ให้ กรุณากรอกตามจริงของหน่วยงาน
+                        ส่วนเวลาที่ระบบใช้และจำนวนรายการที่ต้องให้คนดู ใช้ค่าที่วัดได้จากระบบนี้
+                    </p>
+                    <div class="calc-grid">
+                        <label>โรงพยาบาลที่ส่งไฟล์ต่อปี<input type="number" id="cHosp" min="0" placeholder="เช่น 20"></label>
+                        <label>ไฟล์ต่อโรงพยาบาลต่อปี<input type="number" id="cFiles" min="0" placeholder="เช่น 2"></label>
+                        <label>คนต่อไฟล์ (เฉลี่ย)<input type="number" id="cPeople" min="0" placeholder="เช่น 300"></label>
+                        <label>นาทีที่เจ้าหน้าที่ใช้แปลงข้อมูลด้วยมือ ต่อคน<input type="number" id="cMin" min="0" step="0.1" placeholder="กรอกตามจริง"></label>
+                        <label>วินาทีที่ใช้ตัดสินใจ 1 รายการที่ระบบถาม<input type="number" id="cReview" min="0" placeholder="กรอกตามจริง"></label>
+                    </div>
+                    <div id="calcOut" class="calc-out"></div>
+                </div>
+
                 <!-- Stats -->
                 <div class="stats-grid" id="statsGrid">
                     <div class="stat-card blue">
@@ -457,6 +480,7 @@
                 renderStats(statsRes);
                 renderCharts(statsRes.abnormal_counts);
                 renderEmployees(empRes);
+                loadMetrics();
             } catch (err) {
                 console.error('Dashboard error:', err);
             }
@@ -940,6 +964,55 @@
             if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
             loadConflicts();
         }
+
+        // ══════════════════════════════════════
+        // METRICS + TIME-SAVING CALCULATOR (D5)
+        // ══════════════════════════════════════
+
+        let metrics = null;
+        const CALC_FIELDS = ['cHosp', 'cFiles', 'cPeople', 'cMin', 'cReview'];
+
+        async function loadMetrics() {
+            try { metrics = await fetch('/api/metrics').then(r => r.json()); } catch (e) { return; }
+            const m = metrics, pct = v => v == null ? '—' : (v * 100).toFixed(1) + '%';
+            const card = (cls, label, value, sub) => `<div class="stat-card ${cls}"><div class="stat-label">${label}</div>
+                <div class="stat-value">${value}</div><div class="stat-sub">${sub}</div></div>`;
+            document.getElementById('metricsGrid').innerHTML = [
+                card('green', 'ระบบทำเองได้', pct(m.automation_rate),
+                     `อัตโนมัติ ${m.cells.automatic.toLocaleString()} · คนช่วย ${m.cells.assisted.toLocaleString()} · รอ ${m.cells.waiting.toLocaleString()} ค่า`),
+                card('amber', 'รอเจ้าหน้าที่', (m.open_reviews + m.open_conflicts).toLocaleString(),
+                     `รายการรอตรวจ ${m.open_reviews} · ข้อมูลขัดแย้ง ${m.open_conflicts}`),
+                card('blue', 'เวลาเฉลี่ยต่อไฟล์', m.avg_seconds_per_file == null ? '—' : m.avg_seconds_per_file + ' วินาที',
+                     `${m.files} ไฟล์ · ${m.hospitals} โรงพยาบาล · ${m.people_visits.toLocaleString()} คน-ครั้ง`),
+                card('rose', 'ค่า AI ต่อไฟล์', m.llm_cost_per_file_usd == null ? '—' : '$' + m.llm_cost_per_file_usd,
+                     `รวม $${m.llm_cost_usd} · เรียก AI ${m.llm_calls} ครั้ง`),
+            ].join('');
+            calc();
+        }
+
+        function calc() {
+            const v = Object.fromEntries(CALC_FIELDS.map(id => [id, parseFloat(document.getElementById(id).value)]));
+            try { localStorage.setItem('calc', JSON.stringify(v)); } catch (e) { /* storage may be blocked */ }
+            const out = document.getElementById('calcOut');
+            if (!metrics || metrics.avg_seconds_per_file == null) { out.innerHTML = '<span class="muted">ยังไม่มีเวลาที่วัดได้ — อัปโหลดไฟล์อย่างน้อย 1 ไฟล์ก่อน</span>'; return; }
+            if (CALC_FIELDS.some(id => !(v[id] >= 0))) { out.innerHTML = '<span class="muted">กรอกให้ครบทุกช่องเพื่อคำนวณ</span>'; return; }
+            const files = v.cHosp * v.cFiles;
+            const itemsPerFile = metrics.files ? (metrics.human_decisions + metrics.open_reviews) / metrics.files : 0;
+            const manualH = files * v.cPeople * v.cMin / 60;
+            const systemH = files * (metrics.avg_seconds_per_file + itemsPerFile * v.cReview) / 3600;
+            const saved = manualH - systemH;
+            out.innerHTML = `<div class="calc-result">ประหยัดได้ประมาณ <b>${Math.max(0, saved).toLocaleString(undefined, { maximumFractionDigits: 0 })} ชั่วโมงต่อปี</b>
+                ${manualH > 0 ? `(${(saved / manualH * 100).toFixed(0)}% ของเวลาที่ใช้ตอนนี้)` : ''}</div>
+                <div class="muted">ด้วยมือ: ${files.toLocaleString()} ไฟล์ × ${v.cPeople} คน × ${v.cMin} นาที = ${manualH.toLocaleString(undefined, { maximumFractionDigits: 0 })} ชม.
+                · ด้วยระบบ: ${files.toLocaleString()} ไฟล์ × (${metrics.avg_seconds_per_file} วินาที + ${itemsPerFile.toFixed(1)} รายการ × ${v.cReview} วินาที) = ${systemH.toLocaleString(undefined, { maximumFractionDigits: 1 })} ชม.
+                · ค่าที่วัดได้มาจาก ${metrics.files} ไฟล์ในระบบนี้</div>`;
+        }
+
+        CALC_FIELDS.forEach(id => document.getElementById(id).addEventListener('input', calc));
+        try {
+            const saved = JSON.parse(localStorage.getItem('calc') || '{}');
+            CALC_FIELDS.forEach(id => { if (saved[id] >= 0) document.getElementById(id).value = saved[id]; });
+        } catch (e) { /* no saved inputs */ }
 
         // ── Initialize ──
         refreshDashboard();

@@ -720,3 +720,8 @@ tr:hover td {
 .comment-card { border-left-color: var(--accent-cyan); }
 .muted { color: var(--text-muted); font-size: 0.78rem; }
 .review-file-head .btn { margin-left: 12px; }
+.calc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.calc-grid label { display: flex; flex-direction: column; gap: 6px; color: var(--text-secondary); font-size: 0.85rem; }
+.calc-grid input { max-width: 100%; }
+.calc-out { line-height: 1.7; }
+.calc-result { font-size: 1.1rem; margin-bottom: 4px; }
