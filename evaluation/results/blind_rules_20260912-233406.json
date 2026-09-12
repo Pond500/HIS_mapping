@@ -1,0 +1,765 @@
+{
+ "sut": "rules",
+ "set": "blind",
+ "oracle": false,
+ "headline": {
+  "auto_precision": 0.9482564679415073,
+  "automation": 0.5444564047362755,
+  "automation_repeat": 0.6328502415458938,
+  "silent_errors": 138,
+  "silent_drops": 85,
+  "flagged_for_human": 1893,
+  "expected_cells": 4645,
+  "llm_cost_usd": 0.0,
+  "llm_calls": 0,
+  "human_decisions": 0,
+  "human_corrections": 0,
+  "conflicts_found": "8/8",
+  "invalid_cid_flagged": "14/14",
+  "censored_flagged": "3/4",
+  "extras_found": "0/233",
+  "buckets": {
+   "missing_flagged": 1893,
+   "wrong": 138,
+   "correct": 2529,
+   "missing_silent": 85
+  }
+ },
+ "cases": [
+  {
+   "case": "b01_b02_repeat_hospital",
+   "buckets": {
+    "missing_flagged": 588,
+    "wrong": 51,
+    "correct": 1104,
+    "missing_silent": 20
+   },
+   "expected_cells": 1763,
+   "per_upload": [
+    {
+     "missing_flagged": 317,
+     "wrong": 27,
+     "correct": 580,
+     "missing_silent": 11
+    },
+    {
+     "missing_flagged": 271,
+     "wrong": 24,
+     "correct": 524,
+     "missing_silent": 9
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 1,
+    "flagged": 1
+   },
+   "censored": {
+    "expected": 3,
+    "flagged": 3
+   },
+   "extras": {
+    "expected": 98,
+    "found": 0
+   },
+   "error_examples": [
+    {
+     "kind": "wrong",
+     "cid": "1140578023366",
+     "date": "2026-03-17",
+     "column": "department_id",
+     "got": "ฝ่ายควบคุมคุณภาพ",
+     "expected": "QC"
+    },
+    {
+     "kind": "wrong",
+     "cid": "1251942005021",
+     "date": "2026-02-10",
+     "column": "department_id",
+     "got": "ฝ่ายซ่อมบำรุง",
+     "expected": "MAINT"
+    },
+    {
+     "kind": "wrong",
+     "cid": "1837192774228",
+     "date": "2026-02-10",
+     "column": "department_id",
+     "got": "ฝ่ายควบคุมคุณภาพ",
+     "expected": "QC"
+    },
+    {
+     "kind": "wrong",
+     "cid": "2024282848991",
+     "date": "2026-02-10",
+     "column": "department_id",
+     "got": "วิศวกรรม",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "2248111321265",
+     "date": "2026-03-17",
+     "column": "department_id",
+     "got": "ฝ่ายควบคุมคุณภาพ",
+     "expected": "QC"
+    },
+    {
+     "kind": "wrong",
+     "cid": "2907307014805",
+     "date": "2026-03-17",
+     "column": "department_id",
+     "got": "ฝ่ายผลิต",
+     "expected": "PROD"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3006979053471",
+     "date": "2026-02-10",
+     "column": "department_id",
+     "got": "วิศวกรรม",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3014801443260",
+     "date": "2026-02-10",
+     "column": "department_id",
+     "got": "วิศวกรรม",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3064547636341",
+     "date": "2026-03-17",
+     "column": "department_id",
+     "got": "ความปลอดภัย",
+     "expected": "SAFETY"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3206186243772",
+     "date": "2026-02-10",
+     "column": "department_id",
+     "got": "สำนักงาน",
+     "expected": "OFF"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3238721245617",
+     "date": "2026-02-10",
+     "column": "department_id",
+     "got": "ฝ่ายผลิต",
+     "expected": "PROD"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3287436800810",
+     "date": "2026-02-10",
+     "column": "department_id",
+     "got": "วิศวกรรม",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3455660381325",
+     "date": "2026-02-10",
+     "column": "department_id",
+     "got": "วิศวกรรม",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3531934628972",
+     "date": "2026-03-17",
+     "column": "department_id",
+     "got": "วิศวกรรม",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3801884907650",
+     "date": "2026-03-17",
+     "column": "department_id",
+     "got": "คลังสินค้า",
+     "expected": "WH"
+    }
+   ],
+   "missing_examples": [
+    {
+     "cid": "1251942005021",
+     "date": "2026-02-10",
+     "column": "secondary_lesion",
+     "expected": "-"
+    },
+    {
+     "cid": "1251942005021",
+     "date": "2026-02-10",
+     "column": "hearing_comment",
+     "expected": "High frequency hearing loss both ears"
+    },
+    {
+     "cid": "1837192774228",
+     "date": "2026-02-10",
+     "column": "xray_comment",
+     "expected": "Pleural thickening Rt."
+    },
+    {
+     "cid": "4062761267454",
+     "date": "2026-02-10",
+     "column": "far_vision_comment",
+     "expected": "Color blindness suspected"
+    },
+    {
+     "cid": "4079006749276",
+     "date": "2026-02-10",
+     "column": "ekg_comment",
+     "expected": "Left axis deviation"
+    },
+    {
+     "cid": "4118370487892",
+     "date": "2026-03-17",
+     "column": "ekg_comment",
+     "expected": "Old MI, inferior wall"
+    },
+    {
+     "cid": "5483310283396",
+     "date": "2026-03-17",
+     "column": "xray_comment",
+     "expected": "Fibrosis RUL"
+    },
+    {
+     "cid": "5911975812762",
+     "date": "2026-02-10",
+     "column": "xray_comment",
+     "expected": "Blunt Rt. costophrenic angle"
+    },
+    {
+     "cid": "6073588327885",
+     "date": "2026-02-10",
+     "column": "hearing_comment",
+     "expected": "High frequency hearing loss both ears"
+    },
+    {
+     "cid": "6504920624128",
+     "date": "2026-02-10",
+     "column": "hearing_comment",
+     "expected": "Noise induced hearing loss"
+    },
+    {
+     "cid": "6708393473571",
+     "date": "2026-02-10",
+     "column": "far_vision_comment",
+     "expected": "Color blindness suspected"
+    },
+    {
+     "cid": "7715827732045",
+     "date": "2026-03-17",
+     "column": "ekg_comment",
+     "expected": "Sinus bradycardia"
+    },
+    {
+     "cid": "7738210299787",
+     "date": "2026-03-17",
+     "column": "hearing_comment",
+     "expected": "Noise induced hearing loss"
+    },
+    {
+     "cid": "8878363399891",
+     "date": "2026-03-17",
+     "column": "xray_comment",
+     "expected": "Calcified nodule Lt. upper lung"
+    },
+    {
+     "cid": "8878363399891",
+     "date": "2026-03-17",
+     "column": "hearing_comment",
+     "expected": "Noise induced hearing loss"
+    }
+   ],
+   "missing_by_column": {
+    "xray_comment": 6,
+    "hearing_comment": 5,
+    "far_vision_comment": 4,
+    "ekg_comment": 4,
+    "secondary_lesion": 1
+   },
+   "seconds": 1.9,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "b03_b04_resend",
+   "buckets": {
+    "correct": 760,
+    "wrong": 52,
+    "missing_flagged": 175
+   },
+   "expected_cells": 987,
+   "per_upload": [
+    {
+     "correct": 760,
+     "wrong": 52,
+     "missing_flagged": 175
+    },
+    {}
+   ],
+   "conflicts": {
+    "expected": 8,
+    "found": 8
+   },
+   "invalid_cid": {
+    "expected": 8,
+    "flagged": 8
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [
+    {
+     "kind": "wrong",
+     "cid": "1334327890907",
+     "date": "2026-01-22",
+     "column": "department_id",
+     "got": "วิศวกรรม",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "1334327890907",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "4320.00",
+     "expected": 4315.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1750118886021",
+     "date": "2026-01-22",
+     "column": "department_id",
+     "got": "สำนักงาน",
+     "expected": "OFF"
+    },
+    {
+     "kind": "wrong",
+     "cid": "1750118886021",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "4710.00",
+     "expected": 4706.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1881928962450",
+     "date": "2026-01-22",
+     "column": "department_id",
+     "got": "ความปลอดภัย",
+     "expected": "SAFETY"
+    },
+    {
+     "kind": "wrong",
+     "cid": "1881928962450",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8040.00",
+     "expected": 8038.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2003620352581",
+     "date": "2026-01-22",
+     "column": "department_id",
+     "got": "ฝ่ายควบคุมคุณภาพ",
+     "expected": "QC"
+    },
+    {
+     "kind": "wrong",
+     "cid": "2003620352581",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "9420.00",
+     "expected": 9422.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2256421437774",
+     "date": "2026-01-22",
+     "column": "department_id",
+     "got": "สำนักงาน",
+     "expected": "OFF"
+    },
+    {
+     "kind": "wrong",
+     "cid": "2256421437774",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8720.00",
+     "expected": 8721.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2316868472998",
+     "date": "2026-01-22",
+     "column": "department_id",
+     "got": "สำนักงาน",
+     "expected": "OFF"
+    },
+    {
+     "kind": "wrong",
+     "cid": "2316868472998",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "10170.00",
+     "expected": 10174.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4085770037795",
+     "date": "2026-01-22",
+     "column": "department_id",
+     "got": "ความปลอดภัย",
+     "expected": "SAFETY"
+    },
+    {
+     "kind": "wrong",
+     "cid": "4085770037795",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "10520.00",
+     "expected": 10519.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4330413842703",
+     "date": "2026-01-22",
+     "column": "department_id",
+     "got": "สำนักงาน",
+     "expected": "OFF"
+    }
+   ],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.5,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "b05_vertical_two_sheets",
+   "buckets": {
+    "missing_flagged": 760
+   },
+   "expected_cells": 760,
+   "per_upload": [
+    {
+     "missing_flagged": 760
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 1,
+    "flagged": 1
+   },
+   "censored": {
+    "expected": 1,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 63,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.1,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "b06_csv_mixed",
+   "buckets": {
+    "missing_flagged": 370,
+    "wrong": 35,
+    "correct": 665,
+    "missing_silent": 65
+   },
+   "expected_cells": 1135,
+   "per_upload": [
+    {
+     "missing_flagged": 370,
+     "wrong": 35,
+     "correct": 665,
+     "missing_silent": 65
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 4,
+    "flagged": 4
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 72,
+    "found": 0
+   },
+   "error_examples": [
+    {
+     "kind": "wrong",
+     "cid": "1217297332883",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7710.00",
+     "expected": 7708.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1600459457678",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4430.00",
+     "expected": 4426.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1629529173540",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4620.00",
+     "expected": 4625.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1864276030014",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9300.00",
+     "expected": 9297.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4420.00",
+     "expected": 4421.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9740.00",
+     "expected": 9745.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "5000.00",
+     "expected": 5001.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "3239533606447",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "5000.00",
+     "expected": 4997.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "3251680060573",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7000.00",
+     "expected": 6998.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4115349822332",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10400.00",
+     "expected": 10397.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4285853784511",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "6650.00",
+     "expected": 6649.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4675957048647",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10390.00",
+     "expected": 10389.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5268297637475",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9370.00",
+     "expected": 9369.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5295805476966",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10530.00",
+     "expected": 10531.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5361640804674",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9790.00",
+     "expected": 9787.0
+    }
+   ],
+   "missing_examples": [
+    {
+     "cid": "1600459457678",
+     "date": "2026-05-05",
+     "column": "ekg_comment",
+     "expected": "Old MI, inferior wall"
+    },
+    {
+     "cid": "1864276030014",
+     "date": "2026-05-05",
+     "column": "pulse_rate",
+     "expected": 83.0
+    },
+    {
+     "cid": "1864276030014",
+     "date": "2026-05-05",
+     "column": "hearing_comment",
+     "expected": "High frequency hearing loss both ears"
+    },
+    {
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 4.6
+    },
+    {
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "spirometry_fev1",
+     "expected": 2.92
+    },
+    {
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "far_vision_comment",
+     "expected": "Color blindness suspected"
+    },
+    {
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 3.5
+    },
+    {
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc",
+     "expected": 2.99
+    },
+    {
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "hearing_comment",
+     "expected": "High frequency hearing loss both ears"
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "sgot_ast",
+     "expected": 36.0
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "sgpt_alt",
+     "expected": 25.0
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "pulse_rate",
+     "expected": 94.0
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc_percent",
+     "expected": 85.0
+    },
+    {
+     "cid": "3239533606447",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc",
+     "expected": 3.96
+    },
+    {
+     "cid": "3239533606447",
+     "date": "2026-05-05",
+     "column": "hearing_comment",
+     "expected": "High frequency hearing loss both ears"
+    }
+   ],
+   "missing_by_column": {
+    "hearing_comment": 7,
+    "uric_acid": 6,
+    "pulse_rate": 5,
+    "spirometry_fvc": 5,
+    "xray_comment": 5,
+    "ekg_comment": 4,
+    "sgpt_alt": 4,
+    "spirometry_fvc_percent": 4
+   },
+   "seconds": 0.4,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  }
+ ]
+}

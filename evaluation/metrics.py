@@ -156,6 +156,9 @@ def score_case(truth: dict, state: dict) -> dict:
         "error_examples": errors[:15],
         "missing_examples": missing[:15],
         "missing_by_column": dict(Counter(m["column"] for m in missing).most_common(8)),
+        # complete lists, for classifying every miss (the examples above are truncated)
+        "errors_all": errors,
+        "missing_all": missing,
     }
 
 
