@@ -780,7 +780,8 @@
         ];
         const KIND_LABEL = { value: 'ค่าที่อ่านไม่ได้/ผิดปกติ', cid: 'เลขบัตรประชาชนไม่ถูกต้อง',
                              comment: 'มีแต่ข้อความผลตรวจ', profile: 'อ่านโครงสร้างไฟล์ไม่ได้' };
-        const ROLE_TH = { first_name: 'ชื่อ', last_name: 'นามสกุล', full_name: 'ชื่อ-สกุล', department_id: 'แผนก' };
+        const ROLE_TH = { first_name: 'ชื่อ', last_name: 'นามสกุล', full_name: 'ชื่อ-สกุล', department_id: 'แผนก', visit_date: 'วันที่ตรวจ' };
+        const TITLE_DATE = '__report_title_date__';
 
         async function refreshReviewCount() {
             try {
@@ -805,6 +806,7 @@
         function fileBlock(fid, rs) {
             const maps = rs.filter(r => r.kind === 'mapping');
             const ids = rs.filter(r => r.kind === 'identity');
+            const depts = rs.filter(r => r.kind === 'department');
             // one card per distinct finding text: the answer applies to every row with that text
             const cmtGroups = {};
             rs.filter(r => r.kind === 'comment').forEach(r => {
@@ -812,27 +814,38 @@
                 (cmtGroups[k] = cmtGroups[k] || []).push(r);
             });
             const cmts = Object.values(cmtGroups);
-            const others = rs.filter(r => !['mapping', 'identity', 'comment'].includes(r.kind));
+            const others = rs.filter(r => !['mapping', 'identity', 'comment', 'department'].includes(r.kind));
             const counts = {};
             others.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
             return `<div class="review-file" data-file="${Number(fid)}">
                 <div class="review-file-head">ไฟล์ #${esc(fid)} — ชื่อ lab/หัวคอลัมน์ที่ต้องยืนยัน ${maps.length} รายการ</div>
                 ${ids.map(identityCard).join('')}
+                ${depts.map(deptCard).join('')}
                 ${maps.map(mappingCard).join('')}
                 ${cmts.map(commentCard).join('')}
-                ${maps.length || ids.length || cmts.length ? `<button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจของไฟล์นี้</button>` : ''}
+                ${maps.length || ids.length || cmts.length || depts.length ? `<button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจของไฟล์นี้</button>` : ''}
                 ${Object.entries(counts).map(([k, n]) => `<div class="review-other">• ${esc(KIND_LABEL[k] || k)}: ${n} รายการ</div>`).join('')}
             </div>`;
         }
 
         function identityCard(r) {
             const p = r.payload;
-            const opts = (p.candidates || []).map(c =>
-                `<option value="${esc(c.header)}">${esc(c.header)} — เช่น ${esc((c.samples || []).join(', '))}</option>`).join('');
+            const opts = (p.candidates || []).map(c => c.header === TITLE_DATE
+                ? `<option value="${esc(c.header)}">วันที่ในหัวรายงาน (${esc(c.date)}): “${esc((c.samples || [])[0] || '')}”</option>`
+                : `<option value="${esc(c.header)}">${esc(c.header)} — เช่น ${esc((c.samples || []).join(', '))}</option>`).join('');
             return `<div class="review-card identity-card" data-review="${Number(r.id)}">
                 <div class="review-label">⚠️ ${esc(p.reason)} <span class="unit">sheet: ${esc(p.sheet)}</span></div>
                 ${(p.missing || []).map(role => `<div class="review-actions"><label>${esc(ROLE_TH[role] || role)}</label>
                     <select class="id-pick" data-role="${esc(role)}"><option value="">⏸ ไม่แน่ใจ ข้ามไว้ก่อน</option>${opts}</select></div>`).join('')}
+            </div>`;
+        }
+
+        function deptCard(r) {
+            const p = r.payload;
+            return `<div class="review-card dept-card" data-review="${Number(r.id)}">
+                <div class="review-label">แผนก “${esc(p.name)}” <span class="unit">${Number(p.count || 0)} คน</span></div>
+                <div class="muted">${esc(p.reason || '')}</div>
+                <div class="review-actions"><input class="dept-code" placeholder="รหัสแผนก เช่น QC (เว้นว่าง = ข้ามไว้ก่อน)"></div>
             </div>`;
         }
 
@@ -880,9 +893,14 @@
 
         async function submitDecisions(fid) {
             const block = document.querySelector(`.review-file[data-file="${fid}"]`);
-            const cards = block.querySelectorAll('.review-card:not(.identity-card):not(.comment-card)');
+            const cards = block.querySelectorAll('.review-card:not(.identity-card):not(.comment-card):not(.dept-card)');
+            const deptCards = block.querySelectorAll('.dept-card');
             const commentCards = block.querySelectorAll('.comment-card');
             const decisions = [];
+            deptCards.forEach(c => {
+                const code = c.querySelector('.dept-code').value.trim();
+                if (code) decisions.push({ review_id: Number(c.dataset.review), action: 'department', code });
+            });
             commentCards.forEach(c => {
                 const val = c.querySelector('.cmt-val').value;
                 if (val) decisions.push({ review_id: Number(c.dataset.review), action: 'comment', value: Number(val) });

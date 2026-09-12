@@ -63,7 +63,9 @@ def _check_cell(cell, target, info, rec, set_name, bad):
     kind = FIELDS_BY_COLUMN[target].kind
     if kind == "categorical":
         pools = vocab.CATEGORICAL_DEV if set_name == "dev" else vocab.CATEGORICAL_EXAM
-        ok = str(cell).strip() == str(exp) or (exp is not None and str(cell) in pools[exp])
+        findings = vocab.COMMENTS_DEV if set_name == "dev" else vocab.COMMENTS_EXAM
+        ok = str(cell).strip() == str(exp) or (exp is not None and (
+            str(cell) in pools[exp] or str(cell) in findings.get(target, {}).get(exp, [])))
     elif kind == "numeric":
         v = _num(cell)
         if v is None:

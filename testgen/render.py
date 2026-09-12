@@ -54,6 +54,9 @@ class Style:
     full_name: bool = False     # one "ชื่อ-สกุล" column
     label_overrides: dict = field(default_factory=dict)  # force a label for a column
     id_headers: dict = field(default_factory=dict)       # force identity headers (role -> header)
+    date_in_title: bool = False  # one visit date for everyone, written only in the report title
+    titles: bool = False         # full names carry a title, incl. combined ones ("นาง/นางสาว")
+    dept_names: bool = False     # department written as a Thai name; the truth wants the code (D18)
 
 
 class Pools:
@@ -130,6 +133,10 @@ def render(records: list[Record], style: Style, set_name: str, path: str, hospit
                          else rng.choice(pool))) for role, pool in pools.id_headers.items()}
     if style.full_name:
         id_hdr["full_name"] = rng.choice(["ชื่อ-สกุล", "ชื่อ - นามสกุล", "Name"])
+    if style.date_in_title and records:
+        style._title_date = records[0].visit_date
+        for rec in records:
+            rec.visit_date = style._title_date
 
     # lab-name truth (what each label means)
     for c in cols:
@@ -159,10 +166,11 @@ def render(records: list[Record], style: Style, set_name: str, path: str, hospit
         cells, expected = {}, {}
         cells["cid"] = render_cid(cid, style.cid_fmt, rng)
         if style.full_name:
-            cells["full_name"] = f"{r.first_name} {r.last_name}"
+            title = _cell_rng(r.cid, "title").choice(vocab.TITLES) if style.titles else ""
+            cells["full_name"] = f"{title}{r.first_name} {r.last_name}"
         else:
             cells["first_name"], cells["last_name"] = r.first_name, r.last_name
-        cells["department_id"] = r.department_id
+        cells["department_id"] = vocab.DEPT_NAMES[r.department_id] if style.dept_names else r.department_id
         cells["visit_date"] = render_date(r.visit_date, style.date_fmt if style.fmt == "xlsx" or style.date_fmt != "excel" else "iso", rng)
 
         for c in cols:
@@ -213,7 +221,7 @@ def render(records: list[Record], style: Style, set_name: str, path: str, hospit
     value_cols += [bp_label] if bp_label else []
     value_cols += extra_labels + ([tb_label] if tb_label else [])
     id_roles = ["cid"] + (["full_name"] if style.full_name else ["first_name", "last_name"]) \
-        + ["department_id", "visit_date"]
+        + ["department_id"] + ([] if style.date_in_title else ["visit_date"])
 
     for role in id_roles:
         truth["headers"][id_hdr[role]] = role
@@ -288,10 +296,16 @@ def _render_value(col, r: Record, style: Style, pools: Pools, unit_k, rng):
             return None, None, None
         if style.categorical == "code":
             return v, v, None
+        if style.categorical == "finding":   # the finding text sits in the result column itself
+            return rng.choice(pools.comments[col][v]), v, None
         return rng.choice(pools.categorical[v]), v, None
     if col in COMMENT_OF.values():
         partner = next(c for c, m in COMMENT_OF.items() if m == col)
         cls = r.values.get(partner)
+        if style.categorical == "finding":
+            # no comment column in the file; an abnormal finding's text is expected as the comment
+            text = _cell_rng(r.cid, partner).choice(pools.comments[partner][cls]) if cls else None
+            return None, (text if cls == 2 else None), None
         if cls is None or (style.categorical == "code" and rng.random() < 0.3):
             return None, None, None
         text = rng.choice(pools.comments[partner][cls])
@@ -328,6 +342,9 @@ def _render_value(col, r: Record, style: Style, pools: Pools, unit_k, rng):
 
 def _preamble(style: Style, hospital_hint="โรงพยาบาลสมมติ"):
     lines = [f"รายงานผลการตรวจสุขภาพประจำปี {hospital_hint}", "พิมพ์จากระบบ HIS", ""]
+    d = getattr(style, "_title_date", None)
+    if d is not None:
+        lines[0] += f" วันที่ตรวจ {d.day} {vocab.TH_MONTHS_FULL[d.month - 1]} {d.year + 543}"
     return [[x] for x in lines[:style.preamble]]
 
 

@@ -69,7 +69,8 @@ def ensure_eval_db():
 def reset_db():
     with SessionLocal() as db:
         db.execute(text("TRUNCATE employees, source_files, value_provenance, extra_results, conflicts, "
-                        "value_history, pending_reviews, agent_decisions, file_profiles RESTART IDENTITY CASCADE"))
+                        "value_history, pending_reviews, agent_decisions, file_profiles, comment_labels "
+                        "RESTART IDENTITY CASCADE"))   # learned finding meanings must not leak between cases
         db.execute(text("DELETE FROM lab_mappings WHERE origin <> 'seed'"))
         db.execute(text("DELETE FROM hospitals WHERE code <> 'UNSPECIFIED'"))
         # LangGraph checkpoints: file ids restart at 1, so old threads must go
@@ -211,9 +212,24 @@ def oracle_decisions(file_id: int, upload_truth: dict) -> tuple[list, dict]:
                 if header is None and role in ("first_name", "last_name"):
                     header = next((h for h, rr in upload_truth["headers"].items() if rr == "full_name"), None)
                     role = "full_name" if header else role
+                if header is None and role == "visit_date":
+                    # a human checks the date in the report title against the visit dates
+                    dates = {rec["visit_date"] for rec in upload_truth["records"]}
+                    cand = next((c for c in r.payload.get("candidates", [])
+                                 if c.get("header") == "__report_title_date__" and c.get("date") in dates), None)
+                    header = cand["header"] if cand else None
                 if header and not any(x.get("role") == role for x in decisions):
                     decisions.append({"action": "identity", "role": role, "header": header, "by": "oracle"})
                     stats["decisions"] += 1
+        people = {(rec["cid"], rec["visit_date"]): rec for rec in upload_truth["records"]}
+        for r in db.query(PendingReview).filter(PendingReview.source_file_id == file_id,
+                                                PendingReview.kind == "department",
+                                                PendingReview.status == "open"):
+            code = next((people[tuple(k)].get("department_id") for k in r.payload.get("keys", [])
+                         if tuple(k) in people and people[tuple(k)].get("department_id")), None)
+            if code:
+                decisions.append({"action": "department", "name": r.payload["name"], "code": code, "by": "oracle"})
+                stats["decisions"] += 1
         expected = {}
         for rec in upload_truth["records"]:
             expected[(rec["cid"], rec["visit_date"])] = rec["values"]

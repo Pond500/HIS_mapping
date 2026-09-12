@@ -108,6 +108,17 @@ DEV = [
          [Upload("H20", S(layout="wide", labels="known",
                           id_headers={"first_name": "ชื่อ (ไทย)", "last_name": "นามสกุล (ไทย)"}),
                  filename="names_unknown_wide.xlsx")]),
+    # Added 2026-09-13 after the external blind set (own dev wording, not the blind files'):
+    # a date only in the report title + combined titles; department names; findings in the result column.
+    Case("d21_title_date_vertical", "รายงานแนวตั้ง วันที่อยู่ในหัวรายงานเท่านั้น ชื่อมีคำนำหน้ารวม (นาง/นางสาว)",
+         [Upload("H21", S(layout="transposed", labels="known", date_in_title=True, preamble=2, full_name=True,
+                          titles=True), filename="vertical_title_date.xlsx"),
+          Upload("H21", S(layout="transposed", labels="known", date_in_title=True, preamble=2, full_name=True,
+                          titles=True), records="B", filename="vertical_title_date_2.xlsx", same_layout_as=0)],
+         n=12, groups=["A", "B"]),
+    Case("d22_dept_names_findings", "แผนกเป็นชื่อไทย (ต้องได้รหัส) + ผลตรวจร่างกายเป็นข้อความในช่องผล + คำนำหน้า",
+         [Upload("H22", S(layout="long", labels="known", categorical="finding", dept_names=True, full_name=True,
+                          titles=True), filename="dept_names_findings.xlsx")]),
 ]
 
 

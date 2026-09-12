@@ -36,6 +36,11 @@ ALIASES = {
 _ALIAS_OF = {a: role for role, al in ALIASES.items() for a in al}
 
 
+TITLE_DATE_KEY = "__report_title_date__"   # identity "column" = the one date written in the report title
+_TH_MON = "|".join(map(re.escape, list(N.TH_MONTHS_FULL) + list(N.TH_MONTHS)))
+_DATE_IN_TEXT = re.compile(rf"(\d{{1,2}}\s*(?:{_TH_MON})\s*\d{{4}}|\d{{1,2}}[/.-]\d{{1,2}}[/.-]\d{{2,4}}|\d{{4}}-\d{{2}}-\d{{2}})")
+
+
 def hkey(v) -> str:
     """Header key: lowercase, no spaces/punctuation."""
     return re.sub(r"[\s\-_./()\[\]:#]+", "", str(v).lower()) if v is not None else ""
@@ -75,6 +80,7 @@ class SheetSpec:
     data_cols: list[int] = field(default_factory=list)   # transposed: one per person-visit
     label_rows: list[int] = field(default_factory=list)  # transposed
     problems: list[str] = field(default_factory=list)
+    report_date: str | None = None   # one visit date for every row, from the report title (confirmed per hospital)
     missing_roles: list[str] = field(default_factory=list)   # identity columns not found -> human
     candidates: list[dict] = field(default_factory=list)     # unrecognized text columns that may be them
 
@@ -91,11 +97,49 @@ def _col(rows, c, rs):
     return [rows[r][c] for r in rs]
 
 
-def profile_sheet(sheet: Sheet, known_labels: set[str], id_aliases: dict | None = None) -> SheetSpec:
+def title_date(rows, upto: int) -> tuple[str, str] | None:
+    """The single date written in the text above the table (e.g. 'ผลตรวจ... วันที่ 8 เมษายน 2569')."""
+    found = {}
+    for r in rows[:max(0, upto)]:
+        for v in r:
+            if isinstance(v, str):
+                for m in _DATE_IN_TEXT.finditer(v):
+                    try:
+                        found.setdefault(N.parse_date(m.group(1)).isoformat(), v.strip())
+                    except N.Unparseable:
+                        pass
+    return next(iter(found.items())) if len(found) == 1 else None
+
+
+def file_title_date(sheets) -> tuple[str, str] | None:
+    """A report date stated once for the whole file (other sheets may say '(ต่อ)' only)."""
+    found = {}
+    for sh in sheets:
+        td = title_date(sh.rows, 10)
+        if td:
+            found.setdefault(td[0], td[1])
+    return next(iter(found.items())) if len(found) == 1 else None
+
+
+def _date_from_title(spec, rows, upto, id_aliases, file_date, what):
+    """No date column/row: use the report-title date only after a reviewer confirmed it for this hospital."""
+    td = title_date(rows, upto) or file_date
+    if td is None:
+        spec.problems.append(f"sheet '{spec.sheet}': หา{what}วันที่ตรวจไม่พบ")
+        return
+    if (id_aliases or {}).get(hkey(TITLE_DATE_KEY)) == "visit_date":
+        spec.report_date = td[0]
+    else:
+        spec.missing_roles.append("visit_date")
+        spec.candidates.append({"header": TITLE_DATE_KEY, "samples": [td[1]], "date": td[0]})
+
+
+def profile_sheet(sheet: Sheet, known_labels: set[str], id_aliases: dict | None = None,
+                  file_date: tuple[str, str] | None = None) -> SheetSpec:
     rows = sheet.rows
     if not rows or sum(1 for r in rows if any(not N.is_na(v) for v in r)) < 2:
         return SheetSpec(sheet.name, "skip")
-    t = _try_transposed(sheet, id_aliases)
+    t = _try_transposed(sheet, id_aliases, file_date)
     if t:
         return t
 
@@ -145,7 +189,7 @@ def profile_sheet(sheet: Sheet, known_labels: set[str], id_aliases: dict | None 
         if cands:
             spec.id_cols["visit_date"] = max(cands, key=lambda x: x[1])[0]
         else:
-            spec.problems.append(f"sheet '{sheet.name}': หาคอลัมน์วันที่ตรวจไม่พบ")
+            _date_from_title(spec, rows, spec.header_row, id_aliases, file_date, "คอลัมน์")
 
     # long or wide?
     lab_c = spec.id_cols.pop("lab_name", None)
@@ -181,7 +225,19 @@ def _identity_gaps(spec: SheetSpec, rows):
         spec.missing_roles += [r for r in ("first_name", "last_name") if r not in ids]
     if "department_id" not in ids:
         spec.missing_roles.append("department_id")
-    if not spec.missing_roles or spec.layout == "transposed" or spec.header_row is None:
+    if not spec.missing_roles or spec.header_row is None:
+        return
+    if spec.layout == "transposed":
+        used = set(spec.id_cols.values())
+        top = min(used) if used else 0
+        for rr in range(max(0, top - 10), min(len(rows), top + 12)):
+            h = rows[rr][0]
+            if rr in used or N.is_na(h) or not isinstance(h, str):
+                continue
+            vals = [rows[rr][c] for c in spec.data_cols[:50]]
+            if _frac(vals, lambda v: isinstance(v, str) and not _parses(v)) >= 0.6:
+                spec.candidates.append({"header": N.text(h),
+                                        "samples": [N.text(v) for v in vals if not N.is_na(v)][:3]})
         return
     used = set(ids.values()) | {spec.lab_col, spec.result_col, spec.unit_col}
     for c, h in enumerate(rows[spec.header_row]):
@@ -269,7 +325,7 @@ def _guess_unit_col(rows, spec):
     return None
 
 
-def _try_transposed(sheet: Sheet, id_aliases: dict | None = None) -> SheetSpec | None:
+def _try_transposed(sheet: Sheet, id_aliases: dict | None = None, file_date=None) -> SheetSpec | None:
     rows = sheet.rows
     for r in range(min(30, len(rows))):
         cells = rows[r][1:]
@@ -293,7 +349,7 @@ def _try_transposed(sheet: Sheet, id_aliases: dict | None = None) -> SheetSpec |
                         last_id = max(last_id, rr)
                         break
             if "visit_date" not in spec.id_cols:
-                spec.problems.append(f"sheet '{sheet.name}': หาแถววันที่ตรวจไม่พบ")
+                _date_from_title(spec, rows, r, id_aliases, file_date, "แถว")
             for role in ("full_name", "first_name"):
                 rr = spec.id_cols.get(role)
                 if rr is not None and _frac([rows[rr][c] for c in hits],

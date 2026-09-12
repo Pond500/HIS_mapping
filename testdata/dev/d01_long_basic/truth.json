@@ -38,7 +38,10 @@
      "lab_name": "lab_name",
      "result": "result",
      "unit": "unit"
-    }
+    },
+    "date_in_title": false,
+    "titles": false,
+    "dept_names": false
    },
    "headers": {
     "cid": "cid",

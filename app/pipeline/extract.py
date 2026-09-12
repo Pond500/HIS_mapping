@@ -7,6 +7,7 @@ Every cell either becomes a clean canonical value, or a review item that
 says exactly what a human must decide (docs/requirements.md "กฎเหล็ก").
 """
 
+import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
@@ -54,6 +55,8 @@ def observations(sheet: Sheet, spec: SheetSpec):
         for r in spec.data_rows:
             row = rows[r]
             ident = {role: row[c] for role, c in spec.id_cols.items()}
+            if spec.report_date:
+                ident.setdefault("visit_date", spec.report_date)
             if spec.layout == "long":
                 if spec.result_col is None or N.is_na(row[spec.lab_col]):
                     continue
@@ -67,6 +70,8 @@ def observations(sheet: Sheet, spec: SheetSpec):
     elif spec.layout == "transposed":
         for c in spec.data_cols:
             ident = {role: rows[r][c] for role, r in spec.id_cols.items()}
+            if spec.report_date:
+                ident.setdefault("visit_date", spec.report_date)
             for r in spec.label_rows:
                 unit = rows[r][spec.unit_col] if spec.unit_col is not None else None
                 yield Obs(sheet.name, sheet.cell_ref(r, c), ident, N.text(rows[r][0]), N.text(unit), rows[r][c])
@@ -101,8 +106,8 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
     resolutions: dict[tuple, Resolution] = {}
     obs_by_label = defaultdict(list)
     for sheet, spec in zip(sheets, specs):
-        if spec.layout == "skip":
-            continue
+        if spec.layout == "skip" or "visit_date" in spec.missing_roles:
+            continue   # no visit date yet: the sheet waits for its "identity" review, row by row noise helps no one
         for o in observations(sheet, spec):
             if o.label is None:
                 continue
@@ -113,6 +118,7 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
             ex.stats["observations"] += 1
 
     bad_cids, seen_reviews = set(), set()
+    dept_pending = defaultdict(set)   # department NAME without a learned code -> {(cid, date)} (D18)
 
     def review(kind, **payload):
         k = (kind, tuple(sorted((a, str(b)) for a, b in payload.items() if a != "samples")))
@@ -137,11 +143,23 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
                    sheet=o.sheet, reason=str(e))
             return None
         person = {}
-        if "full_name" in o.ident:
-            person["first_name"], person["last_name"] = N.split_full_name(o.ident["full_name"])
-        for role in ("first_name", "last_name", "department_id"):
-            if role in o.ident and N.text(o.ident[role]):
-                person[role] = N.text(o.ident[role])
+        try:
+            if "full_name" in o.ident:
+                person["first_name"], person["last_name"] = N.split_full_name(o.ident["full_name"])
+            for role in ("first_name", "last_name"):
+                if role in o.ident and N.text(o.ident[role]):
+                    person[role] = N.clean_name(o.ident[role])
+        except N.Unparseable as e:
+            person.pop("first_name", None), person.pop("last_name", None)
+            review("value", cid=d, visit_date=vd, column="first_name", also=["last_name"],
+                   raw=N.text(o.ident.get("full_name") or o.ident.get("first_name")), sheet=o.sheet, reason=str(e))
+        dept = N.text(o.ident.get("department_id")) if "department_id" in o.ident else None
+        if dept:
+            code = dept if N.looks_like_code(dept) else mapper.dept_code(dept)
+            if code:
+                person["department_id"] = code
+            else:
+                dept_pending[dept].add((d, vd))
         return d, vd, person
 
     def put(key, person, col, value, o: Obs, res: Resolution):
@@ -194,12 +212,16 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
             if N.is_na(o.raw):
                 continue
             try:
-                _convert(o, res, key, person, put, ex, review)
+                _convert(o, res, key, person, put, ex, review, comment_labels or {}, comment_evidence or {})
             except N.Unparseable as e:
                 col = "bp_systolic" if res.target == TARGET_BP else res.target
                 review("value", cid=cid, visit_date=vd, column=col, raw=N.text(o.raw), sheet=o.sheet,
                        cell=o.cell, label=label, reason=str(e))
                 ex.stats["cells_value_flagged"] += 1
+
+    for name, keys in dept_pending.items():
+        review("department", name=name, count=len(keys), keys=[list(k) for k in sorted(keys)][:2000],
+               reason="แผนกเขียนเป็นชื่อ — ระบุรหัสแผนกครั้งเดียว ระบบจะจำไว้สำหรับโรงพยาบาลนี้")
 
     # drop cells marked as in-file duplicates
     for row in ex.rows.values():
@@ -223,7 +245,7 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
     return ex
 
 
-def _convert(o: Obs, res: Resolution, key, person, put, ex: Extraction, review):
+def _convert(o: Obs, res: Resolution, key, person, put, ex: Extraction, review, labels: dict, cev: dict):
     if res.target == TARGET_BP:
         bp = N.parse_bp(o.raw)
         if bp:
@@ -254,7 +276,23 @@ def _convert(o: Obs, res: Resolution, key, person, put, ex: Extraction, review):
             raise N.Unparseable(f"ค่า {value} {f.unit} อยู่นอกช่วงที่เป็นไปได้ ({f.lo}–{f.hi})")
         put(key, person, res.target, value, o, res)
     elif f.kind == "categorical":
-        v = N.parse_categorical(o.raw)
+        try:
+            v = N.parse_categorical(o.raw)
+        except N.Unparseable:
+            # a finding written in the result column ("Fibrosis RUL"): classify it like a comment,
+            # and keep the text as the comment when it is abnormal (R1)
+            cmt, text = COMMENT_OF.get(res.target), N.text(o.raw)
+            if not cmt or not text or not re.search(r"[A-Za-z\u0E00-\u0E7F]{2}", text):
+                raise
+            k = (res.target, N.norm_comment(text))
+            if k not in labels:
+                review("comment", cid=key[0], visit_date=key[1], column=res.target, also=[cmt], text=text,
+                       reason="ผลตรวจเขียนเป็นข้อความ ต้องจัดว่าปกติหรือผิดปกติ", **cev.get(k, {}))
+                return
+            put(key, person, res.target, labels[k], o, res)
+            if labels[k] == 2:
+                put(key, person, cmt, text, o, res)
+            return
         if v is not None:
             put(key, person, res.target, v, o, res)
     else:

@@ -36,8 +36,8 @@ from app.llm.client import LLMError
 from app.models import TARGET_EXTRA, TARGET_IGNORE, CommentLabel, LabMapping, PendingReview, SourceFile
 from app.pipeline import normalize as N
 from app.pipeline.extract import observations
-from app.pipeline.mapper import IDENTITY_PREFIX, Mapper, norm_label
-from app.pipeline.profiler import profile_sheet
+from app.pipeline.mapper import DEPT_PREFIX, IDENTITY_PREFIX, Mapper, norm_label
+from app.pipeline.profiler import file_title_date, profile_sheet
 from app.pipeline.reader import read_file
 from app.pipeline.run import process_file
 from app.template import FIELDS_BY_COLUMN
@@ -81,8 +81,9 @@ def analyze(state: FileState) -> dict:
     raws = defaultdict(list)
     layouts = {}
     cands = set()
+    fdate = file_title_date(sheets)
     for sh in sheets:
-        spec = profile_sheet(sh, known, mapper.identity_aliases())
+        spec = profile_sheet(sh, known, mapper.identity_aliases(), fdate)
         cands |= {c["header"] for c in spec.candidates}
         if spec.layout == "skip":
             continue
@@ -331,7 +332,22 @@ def save_mapping(db, hospital_id, label, unit, target, factor, origin, by):
     return m
 
 
-IDENTITY_ROLES = ("first_name", "last_name", "full_name", "department_id")
+IDENTITY_ROLES = ("first_name", "last_name", "full_name", "department_id", "visit_date")
+
+
+def save_department(db, hospital_id, name, code, by):
+    """D18: remember this hospital's department name -> code."""
+    from app.pipeline.normalize import looks_like_code
+    if not looks_like_code(code):
+        raise ValueError(f"not a department code: {code}")
+    key = norm_label(name)
+    m = db.query(LabMapping).filter(LabMapping.hospital_id == hospital_id, LabMapping.source_name == key,
+                                    LabMapping.source_unit.is_(None)).one_or_none()
+    if m is None:
+        m = LabMapping(hospital_id=hospital_id, source_name=key, source_unit=None)
+        db.add(m)
+    m.target_column, m.unit_factor, m.origin, m.approved_by = DEPT_PREFIX + code.strip(), 1, "human", by
+    db.flush()
 
 
 def save_comment_label(db, column, text, value, origin, by):
@@ -375,6 +391,14 @@ def apply_decisions(source_file_id: int, decisions: list[dict], state: FileState
     with SessionLocal() as db:
         sf = db.get(SourceFile, source_file_id)
         for d in decisions:
+            if d["action"] == "department":
+                save_department(db, sf.hospital_id, d["name"], d["code"], d.get("by", "reviewer"))
+                for r in db.query(PendingReview).filter(PendingReview.source_file_id == source_file_id,
+                                                        PendingReview.kind == "department",
+                                                        PendingReview.status == "open"):
+                    if r.payload.get("name") == d["name"]:
+                        r.status, r.decision, r.decided_by = "approved", d, d.get("by", "reviewer")
+                continue
             if d["action"] == "comment":
                 save_comment_label(db, d["column"], d["text"], int(d["value"]), "human", d.get("by", "reviewer"))
                 key = (d["column"], N.norm_comment(d["text"]))

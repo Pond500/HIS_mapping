@@ -29,7 +29,10 @@
     "split_sheets": false,
     "full_name": false,
     "label_overrides": {},
-    "id_headers": {}
+    "id_headers": {},
+    "date_in_title": false,
+    "titles": false,
+    "dept_names": false
    },
    "headers": {
     "เลขบัตรประชาชน": "cid",

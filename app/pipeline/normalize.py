@@ -18,7 +18,9 @@ EN_MONTHS = {m: i + 1 for i, m in enumerate(
     ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"])}
 
 NA_TOKENS = {"", "-", "--", "n/a", "na", "nan", "none", "null", "ไม่มี", "ไม่ได้ตรวจ", "nd", "."}
-TITLES = ("นางสาว", "น.ส.", "นาย", "นาง", "ด.ช.", "ด.ญ.", "mr.", "mrs.", "ms.", "miss ", "mr ", "mrs ", "ms ")
+# one title, or a combined one as HIS exports write it when unsure ("นาง/นางสาว", "นาย/นาง")
+_TITLE = r"(?:นางสาว|น\.ส\.|เด็กชาย|เด็กหญิง|ด\.ช\.|ด\.ญ\.|นาย|นาง|(?:mrs|mr|ms|miss)\.?(?=[\s/]))"
+_TITLES_RE = re.compile(rf"^\s*{_TITLE}(?:\s*/\s*{_TITLE})*\s*", re.I)
 
 
 class Unparseable(ValueError):
@@ -57,7 +59,11 @@ def cid_digits(v) -> str | None:
     s = str(v).strip()
     if re.fullmatch(r"\d+\.0+", s):
         s = s.split(".")[0]
-    if re.fullmatch(r"\d(\.\d+)?[eE]\+?\d+", s):   # "1.10050011223E+12" from a CSV
+    m = re.fullmatch(r"(\d)(?:\.(\d+))?[eE]\+?(\d+)", s)   # "1.100500112239E+12" from a CSV
+    if m:
+        # Excel's "1.10046E+12" dropped digits: the real CID can't be recovered, whatever its checksum says
+        if 1 + len(m.group(2) or "") < 13:
+            return None
         return str(int(float(s)))
     d = re.sub(r"[\s\-]", "", s)
     return d if d.isdigit() else None
@@ -68,6 +74,11 @@ def cid_valid(d: str | None) -> bool:
         return False
     s = sum(int(x) * (13 - i) for i, x in enumerate(d[:12]))
     return (11 - s % 11) % 10 == int(d[12])
+
+
+def looks_like_code(v) -> bool:
+    """A department value that is already a code ("PROD-01", "QC"), not a name ("ฝ่ายผลิต")."""
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_\-.]{0,19}", str(v).strip()))
 
 
 def looks_like_cid(v) -> bool:
@@ -216,11 +227,19 @@ def parse_bp(v) -> tuple[float, float] | None:
 
 
 def strip_title(name: str) -> str:
-    low = name.lower()
-    for t in TITLES:
-        if low.startswith(t):
-            return name[len(t):].strip()
-    return name
+    return _TITLES_RE.sub("", name, count=1).strip()
+
+
+def _check_name(n: str | None) -> str | None:
+    if n is not None and not re.match(r"[A-Za-z\u0E00-\u0E7F]", n):
+        raise Unparseable(f"อ่านชื่อไม่ได้แน่ชัด: {n}")
+    return n
+
+
+def clean_name(v) -> str | None:
+    """A single name cell: title removed; raises Unparseable if what's left doesn't look like a name."""
+    s = text(v)
+    return _check_name(strip_title(s) or None) if s else None
 
 
 def split_full_name(v) -> tuple[str | None, str | None]:
@@ -228,4 +247,6 @@ def split_full_name(v) -> tuple[str | None, str | None]:
     if not s:
         return None, None
     parts = strip_title(s).split(" ", 1)
-    return parts[0], (parts[1].strip() if len(parts) > 1 else None)
+    first = parts[0] or None
+    last = parts[1].strip() if len(parts) > 1 else None
+    return _check_name(first), _check_name(last)

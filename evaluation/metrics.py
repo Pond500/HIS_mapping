@@ -19,7 +19,8 @@ How the pipeline signals "a human was asked" (pending_reviews, status open):
   kind "value" / "comment"  payload {cid, visit_date, column}
   kind "mapping"            payload {label}  (label = lab name or header as in the file; an
                             identity header that became a label credits that person column)
-  kind "identity"           payload {missing: [first_name | last_name | full_name | department_id]}
+  kind "department"         payload {name, keys: [[cid, visit_date], ...]} — a department name needs its code
+  kind "identity"           payload {missing: [first_name | last_name | full_name | department_id | visit_date]}
                             — the file's identity column(s) couldn't be found
   kind "profile"            whole file waits for a human
   kind "cid"                payload {raw_cid}
@@ -29,6 +30,7 @@ A file with status "awaiting_review" also counts as flagged as a whole.
 import re
 from collections import Counter
 
+from app.pipeline.extract import COMMENT_OF
 from app.template import FIELDS_BY_COLUMN
 
 PERSON_FIELDS = ("first_name", "last_name", "department_id")
@@ -80,18 +82,26 @@ def score_case(truth: dict, state: dict) -> dict:
     for r in state["reviews"]:
         p, i = r["payload"] or {}, idx_of_file.get(r["source_file_id"])
         if r["kind"] in ("value", "comment") and "column" in p:
-            flagged_cells.add((str(p.get("cid")), str(p.get("visit_date")), p["column"]))
+            for col in [p["column"]] + list(p.get("also") or []):
+                flagged_cells.add((str(p.get("cid")), str(p.get("visit_date")), col))
+        elif r["kind"] == "department":
+            for k in p.get("keys", []):
+                flagged_cells.add((str(k[0]), str(k[1]), "department_id"))
         elif r["kind"] == "mapping" and i is not None:
             info = uploads[i]["lab_names"].get(p.get("label"))
             role = uploads[i].get("headers", {}).get(p.get("label"))
             if info:
                 targets = ["bp_systolic", "bp_diastolic"] if info["target"] == "__bp__" else [info["target"]]
+                if info["target"] in COMMENT_OF:      # findings written in that column wait with it
+                    targets.append(COMMENT_OF[info["target"]])
                 flagged_cols.update((i, t) for t in targets)
             elif role in IDENTITY_ROLES:
                 # a wide file's unrecognized identity header became a label and a human is asked about it
                 flagged_cols.update((i, t) for t in IDENTITY_ROLES[role])
         elif r["kind"] == "identity" and i is not None:
             for role in p.get("missing", []):
+                if role == "visit_date":
+                    flagged_uploads.add(i)     # no row can be keyed until the date is confirmed
                 flagged_cols.update((i, t) for t in IDENTITY_ROLES.get(role, ()))
         elif r["kind"] == "profile" and i is not None:
             flagged_uploads.add(i)

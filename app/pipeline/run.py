@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.models import AgentDecision, CommentLabel, Hospital, PendingReview, SourceFile
 from app.pipeline.extract import extract
 from app.pipeline.mapper import Mapper
-from app.pipeline.profiler import profile_sheet
+from app.pipeline.profiler import file_title_date, profile_sheet
 from app.pipeline.reader import read_file
 from app.pipeline.store import save
 
@@ -41,7 +41,8 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
             data = fh.read()
         sheets = read_file(data, os.path.splitext(sf.stored_path)[1])
         mapper = Mapper(db, sf.hospital_id)
-        specs = [profile_sheet(s, mapper.known_labels(), mapper.identity_aliases()) for s in sheets]
+        fdate = file_title_date(sheets)
+        specs = [profile_sheet(s, mapper.known_labels(), mapper.identity_aliases(), fdate) for s in sheets]
         labels = {(c.column, c.text_norm): c.value for c in db.query(CommentLabel)}
         ex = extract(sheets, specs, mapper, evidence, labels, comment_evidence)
         db.query(PendingReview).filter(PendingReview.source_file_id == sf.id,

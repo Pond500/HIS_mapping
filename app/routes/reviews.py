@@ -24,13 +24,14 @@ router = APIRouter(prefix="/api", tags=["reviews"])
 
 class Decision(BaseModel):
     review_id: int
-    action: Literal["approve", "set", "extra", "ignore", "skip", "identity", "comment"]
+    action: Literal["approve", "set", "extra", "ignore", "skip", "identity", "comment", "department"]
     target: str | None = None
     unit: str | None = None       # unit the values are written in (for "set"); factor computed from it
     factor: float | None = None   # explicit factor (overrides unit)
     role: str | None = None       # identity review: which role the chosen column holds
     header: str | None = None     # identity review: the column header
     value: int | None = None      # comment review: 1 normal / 2 abnormal (applies to every row with this text)
+    code: str | None = None       # department review: the code for this department name (D18)
 
 
 class DecisionBody(BaseModel):
@@ -72,8 +73,17 @@ def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db)):
     decisions = []
     for d in body.decisions:
         r = db.get(PendingReview, d.review_id)
-        if r is None or r.source_file_id != file_id or r.kind not in ("mapping", "identity", "comment"):
+        if r is None or r.source_file_id != file_id or r.kind not in ("mapping", "identity", "comment", "department"):
             raise HTTPException(400, f"รายการ {d.review_id} ไม่ใช่รายการจับคู่ของไฟล์นี้")
+        if r.kind == "department":
+            if d.action == "skip":
+                continue
+            from app.pipeline.normalize import looks_like_code
+            if d.action != "department" or not d.code or not looks_like_code(d.code):
+                raise HTTPException(400, f"รายการ {d.review_id}: ใส่รหัสแผนก (ตัวอักษรอังกฤษ/ตัวเลข เช่น QC, PROD-01)")
+            decisions.append({"action": "department", "name": r.payload["name"], "code": d.code.strip(),
+                              "by": body.by})
+            continue
         if r.kind == "comment":
             if d.action == "skip":
                 continue

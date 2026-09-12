@@ -32,7 +32,10 @@
     "id_headers": {
      "first_name": "ชื่อ (ไทย)",
      "last_name": "นามสกุล (ไทย)"
-    }
+    },
+    "date_in_title": false,
+    "titles": false,
+    "dept_names": false
    },
    "headers": {
     "เลขประจำตัวประชาชน": "cid",

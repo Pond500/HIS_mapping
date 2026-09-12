@@ -23,6 +23,7 @@ TEMPLATE_NAMES = {c: c for c in RESULT_COLUMNS}   # a file using the template's 
 # mappings learned for a specific (label, unit) store the complete factor in unit_factor
 LEARNED_ORIGINS = {"human", "agent_approved", "agent_auto"}
 IDENTITY_PREFIX = "__id:"     # target_column "__id:first_name" = a hospital's confirmed identity header
+DEPT_PREFIX = "__dept:"       # target_column "__dept:QC" = this hospital's department name -> code (D18)
 
 
 @dataclass
@@ -60,15 +61,22 @@ class Resolution:
 
 class Mapper:
     def __init__(self, db: Session, hospital_id: int | None):
-        self.hospital, self.central, self.identity = {}, {}, {}
+        self.hospital, self.central, self.identity, self.dept = {}, {}, {}, {}
         q = db.query(LabMapping).filter((LabMapping.hospital_id == hospital_id) | LabMapping.hospital_id.is_(None))
         for m in q:
             if m.target_column.startswith(IDENTITY_PREFIX):
                 if m.hospital_id is not None:
                     self.identity[m.source_name] = m.target_column[len(IDENTITY_PREFIX):]
                 continue
+            if m.target_column.startswith(DEPT_PREFIX):
+                if m.hospital_id is not None:
+                    self.dept[m.source_name] = m.target_column[len(DEPT_PREFIX):]
+                continue
             layer = self.central if m.hospital_id is None else self.hospital
             layer[(m.source_name, (m.source_unit or "").lower() or None)] = m
+
+    def dept_code(self, name) -> str | None:
+        return self.dept.get(norm_label(name))
 
     def identity_aliases(self) -> dict:
         """{hkey(header): role} confirmed by this hospital's reviewers (see profiler.alias_role)."""

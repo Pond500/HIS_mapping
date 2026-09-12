@@ -725,3 +725,4 @@ tr:hover td {
 .calc-grid input { max-width: 100%; }
 .calc-out { line-height: 1.7; }
 .calc-result { font-size: 1.1rem; margin-bottom: 4px; }
+.dept-card { border-left-color: var(--accent-purple); }
