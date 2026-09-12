@@ -7,8 +7,17 @@ and still-invalid ones raise LLMError (the caller then flags for a human).
 
 Every call is logged to agent_decisions (input without PII, output, tokens,
 cost, latency) when a DB session is given.
+
+Replay (D4, for a live demo): every successful answer is recorded in
+storage/llm_cache/<sha256 of model+prompt+schema>.json (labels and sample lab
+values only — no names or CIDs). LLM_MODE:
+  live      (default) call the model; record the answer
+  fallback  call the model; if it fails or is slower than LLM_TIMEOUT_S, use the recorded answer
+  replay    never call the network; recorded answers only
+No recorded answer -> LLMError -> the item goes to a human, as for any failed call.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -41,6 +50,7 @@ class CallMeta:
     latency_ms: int = 0
     attempts: int = 0
     error: str | None = None
+    replayed: bool = False
 
 
 def _api_key() -> str | None:
@@ -58,8 +68,39 @@ def client() -> openai.OpenAI:
             raise LLMError("OPENROUTER_API_KEY is not set (.env)")
         _client = openai.OpenAI(api_key=key, base_url=os.environ.get("OPENROUTER_BASE_URL",
                                                                      "https://openrouter.ai/api/v1"),
-                                timeout=120, max_retries=2)
+                                timeout=float(os.environ.get("LLM_TIMEOUT_S", "120")),
+                                max_retries=0 if _mode() == "fallback" else 2)
     return _client
+
+
+def _mode() -> str:
+    return os.environ.get("LLM_MODE", "live").lower()
+
+
+def _cache_dir() -> str:
+    return os.environ.get("LLM_CACHE_DIR", os.path.join(ROOT, "storage", "llm_cache"))
+
+
+def _cache_key(model: str, system: str, user: str, schema: type[BaseModel]) -> str:
+    blob = json.dumps({"model": model, "system": system, "user": user, "schema": _strict_schema(schema)},
+                      sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
+def _cache_read(key: str) -> str | None:
+    path = os.path.join(_cache_dir(), f"{key}.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)["text"]
+
+
+def _cache_write(key: str, text: str, model: str):
+    os.makedirs(_cache_dir(), exist_ok=True)
+    tmp = os.path.join(_cache_dir(), f"{key}.json.tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump({"model": model, "text": text}, fh, ensure_ascii=False)
+    os.replace(tmp, os.path.join(_cache_dir(), f"{key}.json"))
 
 
 def _strict_schema(model: type[BaseModel]) -> dict:
@@ -93,6 +134,9 @@ def call_structured(agent: str, system: str, user: str, schema: type[BaseModel],
     cfg = agent_config(agent)
     model = model or cfg.model
     meta = CallMeta(agent, model)
+    key = _cache_key(model, system, user, schema)
+    if _mode() == "replay":
+        return _from_cache(key, schema, meta, db, source_file_id, log_input, reason="replay mode")
     # some providers reject json_schema requests unless the prompt itself mentions JSON
     messages = [{"role": "system", "content": system + "\n\nRespond with a single JSON object matching the schema."},
                 {"role": "user", "content": user}]
@@ -112,6 +156,8 @@ def call_structured(agent: str, system: str, user: str, schema: type[BaseModel],
             )
         except openai.APIError as e:
             last_err = f"{type(e).__name__}: {e}"
+            if _mode() == "fallback":
+                break   # network/provider trouble during a demo: use the recording now, don't wait out retries
             continue
         usage = (resp.model_dump().get("usage") or {})
         meta.tokens_in += usage.get("prompt_tokens") or 0
@@ -121,6 +167,7 @@ def call_structured(agent: str, system: str, user: str, schema: type[BaseModel],
         try:
             parsed = schema.model_validate_json(_extract_json(text))
             meta.latency_ms = int((time.time() - t0) * 1000)
+            _cache_write(key, _extract_json(text), model)
             _log(db, source_file_id, meta, log_input, parsed.model_dump(), None)
             return parsed, meta
         except (ValidationError, json.JSONDecodeError, ValueError) as e:
@@ -129,16 +176,31 @@ def call_structured(agent: str, system: str, user: str, schema: type[BaseModel],
                          {"role": "user", "content": f"คำตอบไม่ตรง schema: {str(e)[:800]}\n"
                                                      "ตอบใหม่เป็น JSON ตาม schema เท่านั้น"}]
     meta.latency_ms = int((time.time() - t0) * 1000)
+    if _mode() == "fallback":
+        return _from_cache(key, schema, meta, db, source_file_id, log_input, reason=f"live call failed: {last_err}")
     meta.error = last_err
     _log(db, source_file_id, meta, log_input, None, last_err)
     raise LLMError(f"{agent} ({model}) failed after {meta.attempts} attempts: {last_err}")
+
+
+def _from_cache(key, schema, meta: CallMeta, db, source_file_id, log_input, reason: str):
+    text = _cache_read(key)
+    if text is None:
+        meta.error = f"{reason}; no recorded answer"
+        _log(db, source_file_id, meta, log_input, None, meta.error)
+        raise LLMError(f"{meta.agent} ({meta.model}): {meta.error}")
+    parsed = schema.model_validate_json(text)
+    meta.replayed = True
+    _log(db, source_file_id, meta, log_input, parsed.model_dump(), None)
+    return parsed, meta
 
 
 def _log(db, source_file_id, meta: CallMeta, log_input, output, error):
     if db is None:
         return
     from app.models import AgentDecision
-    db.add(AgentDecision(source_file_id=source_file_id, agent=meta.agent, model=meta.model,
+    db.add(AgentDecision(source_file_id=source_file_id, agent=meta.agent,
+                         model=meta.model + (" (replay)" if meta.replayed else ""),
                          input=log_input or {}, output=output, tokens_in=meta.tokens_in,
                          tokens_out=meta.tokens_out, cost_usd=meta.cost_usd, latency_ms=meta.latency_ms,
                          error=error))

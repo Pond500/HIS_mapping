@@ -1,0 +1,382 @@
+{
+ "sut": "agents",
+ "set": "exam",
+ "oracle": true,
+ "headline": {
+  "auto_precision": 1.0,
+  "automation": 0.9940258382495706,
+  "automation_repeat": 1.0,
+  "silent_errors": 0,
+  "silent_drops": 0,
+  "flagged_for_human": 0,
+  "expected_cells": 13391,
+  "llm_cost_usd": 0.0492,
+  "llm_calls": 30,
+  "human_decisions": 2,
+  "human_corrections": 0,
+  "conflicts_found": "5/5",
+  "invalid_cid_flagged": "2/2",
+  "censored_flagged": "6/6",
+  "extras_found": "160/160",
+  "buckets": {
+   "correct": 13391,
+   "derived_correct": 154
+  }
+ },
+ "cases": [
+  {
+   "case": "e01_long_thai_units",
+   "buckets": {
+    "correct": 1468
+   },
+   "expected_cells": 1468,
+   "per_upload": [
+    {
+     "correct": 1468
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 65.7,
+   "llm_cost_usd": 0.007955,
+   "llm_calls": 4,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e02_wide_semicolon_csv",
+   "buckets": {
+    "correct": 1461
+   },
+   "expected_cells": 1461,
+   "per_upload": [
+    {
+     "correct": 1461
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 6,
+    "flagged": 6
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 46.1,
+   "llm_cost_usd": 0.004904,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e03_multisheet_long",
+   "buckets": {
+    "correct": 1497
+   },
+   "expected_cells": 1497,
+   "per_upload": [
+    {
+     "correct": 1497
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 34.2,
+   "llm_cost_usd": 0.006285,
+   "llm_calls": 4,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e04_transposed_units",
+   "buckets": {
+    "correct": 381
+   },
+   "expected_cells": 381,
+   "per_upload": [
+    {
+     "correct": 381
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 111.0,
+   "llm_cost_usd": 0.010361,
+   "llm_calls": 6,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e05_extras_traps",
+   "buckets": {
+    "correct": 1518
+   },
+   "expected_cells": 1518,
+   "per_upload": [
+    {
+     "correct": 1518
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 160,
+    "found": 160
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 30.2,
+   "llm_cost_usd": 0.00442,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e06_comment_text",
+   "buckets": {
+    "correct": 1641,
+    "derived_correct": 154
+   },
+   "expected_cells": 1641,
+   "per_upload": [
+    {
+     "correct": 802
+    },
+    {
+     "correct": 839
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 44.6,
+   "llm_cost_usd": 0.005676,
+   "llm_calls": 6,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e07_conflict_bad_cid",
+   "buckets": {
+    "correct": 1492
+   },
+   "expected_cells": 1492,
+   "per_upload": [
+    {
+     "correct": 1418
+    },
+    {
+     "correct": 74
+    }
+   ],
+   "conflicts": {
+    "expected": 5,
+    "found": 5
+   },
+   "invalid_cid": {
+    "expected": 2,
+    "flagged": 2
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 1.2,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e08_subset_mixed_everything",
+   "buckets": {
+    "correct": 924
+   },
+   "expected_cells": 924,
+   "per_upload": [
+    {
+     "missing_flagged": 40,
+     "correct": 884
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 12.0,
+   "llm_cost_usd": 0.00203,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 1,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e09_repeat_hospital",
+   "buckets": {
+    "correct": 3009
+   },
+   "expected_cells": 3009,
+   "per_upload": [
+    {
+     "missing_flagged": 40,
+     "correct": 1475
+    },
+    {
+     "correct": 1494
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 41.5,
+   "llm_cost_usd": 0.007599,
+   "llm_calls": 4,
+   "oracle": {
+    "decisions": 1,
+    "corrections": 0
+   }
+  }
+ ]
+}
