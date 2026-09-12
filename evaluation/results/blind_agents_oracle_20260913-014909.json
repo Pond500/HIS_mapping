@@ -1,0 +1,1554 @@
+{
+ "sut": "agents",
+ "set": "blind",
+ "oracle": true,
+ "headline": {
+  "auto_precision": 0.9843785374688703,
+  "automation": 0.7259418729817008,
+  "automation_repeat": 0.9770531400966184,
+  "silent_errors": 69,
+  "silent_drops": 59,
+  "flagged_for_human": 169,
+  "expected_cells": 4645,
+  "llm_cost_usd": 0.0274,
+  "llm_calls": 20,
+  "human_decisions": 25,
+  "human_corrections": 3,
+  "conflicts_found": "8/8",
+  "invalid_cid_flagged": "14/14",
+  "censored_flagged": "4/4",
+  "extras_found": "189/233",
+  "buckets": {
+   "correct": 4348,
+   "missing_flagged": 169,
+   "missing_silent": 59,
+   "wrong": 69
+  }
+ },
+ "cases": [
+  {
+   "case": "b01_b02_repeat_hospital",
+   "buckets": {
+    "correct": 1692,
+    "missing_flagged": 70,
+    "missing_silent": 1
+   },
+   "expected_cells": 1763,
+   "per_upload": [
+    {
+     "missing_flagged": 158,
+     "correct": 776,
+     "missing_silent": 1
+    },
+    {
+     "correct": 809,
+     "missing_flagged": 19
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 1,
+    "flagged": 1
+   },
+   "censored": {
+    "expected": 3,
+    "flagged": 3
+   },
+   "extras": {
+    "expected": 98,
+    "found": 98
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1251942005021",
+     "date": "2026-02-10",
+     "column": "secondary_lesion",
+     "expected": "-"
+    }
+   ],
+   "missing_by_column": {
+    "secondary_lesion": 1
+   },
+   "errors_all": [],
+   "missing_all": [
+    {
+     "cid": "1251942005021",
+     "date": "2026-02-10",
+     "column": "secondary_lesion",
+     "expected": "-"
+    }
+   ],
+   "seconds": 75.4,
+   "llm_cost_usd": 0.010783,
+   "llm_calls": 8,
+   "oracle": {
+    "decisions": 10,
+    "corrections": 1
+   }
+  },
+  {
+   "case": "b03_b04_resend",
+   "buckets": {
+    "correct": 963,
+    "wrong": 24
+   },
+   "expected_cells": 987,
+   "per_upload": [
+    {
+     "correct": 931,
+     "missing_flagged": 28,
+     "wrong": 24,
+     "missing_silent": 4
+    },
+    {}
+   ],
+   "conflicts": {
+    "expected": 8,
+    "found": 8
+   },
+   "invalid_cid": {
+    "expected": 8,
+    "flagged": 8
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [
+    {
+     "kind": "wrong",
+     "cid": "1334327890907",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "4320.00",
+     "expected": 4315.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1750118886021",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "4710.00",
+     "expected": 4706.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1881928962450",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8040.00",
+     "expected": 8038.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2003620352581",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "9420.00",
+     "expected": 9422.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2256421437774",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8720.00",
+     "expected": 8721.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2316868472998",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "10170.00",
+     "expected": 10174.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4085770037795",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "10520.00",
+     "expected": 10519.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4330413842703",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "6710.00",
+     "expected": 6713.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5036238049511",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "7500.00",
+     "expected": 7504.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5048770722961",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8520.00",
+     "expected": 8521.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5216685985452",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8280.00",
+     "expected": 8281.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5283084032601",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "5560.00",
+     "expected": 5563.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5406522525990",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "6950.00",
+     "expected": 6954.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "6173310975345",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "5280.00",
+     "expected": 5278.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "6348069226737",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "6670.00",
+     "expected": 6665.0
+    }
+   ],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "errors_all": [
+    {
+     "kind": "wrong",
+     "cid": "1334327890907",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "4320.00",
+     "expected": 4315.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1750118886021",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "4710.00",
+     "expected": 4706.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1881928962450",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8040.00",
+     "expected": 8038.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2003620352581",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "9420.00",
+     "expected": 9422.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2256421437774",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8720.00",
+     "expected": 8721.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2316868472998",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "10170.00",
+     "expected": 10174.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4085770037795",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "10520.00",
+     "expected": 10519.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4330413842703",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "6710.00",
+     "expected": 6713.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5036238049511",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "7500.00",
+     "expected": 7504.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5048770722961",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8520.00",
+     "expected": 8521.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5216685985452",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8280.00",
+     "expected": 8281.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5283084032601",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "5560.00",
+     "expected": 5563.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5406522525990",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "6950.00",
+     "expected": 6954.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "6173310975345",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "5280.00",
+     "expected": 5278.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "6348069226737",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "6670.00",
+     "expected": 6665.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "7006612281411",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "4200.00",
+     "expected": 4202.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "7202701350561",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "4800.00",
+     "expected": 4797.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "7815775846699",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "8360.00",
+     "expected": 8361.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8087550683781",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "7400.00",
+     "expected": 7399.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8487094312301",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "4230.00",
+     "expected": 4232.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8669991988718",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "5720.00",
+     "expected": 5718.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "9471948586304",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "5420.00",
+     "expected": 5415.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "9604035249503",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "5170.00",
+     "expected": 5166.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "9992829157287",
+     "date": "2026-01-22",
+     "column": "wbc",
+     "got": "9920.00",
+     "expected": 9919.0
+    }
+   ],
+   "missing_all": [],
+   "seconds": 15.6,
+   "llm_cost_usd": 0.002739,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 9,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "b05_vertical_two_sheets",
+   "buckets": {
+    "correct": 696,
+    "missing_flagged": 54,
+    "wrong": 10
+   },
+   "expected_cells": 760,
+   "per_upload": [
+    {
+     "missing_flagged": 760
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 1,
+    "flagged": 1
+   },
+   "censored": {
+    "expected": 1,
+    "flagged": 1
+   },
+   "extras": {
+    "expected": 63,
+    "found": 63
+   },
+   "error_examples": [
+    {
+     "kind": "wrong",
+     "cid": "1623307006200",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "SAFETY"
+    },
+    {
+     "kind": "wrong",
+     "cid": "1950152610740",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "SAFETY"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3037170878245",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "WH"
+    },
+    {
+     "kind": "wrong",
+     "cid": "4499360589828",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "PROD"
+    },
+    {
+     "kind": "wrong",
+     "cid": "6635827586181",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "WH"
+    },
+    {
+     "kind": "wrong",
+     "cid": "7317119304440",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "7491890342975",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "WH"
+    },
+    {
+     "kind": "wrong",
+     "cid": "7589709790024",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "OFF"
+    },
+    {
+     "kind": "wrong",
+     "cid": "8021656489207",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "8873941382177",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "OFF"
+    }
+   ],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "errors_all": [
+    {
+     "kind": "wrong",
+     "cid": "1623307006200",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "SAFETY"
+    },
+    {
+     "kind": "wrong",
+     "cid": "1950152610740",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "SAFETY"
+    },
+    {
+     "kind": "wrong",
+     "cid": "3037170878245",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "WH"
+    },
+    {
+     "kind": "wrong",
+     "cid": "4499360589828",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "PROD"
+    },
+    {
+     "kind": "wrong",
+     "cid": "6635827586181",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "WH"
+    },
+    {
+     "kind": "wrong",
+     "cid": "7317119304440",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "7491890342975",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "WH"
+    },
+    {
+     "kind": "wrong",
+     "cid": "7589709790024",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "OFF"
+    },
+    {
+     "kind": "wrong",
+     "cid": "8021656489207",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "ENG"
+    },
+    {
+     "kind": "wrong",
+     "cid": "8873941382177",
+     "date": "2026-04-08",
+     "column": "department_id",
+     "got": "OPD",
+     "expected": "OFF"
+    }
+   ],
+   "missing_all": [],
+   "seconds": 48.8,
+   "llm_cost_usd": 0.004976,
+   "llm_calls": 4,
+   "oracle": {
+    "decisions": 2,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "b06_csv_mixed",
+   "buckets": {
+    "correct": 997,
+    "missing_flagged": 45,
+    "wrong": 35,
+    "missing_silent": 58
+   },
+   "expected_cells": 1135,
+   "per_upload": [
+    {
+     "missing_flagged": 186,
+     "correct": 856,
+     "wrong": 35,
+     "missing_silent": 58
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 4,
+    "flagged": 4
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 72,
+    "found": 28
+   },
+   "error_examples": [
+    {
+     "kind": "wrong",
+     "cid": "1217297332883",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7710.00",
+     "expected": 7708.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1600459457678",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4430.00",
+     "expected": 4426.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1629529173540",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4620.00",
+     "expected": 4625.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1864276030014",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9300.00",
+     "expected": 9297.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4420.00",
+     "expected": 4421.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9740.00",
+     "expected": 9745.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "5000.00",
+     "expected": 5001.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "3239533606447",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "5000.00",
+     "expected": 4997.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "3251680060573",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7000.00",
+     "expected": 6998.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4115349822332",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10400.00",
+     "expected": 10397.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4285853784511",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "6650.00",
+     "expected": 6649.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4675957048647",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10390.00",
+     "expected": 10389.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5268297637475",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9370.00",
+     "expected": 9369.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5295805476966",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10530.00",
+     "expected": 10531.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5361640804674",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9790.00",
+     "expected": 9787.0
+    }
+   ],
+   "missing_examples": [
+    {
+     "cid": "1600459457678",
+     "date": "2026-05-05",
+     "column": "venous_blood_lead",
+     "expected": 7.5
+    },
+    {
+     "cid": "1864276030014",
+     "date": "2026-05-05",
+     "column": "plasma_che_bche",
+     "expected": 6914.0
+    },
+    {
+     "cid": "1864276030014",
+     "date": "2026-05-05",
+     "column": "pulse_rate",
+     "expected": 83.0
+    },
+    {
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 4.6
+    },
+    {
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "spirometry_fev1",
+     "expected": 2.92
+    },
+    {
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "venous_blood_lead",
+     "expected": 3.3
+    },
+    {
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 3.5
+    },
+    {
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc",
+     "expected": 2.99
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "sgot_ast",
+     "expected": 36.0
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "sgpt_alt",
+     "expected": 25.0
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "pulse_rate",
+     "expected": 94.0
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc_percent",
+     "expected": 85.0
+    },
+    {
+     "cid": "3239533606447",
+     "date": "2026-05-05",
+     "column": "plasma_che_bche",
+     "expected": 6420.0
+    },
+    {
+     "cid": "3239533606447",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc",
+     "expected": 3.96
+    },
+    {
+     "cid": "3251680060573",
+     "date": "2026-05-05",
+     "column": "alp",
+     "expected": 76.0
+    }
+   ],
+   "missing_by_column": {
+    "plasma_che_bche": 7,
+    "uric_acid": 6,
+    "pulse_rate": 5,
+    "spirometry_fvc": 5,
+    "sgpt_alt": 4,
+    "spirometry_fvc_percent": 4,
+    "alp": 3,
+    "tb": 3
+   },
+   "errors_all": [
+    {
+     "kind": "wrong",
+     "cid": "1217297332883",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7710.00",
+     "expected": 7708.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1600459457678",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4430.00",
+     "expected": 4426.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1629529173540",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4620.00",
+     "expected": 4625.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1864276030014",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9300.00",
+     "expected": 9297.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4420.00",
+     "expected": 4421.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9740.00",
+     "expected": 9745.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "5000.00",
+     "expected": 5001.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "3239533606447",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "5000.00",
+     "expected": 4997.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "3251680060573",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7000.00",
+     "expected": 6998.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4115349822332",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10400.00",
+     "expected": 10397.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4285853784511",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "6650.00",
+     "expected": 6649.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "4675957048647",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10390.00",
+     "expected": 10389.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5268297637475",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9370.00",
+     "expected": 9369.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5295805476966",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10530.00",
+     "expected": 10531.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5361640804674",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9790.00",
+     "expected": 9787.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5737777586437",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "6850.00",
+     "expected": 6847.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "5967524721148",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "6520.00",
+     "expected": 6517.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "6080056554809",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7650.00",
+     "expected": 7646.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "6344438163222",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4310.00",
+     "expected": 4314.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "6873837328050",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "4640.00",
+     "expected": 4641.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "6958096106245",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "8190.00",
+     "expected": 8185.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "7266558340157",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10630.00",
+     "expected": 10633.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8033663966751",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "8840.00",
+     "expected": 8838.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8140124838621",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10130.00",
+     "expected": 10132.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8237464299799",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "6380.00",
+     "expected": 6377.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8292749189300",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "6020.00",
+     "expected": 6016.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8518804478021",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7640.00",
+     "expected": 7641.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8608001048373",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "6860.00",
+     "expected": 6859.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "8956300226244",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7120.00",
+     "expected": 7121.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "9013116121714",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "6220.00",
+     "expected": 6221.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "9079023332605",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "7560.00",
+     "expected": 7558.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "9244130888325",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "8160.00",
+     "expected": 8163.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "9576725490874",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "5070.00",
+     "expected": 5073.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "9586174876194",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "10080.00",
+     "expected": 10082.0
+    },
+    {
+     "kind": "wrong",
+     "cid": "9943493918700",
+     "date": "2026-05-05",
+     "column": "wbc",
+     "got": "9500.00",
+     "expected": 9496.0
+    }
+   ],
+   "missing_all": [
+    {
+     "cid": "1600459457678",
+     "date": "2026-05-05",
+     "column": "venous_blood_lead",
+     "expected": 7.5
+    },
+    {
+     "cid": "1864276030014",
+     "date": "2026-05-05",
+     "column": "plasma_che_bche",
+     "expected": 6914.0
+    },
+    {
+     "cid": "1864276030014",
+     "date": "2026-05-05",
+     "column": "pulse_rate",
+     "expected": 83.0
+    },
+    {
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 4.6
+    },
+    {
+     "cid": "1994639252803",
+     "date": "2026-05-05",
+     "column": "spirometry_fev1",
+     "expected": 2.92
+    },
+    {
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "venous_blood_lead",
+     "expected": 3.3
+    },
+    {
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 3.5
+    },
+    {
+     "cid": "2332228841068",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc",
+     "expected": 2.99
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "sgot_ast",
+     "expected": 36.0
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "sgpt_alt",
+     "expected": 25.0
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "pulse_rate",
+     "expected": 94.0
+    },
+    {
+     "cid": "2571073302069",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc_percent",
+     "expected": 85.0
+    },
+    {
+     "cid": "3239533606447",
+     "date": "2026-05-05",
+     "column": "plasma_che_bche",
+     "expected": 6420.0
+    },
+    {
+     "cid": "3239533606447",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc",
+     "expected": 3.96
+    },
+    {
+     "cid": "3251680060573",
+     "date": "2026-05-05",
+     "column": "alp",
+     "expected": 76.0
+    },
+    {
+     "cid": "3251680060573",
+     "date": "2026-05-05",
+     "column": "pulse_rate",
+     "expected": 84.0
+    },
+    {
+     "cid": "4115349822332",
+     "date": "2026-05-05",
+     "column": "tb",
+     "expected": 0.75
+    },
+    {
+     "cid": "4285853784511",
+     "date": "2026-05-05",
+     "column": "plasma_che_bche",
+     "expected": 5207.0
+    },
+    {
+     "cid": "4675957048647",
+     "date": "2026-05-05",
+     "column": "db",
+     "expected": 0.14
+    },
+    {
+     "cid": "5268297637475",
+     "date": "2026-05-05",
+     "column": "plasma_che_bche",
+     "expected": 8608.0
+    },
+    {
+     "cid": "5268297637475",
+     "date": "2026-05-05",
+     "column": "bmi",
+     "expected": 26.1
+    },
+    {
+     "cid": "5268297637475",
+     "date": "2026-05-05",
+     "column": "spirometry_fev1_percent",
+     "expected": 105.0
+    },
+    {
+     "cid": "5361640804674",
+     "date": "2026-05-05",
+     "column": "plasma_che_bche",
+     "expected": 8148.0
+    },
+    {
+     "cid": "5361640804674",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc_percent",
+     "expected": 89.0
+    },
+    {
+     "cid": "5737777586437",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 3.1
+    },
+    {
+     "cid": "6080056554809",
+     "date": "2026-05-05",
+     "column": "hct",
+     "expected": 35.2
+    },
+    {
+     "cid": "6080056554809",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 4.3
+    },
+    {
+     "cid": "6080056554809",
+     "date": "2026-05-05",
+     "column": "plasma_che_bche",
+     "expected": 5295.0
+    },
+    {
+     "cid": "6344438163222",
+     "date": "2026-05-05",
+     "column": "alp",
+     "expected": 76.0
+    },
+    {
+     "cid": "6344438163222",
+     "date": "2026-05-05",
+     "column": "pulse_rate",
+     "expected": 95.0
+    },
+    {
+     "cid": "6873837328050",
+     "date": "2026-05-05",
+     "column": "db",
+     "expected": 0.28
+    },
+    {
+     "cid": "6873837328050",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 3.5
+    },
+    {
+     "cid": "6958096106245",
+     "date": "2026-05-05",
+     "column": "db",
+     "expected": 0.27
+    },
+    {
+     "cid": "6958096106245",
+     "date": "2026-05-05",
+     "column": "rbc_che",
+     "expected": 5707.0
+    },
+    {
+     "cid": "7266558340157",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc",
+     "expected": 2.5
+    },
+    {
+     "cid": "7266558340157",
+     "date": "2026-05-05",
+     "column": "spirometry_fev1_fvc",
+     "expected": 75.2
+    },
+    {
+     "cid": "8033663966751",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc_percent",
+     "expected": 112.0
+    },
+    {
+     "cid": "8033663966751",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc",
+     "expected": 2.53
+    },
+    {
+     "cid": "8140124838621",
+     "date": "2026-05-05",
+     "column": "sgpt_alt",
+     "expected": 36.0
+    },
+    {
+     "cid": "8140124838621",
+     "date": "2026-05-05",
+     "column": "uric_acid",
+     "expected": 4.7
+    },
+    {
+     "cid": "8140124838621",
+     "date": "2026-05-05",
+     "column": "spirometry_fev1_fvc",
+     "expected": 84.1
+    },
+    {
+     "cid": "8237464299799",
+     "date": "2026-05-05",
+     "column": "sgpt_alt",
+     "expected": 32.0
+    },
+    {
+     "cid": "8237464299799",
+     "date": "2026-05-05",
+     "column": "tb",
+     "expected": 0.57
+    },
+    {
+     "cid": "8237464299799",
+     "date": "2026-05-05",
+     "column": "rbc_che",
+     "expected": 7301.0
+    },
+    {
+     "cid": "8237464299799",
+     "date": "2026-05-05",
+     "column": "pulse_rate",
+     "expected": 76.0
+    },
+    {
+     "cid": "8292749189300",
+     "date": "2026-05-05",
+     "column": "rbc_che",
+     "expected": 3324.0
+    },
+    {
+     "cid": "8518804478021",
+     "date": "2026-05-05",
+     "column": "spirometry_height",
+     "expected": 164.0
+    },
+    {
+     "cid": "8608001048373",
+     "date": "2026-05-05",
+     "column": "sgpt_alt",
+     "expected": 42.0
+    },
+    {
+     "cid": "8608001048373",
+     "date": "2026-05-05",
+     "column": "alp",
+     "expected": 73.0
+    },
+    {
+     "cid": "8608001048373",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc",
+     "expected": 3.67
+    },
+    {
+     "cid": "9013116121714",
+     "date": "2026-05-05",
+     "column": "spirometry_fvc_percent",
+     "expected": 83.0
+    },
+    {
+     "cid": "9079023332605",
+     "date": "2026-05-05",
+     "column": "plasma_che_bche",
+     "expected": 7416.0
+    },
+    {
+     "cid": "9079023332605",
+     "date": "2026-05-05",
+     "column": "spirometry_height",
+     "expected": 167.0
+    },
+    {
+     "cid": "9244130888325",
+     "date": "2026-05-05",
+     "column": "tb",
+     "expected": 0.92
+    },
+    {
+     "cid": "9576725490874",
+     "date": "2026-05-05",
+     "column": "spirometry_height",
+     "expected": 179.0
+    },
+    {
+     "cid": "9586174876194",
+     "date": "2026-05-05",
+     "column": "plt",
+     "expected": 382001.0
+    },
+    {
+     "cid": "9586174876194",
+     "date": "2026-05-05",
+     "column": "bmi",
+     "expected": 23.7
+    },
+    {
+     "cid": "9943493918700",
+     "date": "2026-05-05",
+     "column": "sgot_ast",
+     "expected": 14.0
+    }
+   ],
+   "seconds": 61.3,
+   "llm_cost_usd": 0.008939,
+   "llm_calls": 6,
+   "oracle": {
+    "decisions": 4,
+    "corrections": 2
+   }
+  }
+ ]
+}
