@@ -241,13 +241,15 @@ def oracle_decisions(file_id: int, upload_truth: dict) -> tuple[list, dict]:
 
 
 def run(sut_name: str, set_name: str, only_case: str | None, verbose: bool, oracle: bool):
-    if set_name == "exam":
-        if not verify("exam"):
-            sys.exit("exam set does not match LOCK.json — refusing to report on it")
-        print("⚠️  EXAM set: for reporting only. Do not change prompts/code based on these results.\n")
+    if set_name in ("exam", "blind"):
+        if not verify(set_name):
+            sys.exit(f"{set_name} set does not match LOCK.json — refusing to report on it")
+        print(f"⚠️  {set_name.upper()} set: for reporting only. Do not change prompts/code based on these results.\n")
     ensure_eval_db()
     sut = SUTS[sut_name]()
-    cases = DEV if set_name == "dev" else EXAM
+    if set_name == "blind":
+        from evaluation.blind import CASES as BLIND
+    cases = {"dev": DEV, "exam": EXAM}.get(set_name) or BLIND
     repeat_uploads = {(c.name, i) for c in cases for i, u in enumerate(c.uploads)
                       if u.same_layout_as is not None and u.records != c.uploads[u.same_layout_as].records}
 
@@ -319,7 +321,7 @@ def run(sut_name: str, set_name: str, only_case: str | None, verbose: bool, orac
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--sut", default="rules", choices=sorted(SUTS))
-    ap.add_argument("--set", default="dev", choices=["dev", "exam"])
+    ap.add_argument("--set", default="dev", choices=["dev", "exam", "blind"])
     ap.add_argument("--case")
     ap.add_argument("--oracle", action="store_true", help="simulate a perfect reviewer after each upload")
     ap.add_argument("-v", "--verbose", action="store_true")

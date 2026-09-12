@@ -1,0 +1,12 @@
+{
+ "b01_b02_repeat_hospital/blind_01.xlsx": "b1f8178088e138e3844e37dcc9b93818f52ef1bf68a0e691db5de6112f34ff83",
+ "b01_b02_repeat_hospital/blind_02.xlsx": "c5b79d841c53c620555928ff0d0a571d433fd1dd86ee6f8c4423da2e3b85c9f9",
+ "b01_b02_repeat_hospital/truth.json": "dd0d4a3dc674189d9c615d65d519f38a07fd99635e4eeba359ac136bac9bd4f3",
+ "b03_b04_resend/blind_03.xlsx": "7adb0a51df3abc35a7c265bfa0c68e48fffd8d7e15bd387ac42de233065363b7",
+ "b03_b04_resend/blind_04.xlsx": "1598bbdb9de55b93c134d5b0646c2cefd1db17ff32bc6c4f6e2e11f8e1c34608",
+ "b03_b04_resend/truth.json": "3cecbe2d4fe77a286f1801c2eb23ffadd5194c08c70a1a3569c44a8ffd7c1d2a",
+ "b05_vertical_two_sheets/blind_05.xlsx": "f2157b8ff287e123b05f49a5eee66fdcc85a5b5b84dc070b732d36e14d039975",
+ "b05_vertical_two_sheets/truth.json": "65ea4310e7e462f89ebfadda009aaa98b4853995763c044bfaeeb2619ba670c3",
+ "b06_csv_mixed/blind_06.csv": "2138245c4550a3e139a457e2499169d04345d54f7e1ec5e353d76933a0caae58",
+ "b06_csv_mixed/truth.json": "241f78a4f3b6558a42fa5307acf0a135331286797d61a9a71ad313257ecffdd6"
+}

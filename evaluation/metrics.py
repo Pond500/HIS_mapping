@@ -137,7 +137,8 @@ def score_case(truth: dict, state: dict) -> dict:
 
     exp_conf = {(c["cid"], c["visit_date"], c["column"]) for c in truth["conflicts"]}
     inv = [f for f in truth["flagged"] if f["kind"] == "invalid_cid"]
-    cens = [f for f in truth["flagged"] if f["kind"] == "censored"]
+    # value-level items a human must decide ("<0.2", an ambiguous finding, …)
+    cens = [f for f in truth["flagged"] if f["kind"] in ("censored", "value")]
     got_extras = {(e["cid"], e["visit_date"], str(e["name"]).strip().lower()) for e in state["extras"]}
     exp_extras = {(e["cid"], e["visit_date"], str(e["name"]).strip().lower()) for e in truth["extras"]}
 
