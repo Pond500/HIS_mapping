@@ -60,6 +60,7 @@ def list_reviews(status: str = "open", file_id: int | None = None, db: Session =
 def file_status(file_id: int, db: Session = Depends(get_db)):
     if db.get(SourceFile, file_id) is None:
         raise HTTPException(404, "ไม่พบไฟล์")
+    db.close()   # never hold a transaction open while the graph/checkpointer works
     return service.status(file_id)
 
 
@@ -81,4 +82,7 @@ def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db)):
                 raise HTTPException(400, f"ไม่รู้จักหน่วย '{d.unit}' สำหรับ {d.target}")
             out.update(target=d.target, factor=factor)
         decisions.append(out)
+    # close the request's read transaction first: resuming the graph can run LLM calls
+    # for minutes, and an open transaction blocks Postgres DDL (see app/routes/upload.py)
+    db.close()
     return service.decide(file_id, decisions)

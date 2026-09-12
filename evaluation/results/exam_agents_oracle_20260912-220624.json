@@ -1,0 +1,576 @@
+{
+ "sut": "agents",
+ "set": "exam",
+ "oracle": true,
+ "headline": {
+  "auto_precision": 1.0,
+  "automation": 0.9649017997162274,
+  "automation_repeat": 0.9732262382864793,
+  "silent_errors": 0,
+  "silent_drops": 120,
+  "flagged_for_human": 154,
+  "expected_cells": 13391,
+  "llm_cost_usd": 0.0561,
+  "llm_calls": 32,
+  "human_decisions": 5,
+  "human_corrections": 5,
+  "conflicts_found": "5/5",
+  "invalid_cid_flagged": "2/2",
+  "censored_flagged": "6/6",
+  "extras_found": "160/160",
+  "buckets": {
+   "correct": 13117,
+   "missing_flagged": 154,
+   "derived_missing_flagged": 154,
+   "missing_silent": 120
+  }
+ },
+ "cases": [
+  {
+   "case": "e01_long_thai_units",
+   "buckets": {
+    "correct": 1468
+   },
+   "expected_cells": 1468,
+   "per_upload": [
+    {
+     "correct": 1272,
+     "missing_flagged": 196
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 147.3,
+   "llm_cost_usd": 0.01353,
+   "llm_calls": 6,
+   "oracle": {
+    "decisions": 5,
+    "corrections": 5
+   }
+  },
+  {
+   "case": "e02_wide_semicolon_csv",
+   "buckets": {
+    "correct": 1461
+   },
+   "expected_cells": 1461,
+   "per_upload": [
+    {
+     "correct": 1461
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 6,
+    "flagged": 6
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 26.7,
+   "llm_cost_usd": 0.004426,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e03_multisheet_long",
+   "buckets": {
+    "correct": 1497
+   },
+   "expected_cells": 1497,
+   "per_upload": [
+    {
+     "correct": 1497
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 62.8,
+   "llm_cost_usd": 0.00699,
+   "llm_calls": 4,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e04_transposed_units",
+   "buckets": {
+    "correct": 381
+   },
+   "expected_cells": 381,
+   "per_upload": [
+    {
+     "correct": 381
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 87.1,
+   "llm_cost_usd": 0.010887,
+   "llm_calls": 6,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e05_extras_traps",
+   "buckets": {
+    "correct": 1518
+   },
+   "expected_cells": 1518,
+   "per_upload": [
+    {
+     "correct": 1518
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 160,
+    "found": 160
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 22.5,
+   "llm_cost_usd": 0.004218,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e06_comment_text",
+   "buckets": {
+    "correct": 1487,
+    "missing_flagged": 154,
+    "derived_missing_flagged": 154
+   },
+   "expected_cells": 1641,
+   "per_upload": [
+    {
+     "correct": 802
+    },
+    {
+     "correct": 685,
+     "missing_flagged": 154
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 22.8,
+   "llm_cost_usd": 0.003595,
+   "llm_calls": 4,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e07_conflict_bad_cid",
+   "buckets": {
+    "correct": 1492
+   },
+   "expected_cells": 1492,
+   "per_upload": [
+    {
+     "correct": 1418
+    },
+    {
+     "correct": 74
+    }
+   ],
+   "conflicts": {
+    "expected": 5,
+    "found": 5
+   },
+   "invalid_cid": {
+    "expected": 2,
+    "flagged": 2
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.8,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e08_subset_mixed_everything",
+   "buckets": {
+    "missing_silent": 40,
+    "correct": 884
+   },
+   "expected_cells": 924,
+   "per_upload": [
+    {
+     "missing_silent": 40,
+     "correct": 884
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1083727837291",
+     "date": "2026-03-01",
+     "column": "first_name",
+     "expected": "จำปา"
+    },
+    {
+     "cid": "1340705179511",
+     "date": "2026-01-16",
+     "column": "first_name",
+     "expected": "รัตนา"
+    },
+    {
+     "cid": "1394809696397",
+     "date": "2026-02-27",
+     "column": "first_name",
+     "expected": "อรุณ"
+    },
+    {
+     "cid": "1757247088232",
+     "date": "2026-03-20",
+     "column": "first_name",
+     "expected": "ศิริพร"
+    },
+    {
+     "cid": "1797222435443",
+     "date": "2026-03-01",
+     "column": "first_name",
+     "expected": "วันเพ็ญ"
+    },
+    {
+     "cid": "1910023249447",
+     "date": "2026-07-28",
+     "column": "first_name",
+     "expected": "ธนพล"
+    },
+    {
+     "cid": "2251588212640",
+     "date": "2026-03-13",
+     "column": "first_name",
+     "expected": "สุรชัย"
+    },
+    {
+     "cid": "2418886094259",
+     "date": "2026-02-09",
+     "column": "first_name",
+     "expected": "สมชาย"
+    },
+    {
+     "cid": "2443972898196",
+     "date": "2026-06-30",
+     "column": "first_name",
+     "expected": "ศิริพร"
+    },
+    {
+     "cid": "2472305650399",
+     "date": "2026-08-14",
+     "column": "first_name",
+     "expected": "ชัยวัฒน์"
+    },
+    {
+     "cid": "2861155754858",
+     "date": "2026-01-17",
+     "column": "first_name",
+     "expected": "สุดา"
+    },
+    {
+     "cid": "3082839376991",
+     "date": "2026-05-23",
+     "column": "first_name",
+     "expected": "สมชาย"
+    },
+    {
+     "cid": "3094493514510",
+     "date": "2026-06-10",
+     "column": "first_name",
+     "expected": "จำปา"
+    },
+    {
+     "cid": "3218493096311",
+     "date": "2026-02-21",
+     "column": "first_name",
+     "expected": "วันเพ็ญ"
+    },
+    {
+     "cid": "3252469451453",
+     "date": "2026-06-27",
+     "column": "first_name",
+     "expected": "สุรชัย"
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 40
+   },
+   "seconds": 10.4,
+   "llm_cost_usd": 0.001871,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "e09_repeat_hospital",
+   "buckets": {
+    "missing_silent": 80,
+    "correct": 2929
+   },
+   "expected_cells": 3009,
+   "per_upload": [
+    {
+     "missing_silent": 40,
+     "correct": 1475
+    },
+    {
+     "missing_silent": 40,
+     "correct": 1454
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [
+    {
+     "cid": "1086150354359",
+     "date": "2026-07-15",
+     "column": "first_name",
+     "expected": "สุรชัย"
+    },
+    {
+     "cid": "1226699706647",
+     "date": "2026-03-26",
+     "column": "first_name",
+     "expected": "วีระ"
+    },
+    {
+     "cid": "1439005575195",
+     "date": "2026-04-14",
+     "column": "first_name",
+     "expected": "จำปา"
+    },
+    {
+     "cid": "1471081018521",
+     "date": "2026-01-18",
+     "column": "first_name",
+     "expected": "วันเพ็ญ"
+    },
+    {
+     "cid": "1481873073962",
+     "date": "2026-04-22",
+     "column": "first_name",
+     "expected": "อำนาจ"
+    },
+    {
+     "cid": "1511184212213",
+     "date": "2026-03-27",
+     "column": "first_name",
+     "expected": "วีระ"
+    },
+    {
+     "cid": "1585734386051",
+     "date": "2026-07-29",
+     "column": "first_name",
+     "expected": "ปราณี"
+    },
+    {
+     "cid": "1868840343351",
+     "date": "2026-04-08",
+     "column": "first_name",
+     "expected": "ประยุทธ"
+    },
+    {
+     "cid": "1876582729188",
+     "date": "2026-02-19",
+     "column": "first_name",
+     "expected": "พิมพ์ชนก"
+    },
+    {
+     "cid": "2041606563331",
+     "date": "2026-01-12",
+     "column": "first_name",
+     "expected": "ปราณี"
+    },
+    {
+     "cid": "2073761580700",
+     "date": "2026-03-17",
+     "column": "first_name",
+     "expected": "ณัฐพล"
+    },
+    {
+     "cid": "2100685025450",
+     "date": "2026-02-18",
+     "column": "first_name",
+     "expected": "ณัฐพล"
+    },
+    {
+     "cid": "2127487111151",
+     "date": "2026-06-30",
+     "column": "first_name",
+     "expected": "สมชาย"
+    },
+    {
+     "cid": "2173540925011",
+     "date": "2026-07-31",
+     "column": "first_name",
+     "expected": "กนกพร"
+    },
+    {
+     "cid": "2207198007150",
+     "date": "2026-04-28",
+     "column": "first_name",
+     "expected": "วีระ"
+    }
+   ],
+   "missing_by_column": {
+    "first_name": 80
+   },
+   "seconds": 44.0,
+   "llm_cost_usd": 0.010617,
+   "llm_calls": 6,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  }
+ ]
+}

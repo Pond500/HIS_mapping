@@ -1,0 +1,727 @@
+{
+ "sut": "agents",
+ "set": "dev",
+ "oracle": true,
+ "headline": {
+  "auto_precision": 1.0,
+  "automation": 0.9873642865083189,
+  "automation_repeat": 1.0,
+  "silent_errors": 0,
+  "silent_drops": 0,
+  "flagged_for_human": 153,
+  "expected_cells": 26987,
+  "llm_cost_usd": 0.0466,
+  "llm_calls": 20,
+  "human_decisions": 5,
+  "human_corrections": 5,
+  "conflicts_found": "6/6",
+  "invalid_cid_flagged": "2/2",
+  "censored_flagged": "5/5",
+  "extras_found": "160/200",
+  "buckets": {
+   "correct": 26834,
+   "missing_flagged": 153,
+   "derived_missing_flagged": 153
+  }
+ },
+ "cases": [
+  {
+   "case": "d01_long_basic",
+   "buckets": {
+    "correct": 1501
+   },
+   "expected_cells": 1501,
+   "per_upload": [
+    {
+     "correct": 1501
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 2.0,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d02_long_thai_preamble",
+   "buckets": {
+    "correct": 1490
+   },
+   "expected_cells": 1490,
+   "per_upload": [
+    {
+     "correct": 1490
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 96.2,
+   "llm_cost_usd": 0.011641,
+   "llm_calls": 4,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d03_wide_template",
+   "buckets": {
+    "correct": 1502
+   },
+   "expected_cells": 1502,
+   "per_upload": [
+    {
+     "correct": 1502
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.6,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d04_wide_codes_units_in_header",
+   "buckets": {
+    "correct": 1453
+   },
+   "expected_cells": 1453,
+   "per_upload": [
+    {
+     "correct": 1453
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 4,
+    "flagged": 4
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 27.2,
+   "llm_cost_usd": 0.005396,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d05_wide_group_header",
+   "buckets": {
+    "correct": 1505
+   },
+   "expected_cells": 1505,
+   "per_upload": [
+    {
+     "correct": 1505
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.6,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d06_multisheet",
+   "buckets": {
+    "correct": 1515
+   },
+   "expected_cells": 1515,
+   "per_upload": [
+    {
+     "correct": 1515
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 43.4,
+   "llm_cost_usd": 0.005865,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d07_csv_cp874",
+   "buckets": {
+    "correct": 1504
+   },
+   "expected_cells": 1504,
+   "per_upload": [
+    {
+     "correct": 1504
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 25.1,
+   "llm_cost_usd": 0.005693,
+   "llm_calls": 4,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d08_extras_traps",
+   "buckets": {
+    "correct": 1500
+   },
+   "expected_cells": 1500,
+   "per_upload": [
+    {
+     "correct": 1500
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 160,
+    "found": 160
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 35.0,
+   "llm_cost_usd": 0.004246,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d09_categorical_text",
+   "buckets": {
+    "correct": 813
+   },
+   "expected_cells": 813,
+   "per_upload": [
+    {
+     "correct": 813
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.5,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d10_comment_only",
+   "buckets": {
+    "correct": 668,
+    "missing_flagged": 153,
+    "derived_missing_flagged": 153
+   },
+   "expected_cells": 821,
+   "per_upload": [
+    {
+     "correct": 668,
+     "missing_flagged": 153
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.5,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d11_bad_cids",
+   "buckets": {
+    "correct": 1418
+   },
+   "expected_cells": 1418,
+   "per_upload": [
+    {
+     "correct": 1418
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 2,
+    "flagged": 2
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.7,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d12_dates_mixed",
+   "buckets": {
+    "correct": 3009
+   },
+   "expected_cells": 3009,
+   "per_upload": [
+    {
+     "correct": 1508
+    },
+    {
+     "correct": 1501
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 1.4,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d13_value_noise_noise_cols",
+   "buckets": {
+    "correct": 1479
+   },
+   "expected_cells": 1479,
+   "per_upload": [
+    {
+     "correct": 1479
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 1,
+    "flagged": 1
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.7,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d14_conflict_resubmit",
+   "buckets": {
+    "correct": 1496
+   },
+   "expected_cells": 1496,
+   "per_upload": [
+    {
+     "correct": 1496
+    },
+    {}
+   ],
+   "conflicts": {
+    "expected": 6,
+    "found": 6
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 1.0,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d15_repeat_hospital",
+   "buckets": {
+    "correct": 2974
+   },
+   "expected_cells": 2974,
+   "per_upload": [
+    {
+     "correct": 1484
+    },
+    {
+     "correct": 1490
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 96.9,
+   "llm_cost_usd": 0.009668,
+   "llm_calls": 4,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d16_tb_collision",
+   "buckets": {
+    "correct": 1697
+   },
+   "expected_cells": 1697,
+   "per_upload": [
+    {
+     "correct": 851
+    },
+    {
+     "correct": 846
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 40,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 1.0,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d17_transposed",
+   "buckets": {
+    "correct": 455
+   },
+   "expected_cells": 455,
+   "per_upload": [
+    {
+     "correct": 455
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 50.0,
+   "llm_cost_usd": 0.004117,
+   "llm_calls": 2,
+   "oracle": {
+    "decisions": 0,
+    "corrections": 0
+   }
+  },
+  {
+   "case": "d18_alt_units_no_unit",
+   "buckets": {
+    "correct": 855
+   },
+   "expected_cells": 855,
+   "per_upload": [
+    {
+     "correct": 667,
+     "missing_flagged": 188
+    }
+   ],
+   "conflicts": {
+    "expected": 0,
+    "found": 0
+   },
+   "invalid_cid": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "censored": {
+    "expected": 0,
+    "flagged": 0
+   },
+   "extras": {
+    "expected": 0,
+    "found": 0
+   },
+   "error_examples": [],
+   "missing_examples": [],
+   "missing_by_column": {},
+   "seconds": 0.9,
+   "llm_cost_usd": 0.0,
+   "llm_calls": 0,
+   "oracle": {
+    "decisions": 5,
+    "corrections": 5
+   }
+  }
+ ]
+}

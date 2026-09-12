@@ -9,10 +9,10 @@ POST /api/upload — keep the original file, then run the agent graph
 import hashlib
 import os
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import SessionLocal
 from app.graph import service
 from app.models import SourceFile
 from app.pipeline.run import get_or_create_hospital
@@ -45,20 +45,24 @@ def register_file(db: Session, filename: str, content: bytes, hospital: str | No
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...), hospital: str = Form("UNSPECIFIED"),
-                      db: Session = Depends(get_db)):
+async def upload_file(file: UploadFile = File(...), hospital: str = Form("UNSPECIFIED")):
     filename = file.filename or "unknown"
     if filename.rsplit(".", 1)[-1].lower() not in ALLOWED:
         return {"success": False, "error": "รองรับเฉพาะไฟล์ .csv .xlsx และ .xls"}
-    sf = register_file(db, filename, await file.read(), hospital)
+    content = await file.read()
+    # Short-lived session, closed BEFORE the graph runs: no transaction may stay open while it
+    # works (LLM calls take tens of seconds, and Postgres DDL such as the checkpointer's
+    # CREATE INDEX CONCURRENTLY waits for every open transaction — that deadlocked once).
+    with SessionLocal() as db:
+        file_id = register_file(db, filename, content, hospital).id
     try:
-        st = service.run_upload(sf.id)
+        st = service.run_upload(file_id)
     except Exception as e:  # process_file already rolled back and marked the file failed
-        return {"success": False, "upload_id": sf.id, "error": f"{type(e).__name__}: {e}"}
+        return {"success": False, "upload_id": file_id, "error": f"{type(e).__name__}: {e}"}
     stats = st["stats"] or {}
     return {
         "success": True,
-        "upload_id": sf.id,
+        "upload_id": file_id,
         "status": st["status"],
         "waiting_for_human": st["waiting_for_human"],
         "format_detected": ", ".join(f"{s['name']}({s['layout']})" for s in stats.get("sheets", [])),

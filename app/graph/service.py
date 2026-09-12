@@ -25,16 +25,33 @@ _pool = None
 def graph():
     """Compiled graph with a Postgres checkpointer. A pool (checked on every checkout)
     rather than one long-lived connection, so a database restart doesn't break every
-    later upload."""
+    later upload. Call init() at app startup so setup() never runs inside a request."""
     global _graph, _pool
     if _graph is None:
         url = os.environ["DATABASE_URL"].replace("postgresql+psycopg://", "postgresql://")
         _pool = ConnectionPool(url, min_size=1, max_size=8, open=True, check=ConnectionPool.check_connection,
                                kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row})
+        _drop_invalid_checkpoint_indexes(_pool)
         saver = PostgresSaver(_pool)
         saver.setup()
         _graph = flow.build(saver)
     return _graph
+
+
+def init():
+    """Create the checkpointer tables/indexes up front (app startup), while no request
+    transaction is open — setup() uses CREATE INDEX CONCURRENTLY, which waits for them."""
+    graph()
+
+
+def _drop_invalid_checkpoint_indexes(pool):
+    """An interrupted CREATE INDEX CONCURRENTLY leaves an INVALID index behind, and setup()'s
+    'IF NOT EXISTS' would then skip it forever. Drop such leftovers so setup() rebuilds them."""
+    with pool.connection() as conn:
+        rows = conn.execute("SELECT c.relname FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid "
+                            "WHERE NOT i.indisvalid AND c.relname LIKE 'checkpoint%'").fetchall()
+        for r in rows:
+            conn.execute(f'DROP INDEX IF EXISTS "{r["relname"]}"')
 
 
 def _cfg(file_id: int) -> dict:
