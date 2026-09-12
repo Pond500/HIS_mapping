@@ -35,7 +35,7 @@ from app.llm.client import LLMError
 from app.models import TARGET_EXTRA, TARGET_IGNORE, LabMapping, PendingReview, SourceFile
 from app.pipeline import normalize as N
 from app.pipeline.extract import observations
-from app.pipeline.mapper import Mapper, norm_label
+from app.pipeline.mapper import IDENTITY_PREFIX, Mapper, norm_label
 from app.pipeline.profiler import profile_sheet
 from app.pipeline.reader import read_file
 from app.pipeline.run import process_file
@@ -56,6 +56,7 @@ class FileState(TypedDict, total=False):
     auto: list             # ids auto-accepted
     pending: list          # ids waiting for a human
     human_done: bool
+    identity_candidates: list  # headers that may be a missing name/department column: never auto-accepted
 
 
 def auto_accept_on() -> bool:
@@ -76,8 +77,10 @@ def analyze(state: FileState) -> dict:
     known = mapper.known_labels()
     raws = defaultdict(list)
     layouts = {}
+    cands = set()
     for sh in sheets:
-        spec = profile_sheet(sh, known)
+        spec = profile_sheet(sh, known, mapper.identity_aliases())
+        cands |= {c["header"] for c in spec.candidates}
         if spec.layout == "skip":
             continue
         for o in observations(sh, spec):
@@ -100,7 +103,8 @@ def analyze(state: FileState) -> dict:
                       "samples": [N.text(v) for v in vals[:6]], "values": numbers,
                       "texts": [N.text(v) for v in vals[:40]]})
     return {"items": items, "file_labels": sorted({k[0] for k in raws})[:120], "proposals": {},
-            "verdicts": {}, "revision": 0, "auto": [], "pending": [], "human_done": False}
+            "verdicts": {}, "revision": 0, "auto": [], "pending": [], "human_done": False,
+            "identity_candidates": sorted(cands)}
 
 
 def _llm_items(items):
@@ -218,7 +222,9 @@ def decide(state: FileState) -> dict:
             p = state["proposals"][str(it["id"])]
             v = state["verdicts"].get(str(it["id"]), {})
             ok = (auto_accept_on() and p["confidence"] == "high" and v.get("agrees") and p.get("range_ok")
-                  and p["target"] not in (TARGET_IGNORE, "__unknown__"))
+                  and p["target"] not in (TARGET_IGNORE, "__unknown__")
+                  # a column that may be the missing name/department must be answered by a human
+                  and it["label"] not in set(state.get("identity_candidates", [])))
             if ok:
                 save_mapping(db, sf.hospital_id, it["label"], it["unit"], p["target"], p["factor"],
                              origin="agent_auto", by="auto: mapper+verifier+range")
@@ -270,11 +276,30 @@ def save_mapping(db, hospital_id, label, unit, target, factor, origin, by):
     return m
 
 
+IDENTITY_ROLES = ("first_name", "last_name", "full_name", "department_id")
+
+
+def save_identity(db, hospital_id, header, role, by):
+    """Remember that this hospital's column `header` holds `role` (profiler reads it next time)."""
+    from app.pipeline.profiler import hkey
+    if role not in IDENTITY_ROLES:
+        raise ValueError(f"unknown identity role {role}")
+    name = hkey(header)
+    m = db.query(LabMapping).filter(LabMapping.hospital_id == hospital_id, LabMapping.source_name == name,
+                                    LabMapping.source_unit.is_(None)).one_or_none()
+    if m is None:
+        m = LabMapping(hospital_id=hospital_id, source_name=name, source_unit=None)
+        db.add(m)
+    m.target_column, m.unit_factor, m.origin, m.approved_by = IDENTITY_PREFIX + role, 1, "human", by
+    db.flush()
+
+
 def apply_decisions(source_file_id: int, decisions: list[dict], state: FileState | None = None):
     """
     decisions: [{"label", "unit", "action", "target"?, "factor"?, "by"?}]
       approve  accept the AI proposal       set      a human's own target (+ factor)
       extra    keep as extra_results        ignore   not a result          skip  leave open
+    or, for an "identity" review: {"action": "identity", "role", "header"}
     """
     props = {}
     if state:
@@ -283,6 +308,14 @@ def apply_decisions(source_file_id: int, decisions: list[dict], state: FileState
     with SessionLocal() as db:
         sf = db.get(SourceFile, source_file_id)
         for d in decisions:
+            if d["action"] == "identity":
+                save_identity(db, sf.hospital_id, d["header"], d["role"], d.get("by", "reviewer"))
+                for r in db.query(PendingReview).filter(PendingReview.source_file_id == source_file_id,
+                                                        PendingReview.kind == "identity",
+                                                        PendingReview.status == "open"):
+                    if d["role"] in (r.payload.get("missing") or []):
+                        r.status, r.decision, r.decided_by = "approved", d, d.get("by", "reviewer")
+                continue
             key, action, by = (d["label"], d.get("unit")), d["action"], d.get("by", "reviewer")
             if action == "skip":
                 continue

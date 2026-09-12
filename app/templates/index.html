@@ -737,6 +737,7 @@
         ];
         const KIND_LABEL = { value: 'ค่าที่อ่านไม่ได้/ผิดปกติ', cid: 'เลขบัตรประชาชนไม่ถูกต้อง',
                              comment: 'มีแต่ข้อความผลตรวจ', profile: 'อ่านโครงสร้างไฟล์ไม่ได้' };
+        const ROLE_TH = { first_name: 'ชื่อ', last_name: 'นามสกุล', full_name: 'ชื่อ-สกุล', department_id: 'แผนก' };
 
         async function refreshReviewCount() {
             try {
@@ -760,14 +761,27 @@
 
         function fileBlock(fid, rs) {
             const maps = rs.filter(r => r.kind === 'mapping');
-            const others = rs.filter(r => r.kind !== 'mapping');
+            const ids = rs.filter(r => r.kind === 'identity');
+            const others = rs.filter(r => r.kind !== 'mapping' && r.kind !== 'identity');
             const counts = {};
             others.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
             return `<div class="review-file" data-file="${Number(fid)}">
                 <div class="review-file-head">ไฟล์ #${esc(fid)} — ชื่อ lab/หัวคอลัมน์ที่ต้องยืนยัน ${maps.length} รายการ</div>
+                ${ids.map(identityCard).join('')}
                 ${maps.map(mappingCard).join('')}
-                ${maps.length ? `<button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจของไฟล์นี้</button>` : ''}
+                ${maps.length || ids.length ? `<button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจของไฟล์นี้</button>` : ''}
                 ${Object.entries(counts).map(([k, n]) => `<div class="review-other">• ${esc(KIND_LABEL[k] || k)}: ${n} รายการ</div>`).join('')}
+            </div>`;
+        }
+
+        function identityCard(r) {
+            const p = r.payload;
+            const opts = (p.candidates || []).map(c =>
+                `<option value="${esc(c.header)}">${esc(c.header)} — เช่น ${esc((c.samples || []).join(', '))}</option>`).join('');
+            return `<div class="review-card identity-card" data-review="${Number(r.id)}">
+                <div class="review-label">⚠️ ${esc(p.reason)} <span class="unit">sheet: ${esc(p.sheet)}</span></div>
+                ${(p.missing || []).map(role => `<div class="review-actions"><label>${esc(ROLE_TH[role] || role)}</label>
+                    <select class="id-pick" data-role="${esc(role)}"><option value="">⏸ ไม่แน่ใจ ข้ามไว้ก่อน</option>${opts}</select></div>`).join('')}
             </div>`;
         }
 
@@ -779,6 +793,7 @@
                 + (ver.agrees ? '' : ` → ${esc(ver.target)} ${ver.unit ? '(' + esc(ver.unit) + ')' : ''}`) : '—';
             return `<div class="review-card" data-review="${Number(r.id)}">
                 <div class="review-label">“${esc(p.label)}” ${p.unit ? `<span class="unit">หน่วยในไฟล์: ${esc(p.unit)}</span>` : ''}</div>
+                ${p.maybe_identity ? '<div class="review-warn">⚠️ คอลัมน์นี้อาจเป็นชื่อหรือแผนก — ถ้าใช่ ให้เลือกในรายการ “หาคอลัมน์ไม่พบ” ด้านบน และที่นี่เลือก “ไม่แน่ใจ”</div>' : ''}
                 <div class="review-grid">
                     <div><b>ค่าตัวอย่างจากไฟล์</b> (${Number(p.count || 0)} ค่า)<br>${(p.samples || []).map(s => `<code>${esc(s)}</code>`).join(' ')}</div>
                     <div><b>AI เสนอ</b>: ${prop.target ? `${esc(prop.target)} ${prop.unit ? '(' + esc(prop.unit) + ')' : ''} · ความมั่นใจ ${esc(prop.confidence)}` : 'ไม่มี'}
@@ -797,8 +812,13 @@
 
         async function submitDecisions(fid) {
             const block = document.querySelector(`.review-file[data-file="${fid}"]`);
-            const cards = block.querySelectorAll('.review-card');
+            const cards = block.querySelectorAll('.review-card:not(.identity-card)');
             const decisions = [];
+            block.querySelectorAll('.identity-card').forEach(c => {
+                c.querySelectorAll('.id-pick').forEach(sel => {
+                    if (sel.value) decisions.push({ review_id: Number(c.dataset.review), action: 'identity', role: sel.dataset.role, header: sel.value });
+                });
+            });
             cards.forEach(c => {
                 const action = c.querySelector('.act').value;
                 const d = { review_id: Number(c.dataset.review), action };

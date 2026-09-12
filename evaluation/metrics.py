@@ -17,7 +17,10 @@ plus, for cells stored that the truth does not expect at all:
 
 How the pipeline signals "a human was asked" (pending_reviews, status open):
   kind "value" / "comment"  payload {cid, visit_date, column}
-  kind "mapping"            payload {label}  (label = lab name or header as in the file)
+  kind "mapping"            payload {label}  (label = lab name or header as in the file; an
+                            identity header that became a label credits that person column)
+  kind "identity"           payload {missing: [first_name | last_name | full_name | department_id]}
+                            — the file's identity column(s) couldn't be found
   kind "profile"            whole file waits for a human
   kind "cid"                payload {raw_cid}
 A file with status "awaiting_review" also counts as flagged as a whole.
@@ -29,6 +32,9 @@ from collections import Counter
 from app.template import FIELDS_BY_COLUMN
 
 PERSON_FIELDS = ("first_name", "last_name", "department_id")
+# identity role (as in truth "headers") -> the person columns it fills
+IDENTITY_ROLES = {"first_name": ("first_name",), "last_name": ("last_name",), "department_id": ("department_id",),
+                  "full_name": ("first_name", "last_name")}
 NUM_TOL = 0.006   # values are stored at 2 decimals; factors can round by one unit
 
 
@@ -77,9 +83,16 @@ def score_case(truth: dict, state: dict) -> dict:
             flagged_cells.add((str(p.get("cid")), str(p.get("visit_date")), p["column"]))
         elif r["kind"] == "mapping" and i is not None:
             info = uploads[i]["lab_names"].get(p.get("label"))
+            role = uploads[i].get("headers", {}).get(p.get("label"))
             if info:
                 targets = ["bp_systolic", "bp_diastolic"] if info["target"] == "__bp__" else [info["target"]]
                 flagged_cols.update((i, t) for t in targets)
+            elif role in IDENTITY_ROLES:
+                # a wide file's unrecognized identity header became a label and a human is asked about it
+                flagged_cols.update((i, t) for t in IDENTITY_ROLES[role])
+        elif r["kind"] == "identity" and i is not None:
+            for role in p.get("missing", []):
+                flagged_cols.update((i, t) for t in IDENTITY_ROLES.get(role, ()))
         elif r["kind"] == "profile" and i is not None:
             flagged_uploads.add(i)
         elif r["kind"] == "cid":

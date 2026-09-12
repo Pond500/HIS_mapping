@@ -24,10 +24,12 @@ router = APIRouter(prefix="/api", tags=["reviews"])
 
 class Decision(BaseModel):
     review_id: int
-    action: Literal["approve", "set", "extra", "ignore", "skip"]
+    action: Literal["approve", "set", "extra", "ignore", "skip", "identity"]
     target: str | None = None
     unit: str | None = None       # unit the values are written in (for "set"); factor computed from it
     factor: float | None = None   # explicit factor (overrides unit)
+    role: str | None = None       # identity review: which role the chosen column holds
+    header: str | None = None     # identity review: the column header
 
 
 class DecisionBody(BaseModel):
@@ -69,8 +71,15 @@ def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db)):
     decisions = []
     for d in body.decisions:
         r = db.get(PendingReview, d.review_id)
-        if r is None or r.source_file_id != file_id or r.kind != "mapping":
+        if r is None or r.source_file_id != file_id or r.kind not in ("mapping", "identity"):
             raise HTTPException(400, f"รายการ {d.review_id} ไม่ใช่รายการจับคู่ของไฟล์นี้")
+        if r.kind == "identity":
+            if d.action == "skip":
+                continue
+            if d.action != "identity" or d.role not in (r.payload.get("missing") or []) or not d.header:
+                raise HTTPException(400, f"รายการ {d.review_id}: ต้องเลือกคอลัมน์ให้ข้อมูลที่หาไม่พบ")
+            decisions.append({"action": "identity", "role": d.role, "header": d.header, "by": body.by})
+            continue
         out = {"label": r.payload["label"], "unit": r.payload.get("unit"), "action": d.action, "by": body.by}
         if d.action == "set":
             if d.target not in RESULT_COLUMNS:

@@ -203,6 +203,17 @@ def oracle_decisions(file_id: int, upload_truth: dict) -> tuple[list, dict]:
             stats["decisions"] += 1
             stats["corrections"] += 0 if prop_ok else 1
             decisions.append({"label": label, "unit": unit, "by": "oracle", **d})
+        for r in db.query(PendingReview).filter(PendingReview.source_file_id == file_id,
+                                                PendingReview.kind == "identity",
+                                                PendingReview.status == "open"):
+            for role in r.payload.get("missing", []):
+                header = next((h for h, rr in upload_truth["headers"].items() if rr == role), None)
+                if header is None and role in ("first_name", "last_name"):
+                    header = next((h for h, rr in upload_truth["headers"].items() if rr == "full_name"), None)
+                    role = "full_name" if header else role
+                if header and not any(x.get("role") == role for x in decisions):
+                    decisions.append({"action": "identity", "role": role, "header": header, "by": "oracle"})
+                    stats["decisions"] += 1
     return decisions, stats
 
 

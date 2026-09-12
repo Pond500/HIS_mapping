@@ -20,6 +20,7 @@ from app.template import FIELDS_BY_COLUMN
 
 COMMENT_OF = {"chest_xray": "xray_comment", "ekg": "ekg_comment",
               "hearing_ability": "hearing_comment", "far_vision_test": "far_vision_comment"}
+ROLE_TH = {"first_name": "ชื่อ", "last_name": "นามสกุล", "full_name": "ชื่อ-สกุล", "department_id": "แผนก"}
 RANGE_FLAG_SHARE = 0.2      # this share of a label's values out of range => the mapping/unit is suspect
 SAMPLES = 6
 
@@ -80,9 +81,16 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
             evidence: dict | None = None) -> Extraction:
     """evidence: {(label, unit): {...}} from the agents, attached to mapping reviews."""
     ex = Extraction()
+    id_headers = set()
     for spec in specs:
         for p in spec.problems:
             ex.reviews.append({"kind": "profile", "payload": {"sheet": spec.sheet, "problem": p}})
+        if spec.layout != "skip" and spec.missing_roles:
+            ex.reviews.append({"kind": "identity", "payload": {
+                "sheet": spec.sheet, "missing": spec.missing_roles, "candidates": spec.candidates,
+                "reason": "หาคอลัมน์ " + ", ".join(ROLE_TH.get(r, r) for r in spec.missing_roles)
+                          + " ไม่พบ — ช่วยเลือกคอลัมน์ที่ถูกต้อง"}})
+            id_headers |= {c["header"] for c in spec.candidates}
 
     # 1. read every observation, resolve its label once
     resolutions: dict[tuple, Resolution] = {}
@@ -153,6 +161,7 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
         if res.target is None:
             review("mapping", label=label, unit=unit, reason=res.reason, suggestion=res.suggestion,
                    samples=[N.text(o.raw) for o in obs[:SAMPLES]], count=len(obs),
+                   **({"maybe_identity": True} if label in id_headers else {}),
                    **(evidence or {}).get((label, unit), {}))
             ex.stats["cells_unmapped"] += len(obs)
             continue

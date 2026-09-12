@@ -41,9 +41,12 @@ def hkey(v) -> str:
     return re.sub(r"[\s\-_./()\[\]:#]+", "", str(v).lower()) if v is not None else ""
 
 
-def alias_role(v) -> str | None:
+def alias_role(v, id_aliases: dict | None = None) -> str | None:
+    """id_aliases: {hkey(header): role} a hospital's reviewer confirmed earlier."""
     if not isinstance(v, str):
         return None
+    if id_aliases and hkey(v) in id_aliases:
+        return id_aliases[hkey(v)]
     raw = v.strip().lower()
     if re.fullmatch(r"ชื่อ\s*[-–/]\s*(นาม)?สกุล", raw):   # "ชื่อ-สกุล", "ชื่อ - นามสกุล" = full name
         return "full_name"
@@ -72,6 +75,8 @@ class SheetSpec:
     data_cols: list[int] = field(default_factory=list)   # transposed: one per person-visit
     label_rows: list[int] = field(default_factory=list)  # transposed
     problems: list[str] = field(default_factory=list)
+    missing_roles: list[str] = field(default_factory=list)   # identity columns not found -> human
+    candidates: list[dict] = field(default_factory=list)     # unrecognized text columns that may be them
 
     def to_dict(self):
         return self.__dict__.copy()
@@ -86,11 +91,11 @@ def _col(rows, c, rs):
     return [rows[r][c] for r in rs]
 
 
-def profile_sheet(sheet: Sheet, known_labels: set[str]) -> SheetSpec:
+def profile_sheet(sheet: Sheet, known_labels: set[str], id_aliases: dict | None = None) -> SheetSpec:
     rows = sheet.rows
     if not rows or sum(1 for r in rows if any(not N.is_na(v) for v in r)) < 2:
         return SheetSpec(sheet.name, "skip")
-    t = _try_transposed(sheet)
+    t = _try_transposed(sheet, id_aliases)
     if t:
         return t
 
@@ -127,7 +132,7 @@ def profile_sheet(sheet: Sheet, known_labels: set[str]) -> SheetSpec:
     # identity columns
     spec.id_cols["cid"] = best_c
     for c, h in enumerate(header):
-        role = alias_role(h)
+        role = alias_role(h, id_aliases)
         if role and role != "cid" and role not in spec.id_cols and c != best_c:
             spec.id_cols[role] = c
     _fix_name_columns(spec, rows)
@@ -156,6 +161,7 @@ def profile_sheet(sheet: Sheet, known_labels: set[str]) -> SheetSpec:
         spec.unit_col = unit_c if unit_c is not None else _guess_unit_col(rows, spec)
         if spec.result_col is None:
             spec.problems.append(f"sheet '{sheet.name}': หาคอลัมน์ผลตรวจไม่พบ")
+        _identity_gaps(spec, rows)
         return spec
 
     used = set(spec.id_cols.values())
@@ -163,7 +169,28 @@ def profile_sheet(sheet: Sheet, known_labels: set[str]) -> SheetSpec:
         if c in used or N.is_na(h):
             continue
         spec.label_cols[c] = N.text(h)
+    _identity_gaps(spec, rows)
     return spec
+
+
+def _identity_gaps(spec: SheetSpec, rows):
+    """Identity columns the rules couldn't find are reported (-> an "identity" review), never
+    silently skipped. Unrecognized text columns are offered as candidates."""
+    ids = spec.id_cols
+    if "full_name" not in ids:
+        spec.missing_roles += [r for r in ("first_name", "last_name") if r not in ids]
+    if "department_id" not in ids:
+        spec.missing_roles.append("department_id")
+    if not spec.missing_roles or spec.layout == "transposed" or spec.header_row is None:
+        return
+    used = set(ids.values()) | {spec.lab_col, spec.result_col, spec.unit_col}
+    for c, h in enumerate(rows[spec.header_row]):
+        if c in used or N.is_na(h):
+            continue
+        vals = _col(rows, c, spec.data_rows[:50])
+        if _frac(vals, lambda v: isinstance(v, str) and not _parses(v)) >= 0.6:
+            spec.candidates.append({"header": N.text(h),
+                                    "samples": [N.text(v) for v in vals if not N.is_na(v)][:3]})
 
 
 def _is_unit_row(row) -> bool:
@@ -242,7 +269,7 @@ def _guess_unit_col(rows, spec):
     return None
 
 
-def _try_transposed(sheet: Sheet) -> SheetSpec | None:
+def _try_transposed(sheet: Sheet, id_aliases: dict | None = None) -> SheetSpec | None:
     rows = sheet.rows
     for r in range(min(30, len(rows))):
         cells = rows[r][1:]
@@ -254,7 +281,7 @@ def _try_transposed(sheet: Sheet) -> SheetSpec | None:
             # identity rows: label in column 0, near the CID row
             last_id = r
             for rr in range(max(0, r - 10), min(len(rows), r + 12)):
-                role = alias_role(rows[rr][0])
+                role = alias_role(rows[rr][0], id_aliases)
                 if role in ("full_name", "first_name", "last_name", "department_id", "visit_date") \
                         and role not in spec.id_cols:
                     spec.id_cols[role] = rr
@@ -281,5 +308,6 @@ def _try_transposed(sheet: Sheet) -> SheetSpec | None:
             spec.label_rows = [i for i in range(start, len(rows)) if not N.is_na(rows[i][0])]
             if spec.unit_col is None and _frac([rows[i][1] for i in spec.label_rows], unit_like) >= 0.5:
                 spec.unit_col = 1
+            _identity_gaps(spec, rows)
             return spec
     return None

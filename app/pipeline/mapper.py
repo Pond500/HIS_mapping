@@ -22,6 +22,7 @@ BP_LABELS = {"bp", "blood pressure", "ความดันโลหิต", "�
 TEMPLATE_NAMES = {c: c for c in RESULT_COLUMNS}   # a file using the template's own names
 # mappings learned for a specific (label, unit) store the complete factor in unit_factor
 LEARNED_ORIGINS = {"human", "agent_approved", "agent_auto"}
+IDENTITY_PREFIX = "__id:"     # target_column "__id:first_name" = a hospital's confirmed identity header
 
 
 @dataclass
@@ -59,11 +60,19 @@ class Resolution:
 
 class Mapper:
     def __init__(self, db: Session, hospital_id: int | None):
-        self.hospital, self.central = {}, {}
+        self.hospital, self.central, self.identity = {}, {}, {}
         q = db.query(LabMapping).filter((LabMapping.hospital_id == hospital_id) | LabMapping.hospital_id.is_(None))
         for m in q:
+            if m.target_column.startswith(IDENTITY_PREFIX):
+                if m.hospital_id is not None:
+                    self.identity[m.source_name] = m.target_column[len(IDENTITY_PREFIX):]
+                continue
             layer = self.central if m.hospital_id is None else self.hospital
             layer[(m.source_name, (m.source_unit or "").lower() or None)] = m
+
+    def identity_aliases(self) -> dict:
+        """{hkey(header): role} confirmed by this hospital's reviewers (see profiler.alias_role)."""
+        return dict(self.identity)
 
     def known_labels(self) -> set[str]:
         return {k[0] for k in list(self.central) + list(self.hospital)}

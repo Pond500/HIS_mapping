@@ -714,3 +714,6 @@ tr:hover td {
 .review-actions select, .review-actions input { min-width: 0; max-width: 100%; }
 .review-actions .target { flex: 1 1 260px; }
 .review-other { color: var(--text-secondary); font-size: 0.85rem; margin-top: 6px; }
+.identity-card { border-left-color: var(--accent-rose); }
+.review-warn { color: var(--accent-amber); font-size: 0.85rem; margin: -4px 0 8px; }
+.review-actions label { color: var(--text-secondary); font-size: 0.85rem; min-width: 70px; align-self: center; }

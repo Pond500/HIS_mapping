@@ -40,7 +40,7 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None) -> d
             data = fh.read()
         sheets = read_file(data, os.path.splitext(sf.stored_path)[1])
         mapper = Mapper(db, sf.hospital_id)
-        specs = [profile_sheet(s, mapper.known_labels()) for s in sheets]
+        specs = [profile_sheet(s, mapper.known_labels(), mapper.identity_aliases()) for s in sheets]
         ex = extract(sheets, specs, mapper, evidence)
         db.query(PendingReview).filter(PendingReview.source_file_id == sf.id,
                                        PendingReview.status == "open").delete()

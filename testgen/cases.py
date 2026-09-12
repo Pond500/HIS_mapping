@@ -95,11 +95,20 @@ DEV = [
          [Upload("H17", S(layout="transposed", labels="mixed", preamble=2), filename="report_vertical.xlsx")],
          n=12),
     Case("d18_alt_units_no_unit", "หน่วยไม่มาตรฐานและไม่บอกหน่วย (ต้องสังเกตจากช่วงค่า)",
-         [Upload("H18", S(layout="wide", labels="known", columns="lab", alt_units=True, unit_mode="none"),
-                 filename="units_hidden.csv", ) ]),
+         [Upload("H18", S(layout="wide", labels="known", columns="lab", alt_units=True, unit_mode="none",
+                          fmt="csv"), filename="units_hidden.csv")]),
+    # Identity headers the profiler's aliases don't know. Added 2026-09-12 after the exam run
+    # showed first_name cells missing without a clearly attributed review; these headers are
+    # new dev-only wording, not the exam's.
+    Case("d19_unknown_name_headers_long", "หัวคอลัมน์ชื่อ/นามสกุลที่ระบบไม่รู้จัก (Long) — ต้องถามคน ห้ามหายเงียบ",
+         [Upload("H19", S(layout="long", labels="known",
+                          id_headers={"first_name": "ชื่อ (ไทย)", "last_name": "นามสกุล (ไทย)"}),
+                 filename="names_unknown_long.xlsx")]),
+    Case("d20_unknown_name_headers_wide", "หัวคอลัมน์ชื่อ/นามสกุลที่ระบบไม่รู้จัก (Wide) — ต้องถามคน ห้ามหายเงียบ",
+         [Upload("H20", S(layout="wide", labels="known",
+                          id_headers={"first_name": "ชื่อ (ไทย)", "last_name": "นามสกุล (ไทย)"}),
+                 filename="names_unknown_wide.xlsx")]),
 ]
-# d18 is a csv: set its format explicitly
-DEV[-1].uploads[0].style.fmt = "csv"
 
 
 EXAM = [
