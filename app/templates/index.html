@@ -762,14 +762,22 @@
         function fileBlock(fid, rs) {
             const maps = rs.filter(r => r.kind === 'mapping');
             const ids = rs.filter(r => r.kind === 'identity');
-            const others = rs.filter(r => r.kind !== 'mapping' && r.kind !== 'identity');
+            // one card per distinct finding text: the answer applies to every row with that text
+            const cmtGroups = {};
+            rs.filter(r => r.kind === 'comment').forEach(r => {
+                const k = r.payload.column + '|' + String(r.payload.text || '').trim().toLowerCase();
+                (cmtGroups[k] = cmtGroups[k] || []).push(r);
+            });
+            const cmts = Object.values(cmtGroups);
+            const others = rs.filter(r => !['mapping', 'identity', 'comment'].includes(r.kind));
             const counts = {};
             others.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
             return `<div class="review-file" data-file="${Number(fid)}">
                 <div class="review-file-head">ไฟล์ #${esc(fid)} — ชื่อ lab/หัวคอลัมน์ที่ต้องยืนยัน ${maps.length} รายการ</div>
                 ${ids.map(identityCard).join('')}
                 ${maps.map(mappingCard).join('')}
-                ${maps.length || ids.length ? `<button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจของไฟล์นี้</button>` : ''}
+                ${cmts.map(commentCard).join('')}
+                ${maps.length || ids.length || cmts.length ? `<button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจของไฟล์นี้</button>` : ''}
                 ${Object.entries(counts).map(([k, n]) => `<div class="review-other">• ${esc(KIND_LABEL[k] || k)}: ${n} รายการ</div>`).join('')}
             </div>`;
         }
@@ -782,6 +790,23 @@
                 <div class="review-label">⚠️ ${esc(p.reason)} <span class="unit">sheet: ${esc(p.sheet)}</span></div>
                 ${(p.missing || []).map(role => `<div class="review-actions"><label>${esc(ROLE_TH[role] || role)}</label>
                     <select class="id-pick" data-role="${esc(role)}"><option value="">⏸ ไม่แน่ใจ ข้ามไว้ก่อน</option>${opts}</select></div>`).join('')}
+            </div>`;
+        }
+
+        function commentCard(group) {
+            const r = group[0], p = r.payload, a = p.proposal || {}, b = p.check || {};
+            const v = x => x.value === 1 ? 'ปกติ' : x.value === 2 ? 'ผิดปกติ' : 'ไม่แน่ใจ';
+            return `<div class="review-card comment-card" data-review="${Number(r.id)}">
+                <div class="review-label">“${esc(p.text)}” <span class="unit">${esc(p.column)} · ${group.length} คน</span></div>
+                <div class="review-grid">
+                    <div><b>AI ตัวที่ 1</b>: ${a.value !== undefined ? esc(v(a)) + ' · ' + esc(a.confidence) : '—'}<br><span class="muted">${esc(a.reason || '')}</span></div>
+                    <div><b>AI ตัวที่ 2</b>: ${b.value !== undefined ? esc(v(b)) + ' · ' + esc(b.confidence) : '—'}<br><span class="muted">${esc(b.reason || '')}</span></div>
+                </div>
+                <div class="review-actions"><select class="cmt-val">
+                    <option value="">⏸ ไม่แน่ใจ ข้ามไว้ก่อน</option>
+                    <option value="1" ${a.value === 1 && b.value === 1 ? 'selected' : ''}>1 — ปกติ</option>
+                    <option value="2" ${a.value === 2 && b.value === 2 ? 'selected' : ''}>2 — ผิดปกติ</option>
+                </select></div>
             </div>`;
         }
 
@@ -812,8 +837,13 @@
 
         async function submitDecisions(fid) {
             const block = document.querySelector(`.review-file[data-file="${fid}"]`);
-            const cards = block.querySelectorAll('.review-card:not(.identity-card)');
+            const cards = block.querySelectorAll('.review-card:not(.identity-card):not(.comment-card)');
+            const commentCards = block.querySelectorAll('.comment-card');
             const decisions = [];
+            commentCards.forEach(c => {
+                const val = c.querySelector('.cmt-val').value;
+                if (val) decisions.push({ review_id: Number(c.dataset.review), action: 'comment', value: Number(val) });
+            });
             block.querySelectorAll('.identity-card').forEach(c => {
                 c.querySelectorAll('.id-pick').forEach(sel => {
                     if (sel.value) decisions.push({ review_id: Number(c.dataset.review), action: 'identity', role: sel.dataset.role, header: sel.value });

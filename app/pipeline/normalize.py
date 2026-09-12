@@ -193,6 +193,11 @@ def parse_categorical(v) -> int | None:
     raise Unparseable(f"ไม่แน่ใจว่าเป็นปกติหรือผิดปกติ: {v}")
 
 
+def norm_comment(v) -> str:
+    """Key for a free-text finding: lowercase, single spaces."""
+    return re.sub(r"\s+", " ", str(v)).strip().lower()
+
+
 def parse_bp(v) -> tuple[float, float] | None:
     if is_na(v):
         return None

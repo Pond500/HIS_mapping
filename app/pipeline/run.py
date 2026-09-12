@@ -11,7 +11,7 @@ import os
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import AgentDecision, Hospital, PendingReview, SourceFile
+from app.models import AgentDecision, CommentLabel, Hospital, PendingReview, SourceFile
 from app.pipeline.extract import extract
 from app.pipeline.mapper import Mapper
 from app.pipeline.profiler import profile_sheet
@@ -29,7 +29,8 @@ def get_or_create_hospital(db: Session, code: str | None) -> Hospital:
     return h
 
 
-def process_file(db: Session, sf: SourceFile, evidence: dict | None = None) -> dict:
+def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
+                 comment_evidence: dict | None = None) -> dict:
     """
     Runs the pipeline for a registered SourceFile. Commits on success, rolls back on error.
     Safe to re-run on the same file (after new mappings are approved): same values are
@@ -41,7 +42,8 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None) -> d
         sheets = read_file(data, os.path.splitext(sf.stored_path)[1])
         mapper = Mapper(db, sf.hospital_id)
         specs = [profile_sheet(s, mapper.known_labels(), mapper.identity_aliases()) for s in sheets]
-        ex = extract(sheets, specs, mapper, evidence)
+        labels = {(c.column, c.text_norm): c.value for c in db.query(CommentLabel)}
+        ex = extract(sheets, specs, mapper, evidence, labels, comment_evidence)
         db.query(PendingReview).filter(PendingReview.source_file_id == sf.id,
                                        PendingReview.status == "open").delete()
         stored = save(db, sf, ex)

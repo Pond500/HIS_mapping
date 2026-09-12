@@ -214,6 +214,24 @@ def oracle_decisions(file_id: int, upload_truth: dict) -> tuple[list, dict]:
                 if header and not any(x.get("role") == role for x in decisions):
                     decisions.append({"action": "identity", "role": role, "header": header, "by": "oracle"})
                     stats["decisions"] += 1
+        expected = {}
+        for rec in upload_truth["records"]:
+            expected[(rec["cid"], rec["visit_date"])] = rec["values"]
+        seen = set()
+        for r in db.query(PendingReview).filter(PendingReview.source_file_id == file_id,
+                                                PendingReview.kind == "comment",
+                                                PendingReview.status == "open"):
+            p = r.payload
+            key = (p["column"], " ".join(str(p.get("text", "")).split()).lower())
+            value = expected.get((p.get("cid"), p.get("visit_date")), {}).get(p["column"])
+            if key in seen or value not in (1, 2):
+                continue
+            seen.add(key)
+            prop = (p.get("proposal") or {}).get("value")
+            stats["decisions"] += 1
+            stats["corrections"] += 0 if prop == value else 1
+            decisions.append({"action": "comment", "column": p["column"], "text": p["text"], "value": value,
+                              "by": "oracle"})
     return decisions, stats
 
 

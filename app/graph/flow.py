@@ -28,11 +28,12 @@ from typing import TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
+from app.agents import comments as comment_agent
 from app.agents import mapper as mapper_agent
 from app.agents import verifier as verifier_agent
 from app.database import SessionLocal
 from app.llm.client import LLMError
-from app.models import TARGET_EXTRA, TARGET_IGNORE, LabMapping, PendingReview, SourceFile
+from app.models import TARGET_EXTRA, TARGET_IGNORE, CommentLabel, LabMapping, PendingReview, SourceFile
 from app.pipeline import normalize as N
 from app.pipeline.extract import observations
 from app.pipeline.mapper import IDENTITY_PREFIX, Mapper, norm_label
@@ -57,6 +58,8 @@ class FileState(TypedDict, total=False):
     pending: list          # ids waiting for a human
     human_done: bool
     identity_candidates: list  # headers that may be a missing name/department column: never auto-accepted
+    comments_done: bool
+    comment_props: dict        # "column|text_norm" -> {"proposal", "check"} for findings left to a human
 
 
 def auto_accept_on() -> bool:
@@ -238,12 +241,64 @@ def decide(state: FileState) -> dict:
 def store(state: FileState) -> dict:
     with SessionLocal() as db:
         sf = db.get(SourceFile, state["source_file_id"])
-        process_file(db, sf, evidence=_evidence(state))
+        process_file(db, sf, evidence=_evidence(state), comment_evidence=_comment_evidence(state))
     return {}
 
 
+def _open_comment_reviews(file_id: int) -> list:
+    with SessionLocal() as db:
+        return db.query(PendingReview).filter(PendingReview.source_file_id == file_id,
+                                              PendingReview.kind == "comment",
+                                              PendingReview.status == "open").all()
+
+
 def after_store(state: FileState) -> str:
+    if not state.get("comments_done") and _open_comment_reviews(state["source_file_id"]):
+        return "comments"
     return "human" if state.get("pending") and not state.get("human_done") else END
+
+
+def comments_node(state: FileState) -> dict:
+    """
+    Findings with no 1/2 column: two classifiers from different vendors, blind to each other.
+    Same value + both high confidence (+ AUTO_ACCEPT) -> learned CommentLabel; else a human decides.
+    Only the finding text goes to the LLMs.
+    """
+    distinct = {}
+    for r in _open_comment_reviews(state["source_file_id"]):
+        key = (r.payload["column"], N.norm_comment(r.payload.get("text", "")))
+        distinct.setdefault(key, r.payload.get("text", ""))
+    items = [{"id": i, "column": k[0], "text": text} for i, (k, text) in enumerate(distinct.items())]
+    keys = list(distinct)
+
+    def run(agent):
+        def one(batch):
+            with SessionLocal() as db:
+                try:
+                    out, _ = comment_agent.classify(batch, agent=agent, db=db, source_file_id=state["source_file_id"])
+                except LLMError as e:
+                    out = {b["id"]: {"value": None, "confidence": "low", "reason": f"เรียก AI ไม่สำเร็จ: {str(e)[:100]}"}
+                           for b in batch}
+                db.commit()
+                return out
+        merged = {}
+        for out in _batched(one, items):
+            merged.update(out)
+        return merged
+
+    with ThreadPoolExecutor(2) as pool:
+        first, second = pool.map(run, ["comment", "comment_check"])
+    props = {}
+    with SessionLocal() as db:
+        for it, key in zip(items, keys):
+            a, b = first[it["id"]], second[it["id"]]
+            agree = a["value"] is not None and a["value"] == b["value"]
+            if auto_accept_on() and agree and a["confidence"] == b["confidence"] == "high":
+                save_comment_label(db, key[0], it["text"], a["value"], "agent_auto", "auto: comment+comment_check")
+            else:
+                props[f"{key[0]}|{key[1]}"] = {"proposal": a, "check": b, "agree": agree}
+        db.commit()
+    return {"comments_done": True, "comment_props": props}
 
 
 def human(state: FileState) -> dict:
@@ -279,6 +334,18 @@ def save_mapping(db, hospital_id, label, unit, target, factor, origin, by):
 IDENTITY_ROLES = ("first_name", "last_name", "full_name", "department_id")
 
 
+def save_comment_label(db, column, text, value, origin, by):
+    if value not in (1, 2):
+        raise ValueError("comment value must be 1 or 2")
+    key = N.norm_comment(text)
+    m = db.query(CommentLabel).filter(CommentLabel.column == column, CommentLabel.text_norm == key).one_or_none()
+    if m is None:
+        m = CommentLabel(column=column, text_norm=key)
+        db.add(m)
+    m.value, m.origin, m.approved_by = value, origin, by
+    db.flush()
+
+
 def save_identity(db, hospital_id, header, role, by):
     """Remember that this hospital's column `header` holds `role` (profiler reads it next time)."""
     from app.pipeline.profiler import hkey
@@ -308,6 +375,15 @@ def apply_decisions(source_file_id: int, decisions: list[dict], state: FileState
     with SessionLocal() as db:
         sf = db.get(SourceFile, source_file_id)
         for d in decisions:
+            if d["action"] == "comment":
+                save_comment_label(db, d["column"], d["text"], int(d["value"]), "human", d.get("by", "reviewer"))
+                key = (d["column"], N.norm_comment(d["text"]))
+                for r in db.query(PendingReview).filter(PendingReview.source_file_id == source_file_id,
+                                                        PendingReview.kind == "comment",
+                                                        PendingReview.status == "open"):
+                    if (r.payload.get("column"), N.norm_comment(r.payload.get("text", ""))) == key:
+                        r.status, r.decision, r.decided_by = "approved", d, d.get("by", "reviewer")
+                continue
             if d["action"] == "identity":
                 save_identity(db, sf.hospital_id, d["header"], d["role"], d.get("by", "reviewer"))
                 for r in db.query(PendingReview).filter(PendingReview.source_file_id == source_file_id,
@@ -339,6 +415,14 @@ def apply_decisions(source_file_id: int, decisions: list[dict], state: FileState
         db.commit()
 
 
+def _comment_evidence(state: FileState) -> dict:
+    out = {}
+    for k, v in (state.get("comment_props") or {}).items():
+        column, text_norm = k.split("|", 1)
+        out[(column, text_norm)] = v
+    return out
+
+
 def _evidence(state: FileState) -> dict:
     ev = {}
     for it in state.get("items", []):
@@ -367,12 +451,14 @@ def build(checkpointer=None):
     g.add_node("decide", decide)
     g.add_node("store", store)
     g.add_node("human", human)
+    g.add_node("comments", comments_node)
     g.add_edge(START, "analyze")
     g.add_conditional_edges("analyze", lambda s: "mapper" if s["items"] else "store", ["mapper", "store"])
     g.add_edge("mapper", "check")
     g.add_edge("check", "verifier")
     g.add_conditional_edges("verifier", after_verifier, ["mapper", "decide"])
     g.add_edge("decide", "store")
-    g.add_conditional_edges("store", after_store, ["human", END])
+    g.add_conditional_edges("store", after_store, ["comments", "human", END])
+    g.add_edge("comments", "store")
     g.add_edge("human", "store")
     return g.compile(checkpointer=checkpointer)

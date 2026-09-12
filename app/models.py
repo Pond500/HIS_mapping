@@ -120,6 +120,24 @@ class LabMapping(Base):
         }
 
 
+class CommentLabel(Base):
+    """
+    Learned meaning of a free-text finding when a file has no 1/2 column for it:
+    (category column, normalized text) -> 1 normal / 2 abnormal. Global (a finding means
+    the same in every hospital). Set by the comment agents on agreement, or by a human.
+    """
+    __tablename__ = "comment_labels"
+    __table_args__ = (UniqueConstraint("column", "text_norm"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    column: Mapped[str] = mapped_column(String(100))        # chest_xray / ekg / hearing_ability / far_vision_test
+    text_norm: Mapped[str] = mapped_column(String(500))
+    value: Mapped[int] = mapped_column(SmallInteger)        # 1 / 2
+    origin: Mapped[str] = mapped_column(String(20))         # agent_auto / agent_approved / human
+    approved_by: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 # ---------------------------------------------------------------------------
 # Results (one row per person + visit date, columns from the template)
 # ---------------------------------------------------------------------------

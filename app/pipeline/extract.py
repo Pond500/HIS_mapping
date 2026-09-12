@@ -78,8 +78,13 @@ def observations(sheet: Sheet, spec: SheetSpec):
 
 
 def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
-            evidence: dict | None = None) -> Extraction:
-    """evidence: {(label, unit): {...}} from the agents, attached to mapping reviews."""
+            evidence: dict | None = None, comment_labels: dict | None = None,
+            comment_evidence: dict | None = None) -> Extraction:
+    """
+    evidence:         {(label, unit): {...}} from the agents, attached to mapping reviews
+    comment_labels:   {(category column, norm_comment(text)): 1|2} learned meanings of findings
+    comment_evidence: {(category column, norm_comment(text)): {...}} attached to comment reviews
+    """
     ex = Extraction()
     id_headers = set()
     for spec in specs:
@@ -206,8 +211,14 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
         if cmt in resolved and cat not in resolved:
             for (cid, vd), row in ex.rows.items():
                 if cmt in row["cells"]:
-                    review("comment", cid=cid, visit_date=vd, column=cat, text=row["cells"][cmt][0],
-                           reason="มีแต่ข้อความผลตรวจ ต้องจัดว่าปกติหรือผิดปกติ")
+                    text, prov = row["cells"][cmt]
+                    known = (comment_labels or {}).get((cat, N.norm_comment(text)))
+                    if known is not None:
+                        row["cells"][cat] = (known, {**prov, "raw_name": f"{prov['raw_name']} (จัดประเภทจากข้อความ)"})
+                        continue
+                    review("comment", cid=cid, visit_date=vd, column=cat, text=text,
+                           reason="มีแต่ข้อความผลตรวจ ต้องจัดว่าปกติหรือผิดปกติ",
+                           **(comment_evidence or {}).get((cat, N.norm_comment(text)), {}))
     ex.stats["cells_ok"] = sum(len(r["cells"]) for r in ex.rows.values())
     return ex
 

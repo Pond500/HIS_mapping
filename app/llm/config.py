@@ -35,6 +35,8 @@ DEFAULTS = {
     "verifier": AgentConfig("z-ai/glm-5.3-flash"),
     "profiler": AgentConfig("google/gemini-3.1-flash-lite"),
     "comment": AgentConfig("google/gemini-3.1-flash-lite"),
+    # independent second opinion on findings, other vendor (same idea as the verifier)
+    "comment_check": AgentConfig("z-ai/glm-5.3-flash"),
     "qc": AgentConfig("google/gemini-3.1-flash-lite"),
 }
 
