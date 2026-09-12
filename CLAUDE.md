@@ -28,6 +28,7 @@ docker compose up -d postgres              # DB only, then run the app locally f
 .venv/bin/python -m testgen.build --verify exam                # exam set unchanged?
 .venv/bin/python -m evaluation.run --sut baseline --set dev    # score a system on all dev cases
 .venv/bin/python -m evaluation.run --case d08_extras_traps -v  # one case, with error examples
+.venv/bin/python -m evaluation.bench_mapper --models google/gemini-3.1-flash-lite deepseek/deepseek-v4-flash   # compare LLMs (dev, costs cents)
 ```
 
 **Evaluation** (`evaluation/`): `run.py` uploads each case into a separate DB (`his_mapping_eval`, wiped per case) through a SUT adapter (`SUTS`: `baseline` = `/api/legacy/upload`, `rules` = the new pipeline), then `metrics.py` sorts every expected cell into correct / wrong / missing_flagged / missing_silent, plus spurious. Headline metrics map to requirement D8: auto_precision ≥ 99.5%, automation ≥ 70%, automation_repeat ≥ 95%, silent_errors = 0. A pipeline shows it "asked a human" only through open `pending_reviews` rows whose payload follows the convention in the `metrics.py` docstring. New pipelines must follow that convention or they get no credit for flagging. Results are saved to `evaluation/results/`.
@@ -54,6 +55,8 @@ docker compose up -d postgres              # DB only, then run the app locally f
 5. `store.py` writes the result. A new cell is stored with `ValueProvenance`. The same value again is skipped. A different value becomes an open `Conflict`, and the stored value is never overwritten silently.
 
 `app/pipeline/normalize.py` holds the value parsers: CID checksum, CE/BE dates in many formats, numbers, categorical, BP, and Thai names. It raises `Unparseable` instead of guessing.
+
+**LLM agents** (`app/llm/`, `app/agents/`): all calls go through `app/llm/client.py::call_structured`. It uses OpenRouter via the `openai` SDK with a strict `json_schema` response format, and passes `provider.require_parameters` and `data_collection: deny`. Answers are validated with pydantic and retried with the validation error. Failures raise `LLMError`, and the caller must then flag for a human. Calls are logged to `agent_decisions` when a session is given. The model for each agent is set in `app/llm/config.py` and can be overridden with env `LLM_MODEL_<AGENT>`. Pin exact model ids. The API key is read from the project `.env` first, **ahead of** the shell environment. `app/agents/catalog.py` describes each column for prompts. Agents never produce stored numbers. For example, the Mapper agent returns a target plus the unit the values are written in, and `units.py` computes the factor.
 
 `app/routes/upload_legacy.py` (`/api/legacy/upload`) is the old exact+RapidFuzz code. It is kept **only** so the `baseline` evaluation SUT can be re-run. Don't extend it.
 
