@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY mapping_config.py alembic.ini ./
 COPY alembic ./alembic
+COPY scripts ./scripts
 
 EXPOSE 8000
 # apply migrations, then serve
