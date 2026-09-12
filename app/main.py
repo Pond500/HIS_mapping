@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.graph import service
-from app.routes import dashboard, mapping, reviews, upload, upload_legacy
+from app.routes import conflicts, dashboard, mapping, reviews, upload, upload_legacy
 
 
 @asynccontextmanager
@@ -45,6 +45,7 @@ app.include_router(upload_legacy.router)
 app.include_router(dashboard.router)
 app.include_router(mapping.router)
 app.include_router(reviews.router)
+app.include_router(conflicts.router)
 
 
 # ---------------------------------------------------------------------------

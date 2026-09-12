@@ -718,3 +718,5 @@ tr:hover td {
 .review-warn { color: var(--accent-amber); font-size: 0.85rem; margin: -4px 0 8px; }
 .review-actions label { color: var(--text-secondary); font-size: 0.85rem; min-width: 70px; align-self: center; }
 .comment-card { border-left-color: var(--accent-cyan); }
+.muted { color: var(--text-muted); font-size: 0.78rem; }
+.review-file-head .btn { margin-left: 12px; }

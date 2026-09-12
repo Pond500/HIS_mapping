@@ -26,6 +26,7 @@
             <div class="tabs" id="tabs">
                 <button class="tab-btn active" data-tab="upload" id="tab-upload-btn">📤 Upload</button>
                 <button class="tab-btn" data-tab="review" id="tab-review-btn">🔎 รอตรวจ <span class="count-pill" id="reviewCount" hidden></span></button>
+                <button class="tab-btn" data-tab="conflicts" id="tab-conflicts-btn">⚖️ ขัดแย้ง <span class="count-pill" id="conflictCount" hidden></span></button>
                 <button class="tab-btn" data-tab="dashboard" id="tab-dashboard-btn">📊 Dashboard</button>
                 <button class="tab-btn" data-tab="logs" id="tab-logs-btn">📋 Logs</button>
                 <button class="tab-btn" data-tab="settings" id="tab-settings-btn">⚙️ Settings</button>
@@ -91,6 +92,22 @@
                     <div id="reviewEmpty" class="empty-state" hidden>
                         <div class="empty-icon">✅</div>
                         <div class="empty-text">ไม่มีรายการรอตรวจ</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──── TAB: Conflicts (D13) ──── -->
+            <div class="tab-content" id="tab-conflicts">
+                <div class="card">
+                    <div class="card-title">⚖️ ข้อมูลขัดแย้ง</div>
+                    <p class="review-intro">
+                        ไฟล์ที่ส่งมาทีหลังมีค่าไม่ตรงกับค่าที่อยู่ในระบบแล้ว ระบบ<b>ยังเก็บค่าเดิมไว้</b>จนกว่าคุณจะเลือก
+                        ทุกครั้งที่เปลี่ยนค่า ระบบบันทึกประวัติไว้ ถ้าโรงพยาบาลส่งไฟล์แก้ไขมาทั้งไฟล์ ใช้ “ยอมรับค่าใหม่ทั้งไฟล์”
+                    </p>
+                    <div id="conflictList"></div>
+                    <div id="conflictEmpty" class="empty-state" hidden>
+                        <div class="empty-icon">✅</div>
+                        <div class="empty-text">ไม่มีข้อมูลขัดแย้ง</div>
                     </div>
                 </div>
             </div>
@@ -326,6 +343,7 @@
                 if (btn.dataset.tab === 'logs') loadLogs();
                 if (btn.dataset.tab === 'settings') loadMappings();
                 if (btn.dataset.tab === 'review') loadReviews();
+                if (btn.dataset.tab === 'conflicts') loadConflicts();
             });
         });
 
@@ -386,6 +404,7 @@
                     progressText.textContent = waiting ? '🔎 บันทึกส่วนที่แน่ใจแล้ว มีรายการรอตรวจ' : '✅ สำเร็จ!';
                     showResult(true, waiting ? 'บันทึกส่วนที่แน่ใจแล้ว — มีรายการรอตรวจ' : 'อัปโหลดสำเร็จ!', data);
                     refreshReviewCount();
+                    refreshConflictCount();
                 } else {
                     progressText.textContent = '❌ เกิดข้อผิดพลาด';
                     showResult(false, data.error || 'เกิดข้อผิดพลาด');
@@ -863,9 +882,69 @@
             loadReviews();
         }
 
+        // ══════════════════════════════════════
+        // CONFLICTS (D13): the stored value stays until a human decides
+        // ══════════════════════════════════════
+
+        async function refreshConflictCount() {
+            try {
+                const items = await fetch('/api/conflicts?status=open').then(r => r.json());
+                const pill = document.getElementById('conflictCount');
+                pill.textContent = items.length;
+                pill.hidden = items.length === 0;
+            } catch (e) { /* the count is a convenience */ }
+        }
+
+        async function loadConflicts() {
+            const items = await fetch('/api/conflicts?status=open').then(r => r.json());
+            document.getElementById('conflictEmpty').hidden = items.length > 0;
+            const byFile = {};
+            items.forEach(c => (byFile[c.source_file_id] = byFile[c.source_file_id] || []).push(c));
+            document.getElementById('conflictList').innerHTML = Object.entries(byFile).map(([fid, cs]) => `
+                <div class="review-file">
+                    <div class="review-file-head">ไฟล์ #${esc(fid)} ${esc(cs[0].incoming_from.file || '')} — ${cs.length} ค่าไม่ตรงกับที่มีอยู่
+                        <button class="btn btn-primary btn-sm" onclick="acceptAllConflicts(${Number(fid)})">ยอมรับค่าใหม่ทั้งไฟล์</button></div>
+                    <div class="table-wrapper"><table>
+                        <thead><tr><th>คน</th><th>วันที่ตรวจ</th><th>ช่อง</th><th>ค่าในระบบ</th><th>ค่าใหม่</th><th></th></tr></thead>
+                        <tbody>${cs.map(conflictRow).join('')}</tbody>
+                    </table></div>
+                </div>`).join('');
+            refreshConflictCount();
+        }
+
+        function conflictRow(c) {
+            const from = f => f.file ? `<div class="muted">${esc(f.file)}${f.cell ? ' · ' + esc(f.sheet || '') + '!' + esc(f.cell) : ''}</div>` : '';
+            return `<tr>
+                <td>${esc(c.name || '—')}<div class="muted">${esc(c.cid)}</div></td>
+                <td>${formatDate(c.visit_date)}</td>
+                <td>${esc(c.column)}</td>
+                <td><b>${esc(c.current_value)}</b>${from(c.current_from)}</td>
+                <td><b>${esc(c.incoming_value)}</b>${from(c.incoming_from)}</td>
+                <td style="white-space:nowrap">
+                    <button class="btn btn-sm" onclick="resolveConflict(${Number(c.id)}, 'keep')">เก็บค่าเดิม</button>
+                    <button class="btn btn-primary btn-sm" onclick="resolveConflict(${Number(c.id)}, 'replace')">ใช้ค่าใหม่</button>
+                </td></tr>`;
+        }
+
+        async function resolveConflict(id, action) {
+            const res = await fetch(`/api/conflicts/${id}/resolve`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
+            if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
+            loadConflicts();
+        }
+
+        async function acceptAllConflicts(fid) {
+            if (!confirm('ใช้ค่าใหม่จากไฟล์นี้ทั้งหมด? (ค่าเดิมจะถูกเก็บไว้ในประวัติ)')) return;
+            const res = await fetch(`/api/files/${fid}/conflicts/accept-all`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
+            loadConflicts();
+        }
+
         // ── Initialize ──
         refreshDashboard();
         refreshReviewCount();
+        refreshConflictCount();
     </script>
 
 </body>
