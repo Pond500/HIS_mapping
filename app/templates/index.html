@@ -25,6 +25,7 @@
             </div>
             <div class="tabs" id="tabs">
                 <button class="tab-btn active" data-tab="upload" id="tab-upload-btn">📤 Upload</button>
+                <button class="tab-btn" data-tab="review" id="tab-review-btn">🔎 รอตรวจ <span class="count-pill" id="reviewCount" hidden></span></button>
                 <button class="tab-btn" data-tab="dashboard" id="tab-dashboard-btn">📊 Dashboard</button>
                 <button class="tab-btn" data-tab="logs" id="tab-logs-btn">📋 Logs</button>
                 <button class="tab-btn" data-tab="settings" id="tab-settings-btn">⚙️ Settings</button>
@@ -40,6 +41,12 @@
             <div class="tab-content active" id="tab-upload">
                 <div class="card">
                     <div class="card-title">📤 Upload ไฟล์ HIS</div>
+
+                    <div class="field-row">
+                        <label for="hospitalCode">รหัสโรงพยาบาลที่ส่งไฟล์</label>
+                        <input type="text" id="hospitalCode" placeholder="เช่น H01" value="UNSPECIFIED">
+                        <span class="field-hint">ระบบจำการจับคู่ชื่อ lab แยกตามโรงพยาบาล</span>
+                    </div>
 
                     <div class="upload-zone" id="uploadZone">
                         <div class="upload-icon">📂</div>
@@ -68,6 +75,22 @@
                         <div class="result-title" id="resultTitle"></div>
                         <div id="resultBody"></div>
                         <div class="result-stats" id="resultStats"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──── TAB: Review (D9) ──── -->
+            <div class="tab-content" id="tab-review">
+                <div class="card">
+                    <div class="card-title">🔎 รายการที่รอเจ้าหน้าที่ตรวจ</div>
+                    <p class="review-intro">
+                        ระบบบันทึกเฉพาะค่าที่แน่ใจแล้ว รายการด้านล่างยังไม่ถูกบันทึกจนกว่าคุณจะยืนยัน
+                        ถ้าไม่แน่ใจ ให้เลือก “ไม่แน่ใจ ข้ามไว้ก่อน” — ข้อมูลจะไม่เข้าระบบและยังคงอยู่ในรายการนี้
+                    </p>
+                    <div id="reviewList"></div>
+                    <div id="reviewEmpty" class="empty-state" hidden>
+                        <div class="empty-icon">✅</div>
+                        <div class="empty-text">ไม่มีรายการรอตรวจ</div>
                     </div>
                 </div>
             </div>
@@ -286,6 +309,11 @@
         let searchQuery = '';
         let charts = {};
 
+        // Everything shown from uploaded files or AI output goes through esc() (D16: no XSS)
+        function esc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
         // ── Tab Navigation ──
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -297,6 +325,7 @@
                 if (btn.dataset.tab === 'dashboard') refreshDashboard();
                 if (btn.dataset.tab === 'logs') loadLogs();
                 if (btn.dataset.tab === 'settings') loadMappings();
+                if (btn.dataset.tab === 'review') loadReviews();
             });
         });
 
@@ -341,10 +370,11 @@
 
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('hospital', document.getElementById('hospitalCode').value.trim() || 'UNSPECIFIED');
 
             try {
                 progressBar.style.width = '60%';
-                progressText.textContent = 'กำลังประมวลผล mapping...';
+                progressText.textContent = 'กำลังอ่านไฟล์และให้ AI ช่วยจับคู่ชื่อที่ไม่รู้จัก (อาจใช้เวลาครึ่งนาที)...';
 
                 const res = await fetch('/api/upload', { method: 'POST', body: formData });
                 const data = await res.json();
@@ -352,8 +382,10 @@
                 progressBar.style.width = '100%';
 
                 if (data.success) {
-                    progressText.textContent = '✅ สำเร็จ!';
-                    showResult(true, `อัปโหลดสำเร็จ!`, data);
+                    const waiting = data.status === 'awaiting_review';
+                    progressText.textContent = waiting ? '🔎 บันทึกส่วนที่แน่ใจแล้ว มีรายการรอตรวจ' : '✅ สำเร็จ!';
+                    showResult(true, waiting ? 'บันทึกส่วนที่แน่ใจแล้ว — มีรายการรอตรวจ' : 'อัปโหลดสำเร็จ!', data);
+                    refreshReviewCount();
                 } else {
                     progressText.textContent = '❌ เกิดข้อผิดพลาด';
                     showResult(false, data.error || 'เกิดข้อผิดพลาด');
@@ -380,7 +412,7 @@
 
             if (data && success) {
                 bodyEl.innerHTML = `<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px;">
-            รูปแบบที่ตรวจพบ: <strong>${data.format_detected === 'long' ? 'Long/EAV (HIS)' : 'Wide (Template)'}</strong>
+            รูปแบบที่ตรวจพบ: <strong>${esc(data.format_detected)}</strong>
         </div>`;
                 statsEl.innerHTML = `
             <div class="result-stat">ทั้งหมด: <strong>${data.total_rows}</strong> แถว</div>
@@ -388,7 +420,7 @@
             <div class="result-stat">ผิดพลาด: <strong style="color:var(--accent-rose)">${data.error_rows}</strong></div>
         `;
             } else if (!success) {
-                bodyEl.innerHTML = `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px;">${title}</div>`;
+                bodyEl.innerHTML = `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px;">${esc(title)}</div>`;
                 statsEl.innerHTML = '';
             }
         }
@@ -487,10 +519,10 @@
             tbody.innerHTML = res.data.map((e, i) => `
         <tr>
             <td>${(res.page - 1) * res.per_page + i + 1}</td>
-            <td style="font-family:monospace;font-size:0.75rem;">${e.cid || '—'}</td>
-            <td>${e.first_name || '—'}</td>
-            <td>${e.last_name || '—'}</td>
-            <td>${e.department_id || '—'}</td>
+            <td style="font-family:monospace;font-size:0.75rem;">${esc(e.cid) || '—'}</td>
+            <td>${esc(e.first_name) || '—'}</td>
+            <td>${esc(e.last_name) || '—'}</td>
+            <td>${esc(e.department_id) || '—'}</td>
             <td>${formatDate(e.visit_date)}</td>
             <td>${fmtNum(e.venous_blood_lead)}</td>
             <td>${fmtNum(e.wbc)}</td>
@@ -510,14 +542,14 @@
             <td>${fmtNum(e.db)}</td>
             <td>${fmtNum(e.uric_acid)}</td>
             <td>${badge(e.chest_xray)}</td>
-            <td title="${e.xray_comment || ''}">${truncate(e.xray_comment)}</td>
+            <td title="${esc(e.xray_comment)}">${esc(truncate(e.xray_comment))}</td>
             <td>${fmtNum(e.profusion)}</td>
-            <td>${e.primary_lesion || '—'}</td>
-            <td>${e.secondary_lesion || '—'}</td>
+            <td>${esc(e.primary_lesion) || '—'}</td>
+            <td>${esc(e.secondary_lesion) || '—'}</td>
             <td>${fmtNum(e.rbc_che)}</td>
             <td>${fmtNum(e.plasma_che_bche)}</td>
             <td>${badge(e.ekg)}</td>
-            <td title="${e.ekg_comment || ''}">${truncate(e.ekg_comment)}</td>
+            <td title="${esc(e.ekg_comment)}">${esc(truncate(e.ekg_comment))}</td>
             <td>${fmtNum(e.bmi)}</td>
             <td>${fmtNum(e.bp_systolic)}</td>
             <td>${fmtNum(e.bp_diastolic)}</td>
@@ -529,9 +561,9 @@
             <td>${fmtNum(e.spirometry_fev1_fvc)}</td>
             <td>${fmtNum(e.spirometry_height)}</td>
             <td>${badge(e.hearing_ability)}</td>
-            <td title="${e.hearing_comment || ''}">${truncate(e.hearing_comment)}</td>
+            <td title="${esc(e.hearing_comment)}">${esc(truncate(e.hearing_comment))}</td>
             <td>${badge(e.far_vision_test)}</td>
-            <td title="${e.far_vision_comment || ''}">${truncate(e.far_vision_comment)}</td>
+            <td title="${esc(e.far_vision_comment)}">${esc(truncate(e.far_vision_comment))}</td>
         </tr>
     `).join('');
 
@@ -596,12 +628,12 @@
                 tbody.innerHTML = logs.map((l, i) => `
             <tr>
                 <td>${i + 1}</td>
-                <td>${l.filename}</td>
-                <td><span class="format-badge">${l.file_type || '—'}</span></td>
+                <td>${esc(l.filename)}</td>
+                <td><span class="format-badge">${esc(l.file_type) || '—'}</span></td>
                 <td>${l.total_rows}</td>
                 <td style="color:var(--accent-emerald)">${l.success_rows}</td>
                 <td style="color:var(--accent-rose)">${l.error_rows}</td>
-                <td><span class="badge badge-${l.status}">${l.status}</span></td>
+                <td><span class="badge badge-${esc(l.status)}">${esc(l.status)}</span></td>
                 <td>${formatDate(l.created_at)}</td>
             </tr>
         `).join('');
@@ -642,9 +674,9 @@
                 tbody.innerHTML = mappings.map((m, i) => `
                     <tr>
                         <td>${i + 1}</td>
-                        <td style="font-weight:600;">${m.his_lab_name}</td>
-                        <td><span class="badge badge-normal">${m.template_column}</span></td>
-                        <td>${m.unit_factor}</td>
+                        <td style="font-weight:600;">${esc(m.his_lab_name)}</td>
+                        <td><span class="badge badge-normal">${esc(m.template_column)}</span></td>
+                        <td>${esc(m.unit_factor)}</td>
                         <td><button class="btn btn-danger btn-sm" onclick="deleteMapping(${m.id})">❌</button></td>
                     </tr>
                 `).join('');
@@ -691,8 +723,99 @@
             } catch (err) {}
         }
 
+        // ══════════════════════════════════════
+        // REVIEW (D9): human decides what the system is unsure about
+        // ══════════════════════════════════════
+
+        let templateColumns = null;
+        const ACTIONS = [
+            ['approve', '✅ ยอมรับตามที่ AI เสนอ'],
+            ['set', '✏️ เลือกคอลัมน์เอง'],
+            ['extra', '📦 ผลตรวจนอก template (เก็บแยก)'],
+            ['ignore', '🚫 ไม่ใช่ผลตรวจ (ไม่ต้องเก็บ)'],
+            ['skip', '⏸ ไม่แน่ใจ ข้ามไว้ก่อน'],
+        ];
+        const KIND_LABEL = { value: 'ค่าที่อ่านไม่ได้/ผิดปกติ', cid: 'เลขบัตรประชาชนไม่ถูกต้อง',
+                             comment: 'มีแต่ข้อความผลตรวจ', profile: 'อ่านโครงสร้างไฟล์ไม่ได้' };
+
+        async function refreshReviewCount() {
+            try {
+                const items = await fetch('/api/reviews?status=open').then(r => r.json());
+                const pill = document.getElementById('reviewCount');
+                pill.textContent = items.length;
+                pill.hidden = items.length === 0;
+            } catch (e) { /* the count is a convenience */ }
+        }
+
+        async function loadReviews() {
+            if (!templateColumns) templateColumns = await fetch('/api/template/columns').then(r => r.json());
+            const items = await fetch('/api/reviews?status=open').then(r => r.json());
+            const list = document.getElementById('reviewList');
+            document.getElementById('reviewEmpty').hidden = items.length > 0;
+            const byFile = {};
+            items.forEach(r => (byFile[r.source_file_id] = byFile[r.source_file_id] || []).push(r));
+            list.innerHTML = Object.entries(byFile).map(([fid, rs]) => fileBlock(fid, rs)).join('');
+            refreshReviewCount();
+        }
+
+        function fileBlock(fid, rs) {
+            const maps = rs.filter(r => r.kind === 'mapping');
+            const others = rs.filter(r => r.kind !== 'mapping');
+            const counts = {};
+            others.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
+            return `<div class="review-file" data-file="${Number(fid)}">
+                <div class="review-file-head">ไฟล์ #${esc(fid)} — ชื่อ lab/หัวคอลัมน์ที่ต้องยืนยัน ${maps.length} รายการ</div>
+                ${maps.map(mappingCard).join('')}
+                ${maps.length ? `<button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจของไฟล์นี้</button>` : ''}
+                ${Object.entries(counts).map(([k, n]) => `<div class="review-other">• ${esc(KIND_LABEL[k] || k)}: ${n} รายการ</div>`).join('')}
+            </div>`;
+        }
+
+        function mappingCard(r) {
+            const p = r.payload, prop = p.proposal || {}, ver = p.verification || {};
+            const colOptions = templateColumns.map(c =>
+                `<option value="${esc(c.column)}" ${c.column === (prop.target || p.suggestion) ? 'selected' : ''}>${esc(c.column)} — ${esc(c.desc)}</option>`).join('');
+            const verdict = ver.verdict ? `${ver.agrees ? '👍 เห็นด้วย' : ver.verdict === 'wrong' ? '👎 ไม่เห็นด้วย' : '🤔 ไม่แน่ใจ'}`
+                + (ver.agrees ? '' : ` → ${esc(ver.target)} ${ver.unit ? '(' + esc(ver.unit) + ')' : ''}`) : '—';
+            return `<div class="review-card" data-review="${Number(r.id)}">
+                <div class="review-label">“${esc(p.label)}” ${p.unit ? `<span class="unit">หน่วยในไฟล์: ${esc(p.unit)}</span>` : ''}</div>
+                <div class="review-grid">
+                    <div><b>ค่าตัวอย่างจากไฟล์</b> (${Number(p.count || 0)} ค่า)<br>${(p.samples || []).map(s => `<code>${esc(s)}</code>`).join(' ')}</div>
+                    <div><b>AI เสนอ</b>: ${prop.target ? `${esc(prop.target)} ${prop.unit ? '(' + esc(prop.unit) + ')' : ''} · ความมั่นใจ ${esc(prop.confidence)}` : 'ไม่มี'}
+                         <br><span class="muted">${esc(prop.reason || p.reason || '')}</span></div>
+                    <div><b>ผู้ตรวจ AI</b>: ${verdict}<br><span class="muted">${esc(ver.reason || '')}</span></div>
+                    <div><b>ตรวจช่วงค่า</b>: ${prop.range_ok === true ? '✅ ทุกค่าอยู่ในช่วงที่เป็นไปได้' : prop.range_note ? '⚠️ ' + esc(prop.range_note) : '—'}</div>
+                </div>
+                <div class="review-actions">
+                    <select class="act">${ACTIONS.filter(([a]) => a !== 'approve' || prop.target && prop.target !== '__unknown__')
+                        .map(([a, t]) => `<option value="${a}">${t}</option>`).join('')}</select>
+                    <select class="target">${colOptions}</select>
+                    <input class="unit-in" placeholder="หน่วยของค่าในไฟล์ เช่น g/L" value="${esc(p.unit || prop.unit || '')}">
+                </div>
+            </div>`;
+        }
+
+        async function submitDecisions(fid) {
+            const block = document.querySelector(`.review-file[data-file="${fid}"]`);
+            const cards = block.querySelectorAll('.review-card');
+            const decisions = [];
+            cards.forEach(c => {
+                const action = c.querySelector('.act').value;
+                const d = { review_id: Number(c.dataset.review), action };
+                if (action === 'set') { d.target = c.querySelector('.target').value; d.unit = c.querySelector('.unit-in').value || null; }
+                decisions.push(d);
+            });
+            const res = await fetch(`/api/files/${fid}/decisions`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ decisions }),
+            });
+            if (!res.ok) { alert((await res.json()).detail || 'บันทึกไม่สำเร็จ'); return; }
+            loadReviews();
+        }
+
         // ── Initialize ──
         refreshDashboard();
+        refreshReviewCount();
     </script>
 
 </body>

@@ -20,6 +20,8 @@ from app.template import FIELDS_BY_COLUMN, RESULT_COLUMNS
 TARGET_BP = "__bp__"          # "120/80" -> bp_systolic + bp_diastolic
 BP_LABELS = {"bp", "blood pressure", "ความดันโลหิต", "ความดัน", "bp (mmhg)"}
 TEMPLATE_NAMES = {c: c for c in RESULT_COLUMNS}   # a file using the template's own names
+# mappings learned for a specific (label, unit) store the complete factor in unit_factor
+LEARNED_ORIGINS = {"human", "agent_approved", "agent_auto"}
 
 
 @dataclass
@@ -29,6 +31,7 @@ class _TemplateName:
     id: int | None = None
     source_unit: str | None = None
     unit_factor: float = 1.0
+    origin: str = "rule"
 
 
 def norm_label(s) -> str:
@@ -95,6 +98,8 @@ class Mapper:
         target = m.target_column
         if target in (TARGET_EXTRA, TARGET_IGNORE):
             return Resolution(target, 1.0, unit, src, m.id)
+        if m.origin in LEARNED_ORIGINS:
+            return Resolution(target, float(m.unit_factor), unit, src, m.id)
         if m.source_unit and unit and m.source_unit.lower() == (unit or "").lower():
             return Resolution(target, float(m.unit_factor), unit, src, m.id)   # approved unit-specific mapping
         f = U.factor(target, unit) if FIELDS_BY_COLUMN[target].kind == "numeric" else 1.0

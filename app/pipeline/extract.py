@@ -76,7 +76,9 @@ def observations(sheet: Sheet, spec: SheetSpec):
 # ---------------------------------------------------------------------------
 
 
-def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper) -> Extraction:
+def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
+            evidence: dict | None = None) -> Extraction:
+    """evidence: {(label, unit): {...}} from the agents, attached to mapping reviews."""
     ex = Extraction()
     for spec in specs:
         for p in spec.problems:
@@ -150,7 +152,8 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper) -> Extr
         res = resolutions[(label, unit)]
         if res.target is None:
             review("mapping", label=label, unit=unit, reason=res.reason, suggestion=res.suggestion,
-                   samples=[N.text(o.raw) for o in obs[:SAMPLES]], count=len(obs))
+                   samples=[N.text(o.raw) for o in obs[:SAMPLES]], count=len(obs),
+                   **(evidence or {}).get((label, unit), {}))
             ex.stats["cells_unmapped"] += len(obs)
             continue
         if res.target == TARGET_IGNORE:

@@ -690,3 +690,27 @@ tr:hover td {
 
 .empty-state .icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
 .empty-state p { font-size: 0.9rem; }
+
+/* ═══════════ Review (D9) ═══════════ */
+.field-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.field-row label { color: var(--text-secondary); font-size: 0.9rem; }
+.field-row input { max-width: 220px; }
+.field-hint { color: var(--text-muted); font-size: 0.8rem; }
+.count-pill { background: var(--accent-amber); color: #111; border-radius: 999px; padding: 0 8px;
+              font-size: 0.75rem; font-weight: 700; margin-left: 4px; }
+.review-intro { color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; }
+.review-file { border: 1px solid var(--border-glass); border-radius: var(--radius-md); padding: 16px;
+               margin-bottom: 20px; background: var(--bg-glass); }
+.review-file-head { font-weight: 600; margin-bottom: 12px; }
+.review-card { border-left: 3px solid var(--accent-amber); background: var(--bg-secondary);
+               border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; }
+.review-label { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; }
+.review-label .unit { font-size: 0.8rem; color: var(--text-secondary); font-weight: 400; margin-left: 8px; }
+.review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;
+               font-size: 0.85rem; line-height: 1.5; margin-bottom: 10px; }
+.review-grid code { background: var(--bg-glass); padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+.review-grid .muted { color: var(--text-muted); }
+.review-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.review-actions select, .review-actions input { min-width: 0; max-width: 100%; }
+.review-actions .target { flex: 1 1 260px; }
+.review-other { color: var(--text-secondary); font-size: 0.85rem; margin-top: 6px; }

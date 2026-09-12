@@ -146,11 +146,20 @@ def score_case(truth: dict, state: dict) -> dict:
 
 
 def headline(results: list[dict], repeat_uploads: set[tuple[str, int]]) -> dict:
+    """
+    Precision / silent errors come from the FINAL state (after any simulated review).
+    Automation comes from per_upload = each upload scored right after it was processed,
+    before any human answered — what the system did on its own.
+    """
     b = Counter()
     for r in results:
         b.update(r["buckets"])
     stored = b["correct"] + b["wrong"] + b["spurious"]
-    expected = b["correct"] + b["wrong"] + b["missing_flagged"] + b["missing_silent"]
+    first = Counter()
+    for r in results:
+        for pu in r["per_upload"]:
+            first.update(pu)
+    expected = sum(first[k] for k in ("correct", "wrong", "missing_flagged", "missing_silent"))
     rep = Counter()
     for r in results:
         for i, pu in enumerate(r["per_upload"]):
@@ -163,12 +172,16 @@ def headline(results: list[dict], repeat_uploads: set[tuple[str, int]]) -> dict:
 
     return {
         "auto_precision": b["correct"] / stored if stored else None,        # target >= 0.995
-        "automation": b["correct"] / expected if expected else None,        # target >= 0.70
+        "automation": first["correct"] / expected if expected else None,    # target >= 0.70
         "automation_repeat": rep["correct"] / rep_exp if rep_exp else None,  # target >= 0.95
         "silent_errors": b["wrong"] + b["spurious"],                        # target 0
         "silent_drops": b["missing_silent"],
         "flagged_for_human": b["missing_flagged"],
         "expected_cells": expected,
+        "llm_cost_usd": round(sum(r.get("llm_cost_usd", 0) for r in results), 4),
+        "llm_calls": sum(r.get("llm_calls", 0) for r in results),
+        "human_decisions": sum(r.get("oracle", {}).get("decisions", 0) for r in results),
+        "human_corrections": sum(r.get("oracle", {}).get("corrections", 0) for r in results),
         "conflicts_found": f'{total("conflicts", "found")}/{total("conflicts", "expected")}',
         "invalid_cid_flagged": f'{total("invalid_cid", "flagged")}/{total("invalid_cid", "expected")}',
         "censored_flagged": f'{total("censored", "flagged")}/{total("censored", "expected")}',

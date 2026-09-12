@@ -15,7 +15,8 @@ load_dotenv()
 
 DATABASE_URL = os.environ["DATABASE_URL"]  # set in .env (see .env.example)
 
-engine = create_engine(DATABASE_URL, echo=False)
+# pool_pre_ping: survive a database restart instead of failing every later request
+engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
