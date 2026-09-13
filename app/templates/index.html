@@ -4,195 +4,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HIS Mapping — แปลงข้อมูล HIS สู่ Template อาชีวอนามัย</title>
-    <meta name="description"
-        content="ระบบ upload และแปลงข้อมูลผลตรวจสุขภาพจากระบบ HIS เข้าสู่ template มาตรฐานอาชีวอนามัย">
+    <title>HIS Mapping</title>
+    <meta name="description" content="นำเข้าผลตรวจสุขภาพจากไฟล์ของโรงพยาบาลเข้าสู่ template มาตรฐานอาชีวอนามัย">
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 
 <body>
 
-    <!-- ═══════════ Header ═══════════ -->
     <header class="header">
         <div class="container header-inner">
-            <div class="logo">
-                <div class="logo-icon">🏥</div>
+            <div class="brand">
+                <span class="brand-mark">H</span>
                 <div>
-                    <h1>HIS Mapping</h1>
-                    <p>Health Information System → Template Converter</p>
+                    <div class="brand-name">HIS Mapping</div>
+                    <div class="brand-sub">นำเข้าผลตรวจสุขภาพเข้าระบบกลาง</div>
                 </div>
             </div>
-            <div class="tabs" id="tabs">
-                <button class="tab-btn active" data-tab="upload" id="tab-upload-btn">📤 Upload</button>
-                <button class="tab-btn" data-tab="review" id="tab-review-btn">🔎 รอตรวจ <span class="count-pill" id="reviewCount" hidden></span></button>
-                <button class="tab-btn" data-tab="conflicts" id="tab-conflicts-btn">⚖️ ขัดแย้ง <span class="count-pill" id="conflictCount" hidden></span></button>
-                <button class="tab-btn" data-tab="dashboard" id="tab-dashboard-btn">📊 Dashboard</button>
-                <button class="tab-btn" data-tab="logs" id="tab-logs-btn">📋 Logs</button>
-                <button class="tab-btn" data-tab="settings" id="tab-settings-btn">⚙️ Settings</button>
-            </div>
+            <nav class="nav" id="tabs">
+                <button class="tab-btn active" data-tab="upload">นำเข้าไฟล์</button>
+                <button class="tab-btn" data-tab="review">รอตรวจ <span class="count-pill" id="reviewCount" hidden></span></button>
+                <button class="tab-btn" data-tab="conflicts">ข้อมูลขัดแย้ง <span class="count-pill" id="conflictCount" hidden></span></button>
+                <button class="tab-btn" data-tab="dashboard">ภาพรวม</button>
+                <button class="tab-btn" data-tab="settings">ตั้งค่า</button>
+            </nav>
         </div>
     </header>
 
-    <!-- ═══════════ Main Content ═══════════ -->
     <main class="main">
         <div class="container">
 
-            <!-- ──── TAB: Upload ──── -->
-            <div class="tab-content active" id="tab-upload">
-                <div class="card">
-                    <div class="card-title">📤 Upload ไฟล์ HIS</div>
-
-                    <div class="field-row">
-                        <label for="hospitalCode">รหัสโรงพยาบาลที่ส่งไฟล์</label>
-                        <input type="text" id="hospitalCode" placeholder="เช่น H01" value="UNSPECIFIED">
-                        <span class="field-hint">ระบบจำการจับคู่ชื่อ lab แยกตามโรงพยาบาล</span>
+            <!-- ──── Upload ──── -->
+            <section class="tab-content active" id="tab-upload">
+                <div class="narrow">
+                    <div class="page-head">
+                        <h2>นำเข้าไฟล์</h2>
+                        <p>วางไฟล์ผลตรวจจากโรงพยาบาล ระบบจะอ่านและแปลงให้ ส่วนที่ไม่แน่ใจจะส่งให้คุณตรวจก่อนบันทึก</p>
                     </div>
 
-                    <div class="upload-zone" id="uploadZone">
-                        <div class="upload-icon">📂</div>
-                        <div class="upload-title">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</div>
-                        <div class="upload-subtitle">รองรับทั้ง Wide format (template) และ Long format (HIS/EAV)</div>
-                        <button class="upload-btn" id="uploadBtn">📎 เลือกไฟล์</button>
-                        <input type="file" class="file-input" id="fileInput" accept=".csv,.xlsx,.xls">
-                        <div class="upload-formats">
-                            <span class="format-badge">.CSV</span>
-                            <span class="format-badge">.XLSX</span>
-                            <span class="format-badge">Wide format</span>
-                            <span class="format-badge">Long/EAV format</span>
+                    <div class="card">
+                        <label class="field" for="hospitalCode">
+                            <span>รหัสโรงพยาบาล</span>
+                            <input type="text" id="hospitalCode" placeholder="เช่น H01" value="UNSPECIFIED">
+                            <small class="field-hint">ระบบจำสิ่งที่คุณยืนยันแยกตามโรงพยาบาล ไฟล์ถัดไปจากที่เดิมจะไม่ถามซ้ำ</small>
+                        </label>
+
+                        <div class="upload-zone" id="uploadZone">
+                            <div class="upload-icon" aria-hidden="true">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
+                                </svg>
+                            </div>
+                            <div class="upload-title">ลากไฟล์มาวาง หรือ <span class="link" id="uploadBtn">เลือกไฟล์</span></div>
+                            <div class="upload-subtitle">CSV · XLSX · XLS — หน้าตาแบบไหนก็ได้</div>
+                            <input type="file" class="file-input" id="fileInput" accept=".csv,.xlsx,.xls">
+                        </div>
+
+                        <div class="progress-section" id="progressSection">
+                            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+                            <div class="progress-text" id="progressText"></div>
+                        </div>
+
+                        <div class="result-card" id="resultCard">
+                            <div class="result-title" id="resultTitle"></div>
+                            <div id="resultBody"></div>
+                            <div class="result-stats" id="resultStats"></div>
+                            <div id="resultNext"></div>
                         </div>
                     </div>
 
-                    <!-- Progress -->
-                    <div class="progress-section" id="progressSection">
-                        <div class="progress-text" id="progressText">กำลังประมวลผล...</div>
-                        <div class="progress-bar-bg">
-                            <div class="progress-bar-fill" id="progressBar"></div>
-                        </div>
-                    </div>
-
-                    <!-- Result -->
-                    <div class="result-card" id="resultCard">
-                        <div class="result-title" id="resultTitle"></div>
-                        <div id="resultBody"></div>
-                        <div class="result-stats" id="resultStats"></div>
-                    </div>
+                    <ol class="steps">
+                        <li>ระบบอ่านไฟล์และจับคู่ชื่อ lab ที่รู้จัก</li>
+                        <li>AI สองตัวช่วยเสนอและตรวจชื่อที่ไม่รู้จัก</li>
+                        <li>ส่วนที่ไม่แน่ใจรอคุณยืนยัน ไม่มีค่าผิดเข้าระบบเงียบ ๆ</li>
+                    </ol>
                 </div>
-            </div>
+            </section>
 
-            <!-- ──── TAB: Review (D9) ──── -->
-            <div class="tab-content" id="tab-review">
-                <div class="card">
-                    <div class="card-title">🔎 รายการที่รอเจ้าหน้าที่ตรวจ</div>
-                    <p class="review-intro">
-                        ระบบบันทึกเฉพาะค่าที่แน่ใจแล้ว รายการด้านล่างยังไม่ถูกบันทึกจนกว่าคุณจะยืนยัน
-                        ถ้าไม่แน่ใจ ให้เลือก “ไม่แน่ใจ ข้ามไว้ก่อน” — ข้อมูลจะไม่เข้าระบบและยังคงอยู่ในรายการนี้
-                    </p>
-                    <div id="reviewList"></div>
-                    <div id="reviewEmpty" class="empty-state" hidden>
-                        <div class="empty-icon">✅</div>
-                        <div class="empty-text">ไม่มีรายการรอตรวจ</div>
-                    </div>
+            <!-- ──── Review (D9) ──── -->
+            <section class="tab-content" id="tab-review">
+                <div class="page-head">
+                    <h2>รอตรวจ</h2>
+                    <p>ระบบบันทึกเฉพาะค่าที่แน่ใจแล้ว รายการด้านล่างยังไม่เข้าระบบจนกว่าคุณจะยืนยัน
+                        ถ้าไม่แน่ใจ เลือก “ไม่แน่ใจ ข้ามไว้ก่อน” ได้เสมอ รายการจะรออยู่ที่นี่</p>
                 </div>
-            </div>
-
-            <!-- ──── TAB: Conflicts (D13) ──── -->
-            <div class="tab-content" id="tab-conflicts">
-                <div class="card">
-                    <div class="card-title">⚖️ ข้อมูลขัดแย้ง</div>
-                    <p class="review-intro">
-                        ไฟล์ที่ส่งมาทีหลังมีค่าไม่ตรงกับค่าที่อยู่ในระบบแล้ว ระบบ<b>ยังเก็บค่าเดิมไว้</b>จนกว่าคุณจะเลือก
-                        ทุกครั้งที่เปลี่ยนค่า ระบบบันทึกประวัติไว้ ถ้าโรงพยาบาลส่งไฟล์แก้ไขมาทั้งไฟล์ ใช้ “ยอมรับค่าใหม่ทั้งไฟล์”
-                    </p>
-                    <div id="conflictList"></div>
-                    <div id="conflictEmpty" class="empty-state" hidden>
-                        <div class="empty-icon">✅</div>
-                        <div class="empty-text">ไม่มีข้อมูลขัดแย้ง</div>
-                    </div>
+                <div id="reviewList"></div>
+                <div id="reviewEmpty" class="empty-state card" hidden>
+                    <div class="empty-icon">✓</div>
+                    <div class="empty-text">ไม่มีรายการรอตรวจ</div>
                 </div>
-            </div>
+            </section>
 
-            <!-- ──── TAB: Dashboard ──── -->
-            <div class="tab-content" id="tab-dashboard">
+            <!-- ──── Conflicts (D13) ──── -->
+            <section class="tab-content" id="tab-conflicts">
+                <div class="page-head">
+                    <h2>ข้อมูลขัดแย้ง</h2>
+                    <p>ไฟล์ที่ส่งมาทีหลังมีค่าไม่ตรงกับที่อยู่ในระบบ ระบบ<b>ยังเก็บค่าเดิมไว้</b>จนกว่าคุณจะเลือก
+                        และบันทึกประวัติทุกครั้งที่เปลี่ยนค่า</p>
+                </div>
+                <div id="conflictList"></div>
+                <div id="conflictEmpty" class="empty-state card" hidden>
+                    <div class="empty-icon">✓</div>
+                    <div class="empty-text">ไม่มีข้อมูลขัดแย้ง</div>
+                </div>
+            </section>
 
-                <!-- System metrics (measured, D5) -->
-                <div class="card">
-                    <div class="card-title">📈 ตัวชี้วัดของระบบ <span class="field-hint">วัดจากข้อมูลที่อยู่ในระบบนี้จริง</span></div>
-                    <div class="stats-grid" id="metricsGrid"></div>
+            <!-- ──── Dashboard ──── -->
+            <section class="tab-content" id="tab-dashboard">
+                <div class="page-head">
+                    <h2>ภาพรวม</h2>
+                    <p>ตัวเลขทั้งหมดวัดจากข้อมูลที่อยู่ในระบบนี้จริง</p>
                 </div>
 
-                <!-- Time-saving calculator: the agency's own numbers, no assumed staff times (D5) -->
-                <div class="card">
-                    <div class="card-title">⏱️ คำนวณเวลาที่ประหยัดได้ — กรอกตัวเลขของหน่วยงานคุณ</div>
-                    <p class="review-intro">
-                        ระบบไม่ได้เดาเวลาทำงานของเจ้าหน้าที่ไว้ให้ กรุณากรอกตามจริงของหน่วยงาน
-                        ส่วนเวลาที่ระบบใช้และจำนวนรายการที่ต้องให้คนดู ใช้ค่าที่วัดได้จากระบบนี้
-                    </p>
-                    <div class="calc-grid">
-                        <label>โรงพยาบาลที่ส่งไฟล์ต่อปี<input type="number" id="cHosp" min="0" placeholder="เช่น 20"></label>
-                        <label>ไฟล์ต่อโรงพยาบาลต่อปี<input type="number" id="cFiles" min="0" placeholder="เช่น 2"></label>
-                        <label>คนต่อไฟล์ (เฉลี่ย)<input type="number" id="cPeople" min="0" placeholder="เช่น 300"></label>
-                        <label>นาทีที่เจ้าหน้าที่ใช้แปลงข้อมูลด้วยมือ ต่อคน<input type="number" id="cMin" min="0" step="0.1" placeholder="กรอกตามจริง"></label>
-                        <label>วินาทีที่ใช้ตัดสินใจ 1 รายการที่ระบบถาม<input type="number" id="cReview" min="0" placeholder="กรอกตามจริง"></label>
-                    </div>
-                    <div id="calcOut" class="calc-out"></div>
-                </div>
+                <div class="stats-grid" id="metricsGrid"></div>
 
-                <!-- Stats -->
                 <div class="stats-grid" id="statsGrid">
                     <div class="stat-card blue">
-                        <div class="stat-label">จำนวนพนักงาน</div>
+                        <div class="stat-label">พนักงานในระบบ</div>
                         <div class="stat-value" id="statTotal">—</div>
-                        <div class="stat-sub">ทั้งหมดในระบบ</div>
+                        <div class="stat-sub">คน</div>
                     </div>
                     <div class="stat-card green">
-                        <div class="stat-label">Upload ทั้งหมด</div>
+                        <div class="stat-label">ไฟล์ที่นำเข้า</div>
                         <div class="stat-value" id="statUploads">—</div>
-                        <div class="stat-sub">ครั้ง</div>
+                        <div class="stat-sub">ไฟล์</div>
                     </div>
                     <div class="stat-card amber">
-                        <div class="stat-label">Upload ล่าสุด</div>
-                        <div class="stat-value" id="statLatest" style="font-size:1rem;font-weight:500;">—</div>
+                        <div class="stat-label">นำเข้าล่าสุด</div>
+                        <div class="stat-value small" id="statLatest">—</div>
                         <div class="stat-sub" id="statLatestFile"></div>
                     </div>
                     <div class="stat-card rose">
                         <div class="stat-label">ผลผิดปกติรวม</div>
                         <div class="stat-value" id="statAbnormal">—</div>
-                        <div class="stat-sub">X-ray + EKG + Hearing + Vision</div>
+                        <div class="stat-sub">X-ray · EKG · การได้ยิน · สายตา</div>
                     </div>
                 </div>
 
-                <!-- Charts -->
                 <div class="charts-grid">
-                    <div class="card">
-                        <div class="card-title">🩻 Chest X-ray</div>
-                        <div class="chart-container"><canvas id="chartXray"></canvas></div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title">💓 EKG</div>
-                        <div class="chart-container"><canvas id="chartEkg"></canvas></div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title">👂 การได้ยิน</div>
-                        <div class="chart-container"><canvas id="chartHearing"></canvas></div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title">👁️ สายตา</div>
-                        <div class="chart-container"><canvas id="chartVision"></canvas></div>
-                    </div>
+                    <div class="card"><div class="card-title">Chest X-ray</div><div class="chart-container"><canvas id="chartXray"></canvas></div></div>
+                    <div class="card"><div class="card-title">EKG</div><div class="chart-container"><canvas id="chartEkg"></canvas></div></div>
+                    <div class="card"><div class="card-title">การได้ยิน</div><div class="chart-container"><canvas id="chartHearing"></canvas></div></div>
+                    <div class="card"><div class="card-title">สายตา</div><div class="chart-container"><canvas id="chartVision"></canvas></div></div>
                 </div>
 
-                <!-- Employee Table -->
+                <!-- Time-saving calculator: the agency's own numbers, no assumed staff times (D5) -->
+                <details class="card">
+                    <summary>คำนวณเวลาที่ประหยัดได้ด้วยตัวเลขของหน่วยงานคุณ</summary>
+                    <p class="muted">ระบบไม่เดาเวลาทำงานของเจ้าหน้าที่ กรุณากรอกตามจริง ส่วนเวลาที่ระบบใช้และจำนวนรายการที่ต้องให้คนดูมาจากค่าที่วัดได้</p>
+                    <div class="calc-grid">
+                        <label>โรงพยาบาลที่ส่งไฟล์ต่อปี<input type="number" id="cHosp" min="0" placeholder="เช่น 20"></label>
+                        <label>ไฟล์ต่อโรงพยาบาลต่อปี<input type="number" id="cFiles" min="0" placeholder="เช่น 2"></label>
+                        <label>คนต่อไฟล์ (เฉลี่ย)<input type="number" id="cPeople" min="0" placeholder="เช่น 300"></label>
+                        <label>นาทีที่ใช้แปลงด้วยมือ ต่อคน<input type="number" id="cMin" min="0" step="0.1" placeholder="กรอกตามจริง"></label>
+                        <label>วินาทีที่ใช้ตัดสินใจ 1 รายการ<input type="number" id="cReview" min="0" placeholder="กรอกตามจริง"></label>
+                    </div>
+                    <div id="calcOut" class="calc-out"></div>
+                </details>
+
                 <div class="card">
                     <div class="controls">
-                        <div class="card-title" style="margin-bottom:0;">📋 ข้อมูลพนักงาน</div>
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <div class="search-box">
-                                <span>🔍</span>
-                                <input type="text" id="searchInput" placeholder="ค้นหา ชื่อ / เลขบัตรฯ / แผนก...">
-                            </div>
-                            <button class="btn btn-primary btn-sm" onclick="exportExcel()">📥 Export Excel</button>
-                            <button class="btn btn-outline btn-sm" onclick="refreshDashboard()">🔄 Refresh</button>
+                        <div class="card-title">ข้อมูลพนักงาน</div>
+                        <div class="toolbar">
+                            <div class="search-box"><input type="search" id="searchInput" placeholder="ค้นหาชื่อ เลขบัตร หรือแผนก"></div>
+                            <button class="btn btn-primary btn-sm" onclick="exportExcel()">ดาวน์โหลด Excel</button>
+                            <button class="btn btn-sm" onclick="refreshDashboard()">รีเฟรช</button>
                         </div>
                     </div>
 
@@ -200,65 +176,19 @@
                         <table id="employeeTable">
                             <thead>
                                 <tr>
-                                    <th>#</th>
-                                    <!-- Demographics -->
-                                    <th>เลขบัตรฯ</th>
-                                    <th>ชื่อ</th>
-                                    <th>นามสกุล</th>
-                                    <th>แผนก</th>
-                                    <th>วันที่ตรวจ</th>
-                                    <!-- Toxicology -->
+                                    <th>#</th><th>เลขบัตรฯ</th><th>ชื่อ</th><th>นามสกุล</th><th>แผนก</th><th>วันที่ตรวจ</th>
                                     <th>Blood Lead</th>
-                                    <!-- CBC -->
-                                    <th>WBC</th>
-                                    <th>Hb</th>
-                                    <th>Hct</th>
-                                    <th>Plt</th>
-                                    <th>Neutro</th>
-                                    <th>Lymph</th>
-                                    <th>Mono</th>
-                                    <th>Eos</th>
-                                    <th>Baso</th>
-                                    <!-- Kidney -->
+                                    <th>WBC</th><th>Hb</th><th>Hct</th><th>Plt</th><th>Neutro</th><th>Lymph</th><th>Mono</th><th>Eos</th><th>Baso</th>
                                     <th>Cr</th>
-                                    <!-- Liver -->
-                                    <th>AST</th>
-                                    <th>ALT</th>
-                                    <th>ALP</th>
-                                    <th>TB</th>
-                                    <th>DB</th>
-                                    <!-- Metabolic -->
+                                    <th>AST</th><th>ALT</th><th>ALP</th><th>TB</th><th>DB</th>
                                     <th>Uric</th>
-                                    <!-- X-ray -->
-                                    <th>X-ray</th>
-                                    <th>X-ray Comment</th>
-                                    <th>Profusion</th>
-                                    <th>1° Lesion</th>
-                                    <th>2° Lesion</th>
-                                    <!-- Cholinesterase -->
-                                    <th>RBC-ChE</th>
-                                    <th>Plasma ChE</th>
-                                    <!-- EKG -->
-                                    <th>EKG</th>
-                                    <th>EKG Comment</th>
-                                    <!-- Vitals -->
-                                    <th>BMI</th>
-                                    <th>SBP</th>
-                                    <th>DBP</th>
-                                    <th>Pulse</th>
-                                    <!-- Spirometry -->
-                                    <th>FVC%</th>
-                                    <th>FEV1%</th>
-                                    <th>FVC</th>
-                                    <th>FEV1</th>
-                                    <th>FEV1/FVC</th>
-                                    <th>Height</th>
-                                    <!-- Hearing -->
-                                    <th>Hearing</th>
-                                    <th>Hearing Comment</th>
-                                    <!-- Vision -->
-                                    <th>Vision</th>
-                                    <th>Vision Comment</th>
+                                    <th>X-ray</th><th>X-ray Comment</th><th>Profusion</th><th>1° Lesion</th><th>2° Lesion</th>
+                                    <th>RBC-ChE</th><th>Plasma ChE</th>
+                                    <th>EKG</th><th>EKG Comment</th>
+                                    <th>BMI</th><th>SBP</th><th>DBP</th><th>Pulse</th>
+                                    <th>FVC%</th><th>FEV1%</th><th>FVC</th><th>FEV1</th><th>FEV1/FVC</th><th>Height</th>
+                                    <th>Hearing</th><th>Hearing Comment</th>
+                                    <th>Vision</th><th>Vision Comment</th>
                                 </tr>
                             </thead>
                             <tbody id="employeeBody"></tbody>
@@ -266,83 +196,63 @@
                     </div>
 
                     <div id="emptyState" class="empty-state" style="display:none;">
-                        <div class="icon">📭</div>
-                        <p>ยังไม่มีข้อมูล — กรุณา Upload ไฟล์ก่อน</p>
+                        <p>ยังไม่มีข้อมูล นำเข้าไฟล์ก่อน</p>
                     </div>
 
                     <div class="pagination" id="pagination"></div>
                 </div>
-            </div>
+            </section>
 
-            <!-- ──── TAB: Logs ──── -->
-            <div class="tab-content" id="tab-logs">
+            <!-- ──── Settings (history + mappings) ──── -->
+            <section class="tab-content" id="tab-settings">
+                <div class="page-head">
+                    <h2>ตั้งค่า</h2>
+                    <p>ประวัติการนำเข้า และการจับคู่ชื่อ lab ที่ระบบใช้</p>
+                </div>
+
                 <div class="card">
-                    <div class="controls">
-                        <div class="card-title" style="margin-bottom:0;">📋 ประวัติการ Upload</div>
-                        <button class="btn btn-danger btn-sm" onclick="deleteAll()">🗑️ ลบข้อมูลทั้งหมด</button>
-                    </div>
-
+                    <div class="card-title">ประวัติการนำเข้า</div>
                     <div class="table-wrapper">
                         <table>
                             <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>ไฟล์</th>
-                                    <th>ประเภท</th>
-                                    <th>ทั้งหมด</th>
-                                    <th>สำเร็จ</th>
-                                    <th>ผิดพลาด</th>
-                                    <th>สถานะ</th>
-                                    <th>วันที่</th>
-                                </tr>
+                                <tr><th>#</th><th>ไฟล์</th><th>ประเภท</th><th>ทั้งหมด</th><th>สำเร็จ</th><th>ผิดพลาด</th><th>สถานะ</th><th>วันที่</th></tr>
                             </thead>
                             <tbody id="logsBody"></tbody>
                         </table>
                     </div>
-
                     <div id="logsEmpty" class="empty-state" style="display:none;">
-                        <div class="icon">📭</div>
-                        <p>ยังไม่มีประวัติ Upload</p>
+                        <p>ยังไม่มีประวัติการนำเข้า</p>
                     </div>
                 </div>
-            </div>
 
-            <!-- ──── TAB: Settings ──── -->
-            <div class="tab-content" id="tab-settings">
                 <div class="card">
-                    <div class="card-title">⚙️ กำหนดค่า Mapping รหัส Lab</div>
-                    
-                    <div style="background:var(--bg-secondary); padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid var(--border-color);">
-                        <h4>➕ เพิ่ม Mapping ใหม่</h4>
-                        <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap;">
-                            <input type="text" id="mapHisName" placeholder="ชื่อ Lab ใน HIS (เช่น v.b.p)" style="flex:1; min-width:200px;">
-                            <input type="text" id="mapTemplateCol" placeholder="ชื่อ Column ใน Template (เช่น venous_blood_lead)" style="flex:1; min-width:200px;">
-                            <input type="number" id="mapUnitFactor" placeholder="Unit Factor (เริ่มต้น 1.0)" step="0.0001" value="1.0" style="width:180px;">
-                            <button class="btn btn-primary" onclick="addMapping()">เพิ่ม</button>
-                        </div>
+                    <div class="card-title">การจับคู่ชื่อ lab</div>
+                    <div class="form-row">
+                        <input type="text" id="mapHisName" placeholder="ชื่อ lab ในไฟล์ เช่น v.b.p">
+                        <input type="text" id="mapTemplateCol" placeholder="คอลัมน์ใน template เช่น venous_blood_lead">
+                        <input type="number" id="mapUnitFactor" placeholder="ตัวคูณหน่วย" step="0.0001" value="1.0" title="ตัวคูณหน่วย">
+                        <button class="btn btn-primary" onclick="addMapping()">เพิ่ม</button>
                     </div>
-
                     <div class="table-wrapper">
                         <table>
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>ชื่อ Lab ใน HIS</th>
-                                    <th>Template Column</th>
-                                    <th>Unit Factor</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th>#</th><th>ชื่อ lab ในไฟล์</th><th>คอลัมน์ใน template</th><th>ตัวคูณหน่วย</th><th></th></tr></thead>
                             <tbody id="mappingsBody"></tbody>
                         </table>
                     </div>
                 </div>
-            </div>
+
+                <div class="card danger-zone">
+                    <div>
+                        <div class="card-title" style="margin-bottom:2px;">ลบข้อมูลพนักงานทั้งหมด</div>
+                        <div class="muted">ย้อนกลับไม่ได้ ใช้หลังซ้อม demo เท่านั้น</div>
+                    </div>
+                    <button class="btn btn-danger" onclick="deleteAll()">ลบข้อมูลทั้งหมด</button>
+                </div>
+            </section>
 
         </div>
     </main>
 
-    <!-- ═══════════ JavaScript ═══════════ -->
     <script>
         // ── State ──
         let currentPage = 1;
@@ -354,21 +264,19 @@
             return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
-        // ── Tab Navigation ──
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                btn.classList.add('active');
-                document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-                if (btn.dataset.tab === 'dashboard') refreshDashboard();
-                if (btn.dataset.tab === 'logs') loadLogs();
-                if (btn.dataset.tab === 'settings') loadMappings();
-                if (btn.dataset.tab === 'review') loadReviews();
-                if (btn.dataset.tab === 'conflicts') loadConflicts();
-            });
-        });
+        // ── Navigation ──
+        function showTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+            if (tab === 'dashboard') refreshDashboard();
+            if (tab === 'settings') { loadLogs(); loadMappings(); }
+            if (tab === 'review') loadReviews();
+            if (tab === 'conflicts') loadConflicts();
+            window.scrollTo({ top: 0 });
+        }
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => showTab(btn.dataset.tab)));
 
         // ══════════════════════════════════════
         // UPLOAD
@@ -381,7 +289,6 @@
         uploadBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
         uploadZone.addEventListener('click', () => fileInput.click());
 
-        // Drag & Drop
         uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
         uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
         uploadZone.addEventListener('drop', (e) => {
@@ -397,73 +304,59 @@
         async function uploadFile(file) {
             const ext = file.name.split('.').pop().toLowerCase();
             if (!['csv', 'xlsx', 'xls'].includes(ext)) {
-                showResult(false, 'รองรับเฉพาะไฟล์ .csv และ .xlsx เท่านั้น');
+                showResult('error', 'รองรับเฉพาะไฟล์ .csv, .xlsx และ .xls');
                 return;
             }
 
-            // Show progress
             const progress = document.getElementById('progressSection');
-            const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
-            progress.classList.add('visible');
-            progressBar.style.width = '30%';
-            progressText.textContent = `กำลังอัปโหลด ${file.name}...`;
+            document.getElementById('resultCard').className = 'result-card';
+            progress.className = 'progress-section visible';
+            progressText.textContent = `กำลังอ่าน ${file.name} และให้ AI ช่วยจับคู่ชื่อที่ไม่รู้จัก (อาจใช้เวลาครึ่งนาที)`;
 
             const formData = new FormData();
             formData.append('file', file);
             formData.append('hospital', document.getElementById('hospitalCode').value.trim() || 'UNSPECIFIED');
 
             try {
-                progressBar.style.width = '60%';
-                progressText.textContent = 'กำลังอ่านไฟล์และให้ AI ช่วยจับคู่ชื่อที่ไม่รู้จัก (อาจใช้เวลาครึ่งนาที)...';
-
                 const res = await fetch('/api/upload', { method: 'POST', body: formData });
                 const data = await res.json();
-
-                progressBar.style.width = '100%';
-
                 if (data.success) {
                     const waiting = data.status === 'awaiting_review';
-                    progressText.textContent = waiting ? '🔎 บันทึกส่วนที่แน่ใจแล้ว มีรายการรอตรวจ' : '✅ สำเร็จ!';
-                    showResult(true, waiting ? 'บันทึกส่วนที่แน่ใจแล้ว — มีรายการรอตรวจ' : 'อัปโหลดสำเร็จ!', data);
+                    showResult(waiting ? 'waiting' : 'success',
+                        waiting ? 'บันทึกส่วนที่แน่ใจแล้ว มีรายการรอคุณตรวจ' : 'นำเข้าสำเร็จ', data, file.name);
                     refreshReviewCount();
                     refreshConflictCount();
                 } else {
-                    progressText.textContent = '❌ เกิดข้อผิดพลาด';
-                    showResult(false, data.error || 'เกิดข้อผิดพลาด');
+                    showResult('error', data.error || 'เกิดข้อผิดพลาด');
                 }
             } catch (err) {
-                progressBar.style.width = '100%';
-                progressText.textContent = '❌ เกิดข้อผิดพลาด';
-                showResult(false, 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + err.message);
+                showResult('error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + err.message);
             }
-
-            // Reset file input
             fileInput.value = '';
-            setTimeout(() => { progress.classList.remove('visible'); progressBar.style.width = '0%'; }, 3000);
+            progress.className = 'progress-section';
         }
 
-        function showResult(success, title, data = null) {
+        function showResult(state, title, data = null, filename = '') {
             const card = document.getElementById('resultCard');
-            const titleEl = document.getElementById('resultTitle');
-            const bodyEl = document.getElementById('resultBody');
-            const statsEl = document.getElementById('resultStats');
-
-            card.className = 'result-card visible ' + (success ? 'success' : 'error');
-            titleEl.textContent = (success ? '✅ ' : '❌ ') + title;
-
-            if (data && success) {
-                bodyEl.innerHTML = `<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px;">
-            รูปแบบที่ตรวจพบ: <strong>${esc(data.format_detected)}</strong>
-        </div>`;
-                statsEl.innerHTML = `
-            <div class="result-stat">ทั้งหมด: <strong>${data.total_rows}</strong> แถว</div>
-            <div class="result-stat">สำเร็จ: <strong style="color:var(--accent-emerald)">${data.success_rows}</strong></div>
-            <div class="result-stat">ผิดพลาด: <strong style="color:var(--accent-rose)">${data.error_rows}</strong></div>
-        `;
-            } else if (!success) {
-                bodyEl.innerHTML = `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px;">${esc(title)}</div>`;
-                statsEl.innerHTML = '';
+            card.className = 'result-card visible ' + state;
+            document.getElementById('resultTitle').textContent = title;
+            const body = document.getElementById('resultBody');
+            const stats = document.getElementById('resultStats');
+            const next = document.getElementById('resultNext');
+            if (data) {
+                body.innerHTML = `<div class="muted">${esc(filename)}${data.format_detected ? ' · รูปแบบ ' + esc(data.format_detected) : ''}</div>`;
+                stats.innerHTML = `
+                    <div class="result-stat">ทั้งหมด <strong>${Number(data.total_rows) || 0}</strong> แถว</div>
+                    <div class="result-stat">บันทึกแล้ว <strong>${Number(data.success_rows) || 0}</strong></div>
+                    <div class="result-stat">มีปัญหา <strong>${Number(data.error_rows) || 0}</strong></div>`;
+                next.innerHTML = state === 'waiting'
+                    ? `<button class="btn btn-primary" onclick="showTab('review')">ไปตรวจรายการ →</button>`
+                    : `<button class="btn" onclick="showTab('dashboard')">ดูข้อมูล →</button>`;
+            } else {
+                body.innerHTML = '';
+                stats.innerHTML = '';
+                next.innerHTML = '';
             }
         }
 
@@ -490,7 +383,6 @@
             document.getElementById('statTotal').textContent = stats.total_employees.toLocaleString();
             document.getElementById('statUploads').textContent = stats.total_uploads.toLocaleString();
             document.getElementById('statAbnormal').textContent = stats.total_abnormal.toLocaleString();
-
             if (stats.latest_upload) {
                 const d = new Date(stats.latest_upload.created_at);
                 document.getElementById('statLatest').textContent = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -500,45 +392,35 @@
 
         function renderCharts(counts) {
             const chartConfig = [
-                { id: 'chartXray', key: 'xray', label: 'X-ray' },
-                { id: 'chartEkg', key: 'ekg', label: 'EKG' },
-                { id: 'chartHearing', key: 'hearing', label: 'Hearing' },
-                { id: 'chartVision', key: 'vision', label: 'Vision' },
+                { id: 'chartXray', key: 'xray' },
+                { id: 'chartEkg', key: 'ekg' },
+                { id: 'chartHearing', key: 'hearing' },
+                { id: 'chartVision', key: 'vision' },
             ];
+            const ok = cssVar('--ok'), bad = cssVar('--bad'), text = cssVar('--text-2'), surface = cssVar('--surface');
 
             chartConfig.forEach(({ id, key }) => {
                 const data = counts[key];
                 if (charts[id]) charts[id].destroy();
-
                 const ctx = document.getElementById(id);
                 if (!ctx) return;
-
                 const total = data.normal + data.abnormal;
+                ctx.parentElement.classList.toggle('empty', total === 0);
                 if (total === 0) return;
 
                 charts[id] = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: ['ปกติ', 'ผิดปกติ'],
-                        datasets: [{
-                            data: [data.normal, data.abnormal],
-                            backgroundColor: ['rgba(16,185,129,0.8)', 'rgba(244,63,94,0.8)'],
-                            borderColor: ['rgba(16,185,129,1)', 'rgba(244,63,94,1)'],
-                            borderWidth: 2,
-                            hoverOffset: 6,
-                        }],
+                        datasets: [{ data: [data.normal, data.abnormal], backgroundColor: [ok, bad], borderColor: surface, borderWidth: 2 }],
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        cutout: '65%',
+                        cutout: '70%',
                         plugins: {
-                            legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, padding: 16 } },
-                            tooltip: {
-                                callbacks: {
-                                    label: (ctx) => `${ctx.label}: ${ctx.raw} (${((ctx.raw / total) * 100).toFixed(1)}%)`
-                                }
-                            }
+                            legend: { position: 'bottom', labels: { color: text, font: { size: 12 }, boxWidth: 10, boxHeight: 10, padding: 12 } },
+                            tooltip: { callbacks: { label: (c) => `${c.label}: ${c.raw} (${((c.raw / total) * 100).toFixed(1)}%)` } },
                         },
                     },
                 });
@@ -556,13 +438,12 @@
                 pagination.innerHTML = '';
                 return;
             }
-
             empty.style.display = 'none';
 
             tbody.innerHTML = res.data.map((e, i) => `
         <tr>
             <td>${(res.page - 1) * res.per_page + i + 1}</td>
-            <td style="font-family:monospace;font-size:0.75rem;">${esc(e.cid) || '—'}</td>
+            <td style="font-family:ui-monospace,monospace;font-size:12px;">${esc(e.cid) || '—'}</td>
             <td>${esc(e.first_name) || '—'}</td>
             <td>${esc(e.last_name) || '—'}</td>
             <td>${esc(e.department_id) || '—'}</td>
@@ -586,7 +467,7 @@
             <td>${fmtNum(e.uric_acid)}</td>
             <td>${badge(e.chest_xray)}</td>
             <td title="${esc(e.xray_comment)}">${esc(truncate(e.xray_comment))}</td>
-            <td>${fmtNum(e.profusion)}</td>
+            <td>${esc(e.profusion) || '—'}</td>
             <td>${esc(e.primary_lesion) || '—'}</td>
             <td>${esc(e.secondary_lesion) || '—'}</td>
             <td>${fmtNum(e.rbc_che)}</td>
@@ -607,14 +488,12 @@
             <td title="${esc(e.hearing_comment)}">${esc(truncate(e.hearing_comment))}</td>
             <td>${badge(e.far_vision_test)}</td>
             <td title="${esc(e.far_vision_comment)}">${esc(truncate(e.far_vision_comment))}</td>
-        </tr>
-    `).join('');
+        </tr>`).join('');
 
             pagination.innerHTML = `
         <button ${res.page <= 1 ? 'disabled' : ''} onclick="goPage(${res.page - 1})">← ก่อนหน้า</button>
-        <span class="page-info">หน้า ${res.page} / ${res.total_pages} (${res.total} รายการ)</span>
-        <button ${res.page >= res.total_pages ? 'disabled' : ''} onclick="goPage(${res.page + 1})">ถัดไป →</button>
-    `;
+        <span class="page-info">หน้า ${res.page} / ${res.total_pages} · ${res.total} รายการ</span>
+        <button ${res.page >= res.total_pages ? 'disabled' : ''} onclick="goPage(${res.page + 1})">ถัดไป →</button>`;
         }
 
         function goPage(p) { currentPage = p; refreshDashboard(); }
@@ -640,7 +519,6 @@
             } catch { return d; }
         }
 
-        // Search with debounce
         let searchTimer;
         document.getElementById('searchInput').addEventListener('input', (e) => {
             clearTimeout(searchTimer);
@@ -652,7 +530,7 @@
         });
 
         // ══════════════════════════════════════
-        // LOGS
+        // HISTORY
         // ══════════════════════════════════════
 
         async function loadLogs() {
@@ -660,30 +538,28 @@
                 const logs = await fetch('/api/upload-logs').then(r => r.json());
                 const tbody = document.getElementById('logsBody');
                 const empty = document.getElementById('logsEmpty');
-
                 if (!logs || logs.length === 0) {
                     tbody.innerHTML = '';
                     empty.style.display = 'block';
                     return;
                 }
-
                 empty.style.display = 'none';
                 tbody.innerHTML = logs.map((l, i) => `
             <tr>
                 <td>${i + 1}</td>
                 <td>${esc(l.filename)}</td>
                 <td><span class="format-badge">${esc(l.file_type) || '—'}</span></td>
-                <td>${l.total_rows}</td>
-                <td style="color:var(--accent-emerald)">${l.success_rows}</td>
-                <td style="color:var(--accent-rose)">${l.error_rows}</td>
-                <td><span class="badge badge-${esc(l.status)}">${esc(l.status)}</span></td>
+                <td>${Number(l.total_rows) || 0}</td>
+                <td>${Number(l.success_rows) || 0}</td>
+                <td>${Number(l.error_rows) || 0}</td>
+                <td><span class="badge badge-${esc(l.status)}">${esc(STATUS_TH[l.status] || l.status)}</span></td>
                 <td>${formatDate(l.created_at)}</td>
-            </tr>
-        `).join('');
+            </tr>`).join('');
             } catch (err) {
                 console.error('Logs error:', err);
             }
         }
+        const STATUS_TH = { success: 'สำเร็จ', failed: 'ล้มเหลว', processing: 'กำลังทำ', awaiting_review: 'รอตรวจ' };
 
         // ══════════════════════════════════════
         // ACTIONS
@@ -694,35 +570,31 @@
         }
 
         async function deleteAll() {
-            if (!confirm('⚠️ ลบข้อมูลทั้งหมดจริงหรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้')) return;
+            if (!confirm('ลบข้อมูลทั้งหมดจริงหรือไม่? ย้อนกลับไม่ได้')) return;
             try {
                 await fetch('/api/employees', { method: 'DELETE' });
-                refreshDashboard();
                 loadLogs();
-                alert('✅ ลบข้อมูลทั้งหมดสำเร็จ');
+                alert('ลบข้อมูลทั้งหมดแล้ว');
             } catch (err) {
-                alert('❌ เกิดข้อผิดพลาด: ' + err.message);
+                alert('เกิดข้อผิดพลาด: ' + err.message);
             }
         }
 
         // ══════════════════════════════════════
-        // SETTINGS MAPPINGS
+        // MAPPINGS
         // ══════════════════════════════════════
 
         async function loadMappings() {
             try {
                 const mappings = await fetch('/api/mappings/').then(r => r.json());
-                const tbody = document.getElementById('mappingsBody');
-                
-                tbody.innerHTML = mappings.map((m, i) => `
+                document.getElementById('mappingsBody').innerHTML = mappings.map((m, i) => `
                     <tr>
                         <td>${i + 1}</td>
-                        <td style="font-weight:600;">${esc(m.his_lab_name)}</td>
-                        <td><span class="badge badge-normal">${esc(m.template_column)}</span></td>
+                        <td style="font-weight:500;">${esc(m.his_lab_name)}</td>
+                        <td><span class="format-badge">${esc(m.template_column)}</span></td>
                         <td>${esc(m.unit_factor)}</td>
-                        <td><button class="btn btn-danger btn-sm" onclick="deleteMapping(${m.id})">❌</button></td>
-                    </tr>
-                `).join('');
+                        <td><button class="btn btn-sm btn-danger" onclick="deleteMapping(${Number(m.id)})">ลบ</button></td>
+                    </tr>`).join('');
             } catch (err) {
                 console.error(err);
             }
@@ -732,18 +604,12 @@
             const name = document.getElementById('mapHisName').value;
             const col = document.getElementById('mapTemplateCol').value;
             const factor = document.getElementById('mapUnitFactor').value || 1.0;
-            
-            if (!name || !col) { alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
-            
+            if (!name || !col) { alert('กรุณากรอกชื่อ lab และคอลัมน์'); return; }
             try {
                 const res = await fetch('/api/mappings/', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        his_lab_name: name,
-                        template_column: col,
-                        unit_factor: parseFloat(factor)
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ his_lab_name: name, template_column: col, unit_factor: parseFloat(factor) }),
                 });
                 if (res.ok) {
                     document.getElementById('mapHisName').value = '';
@@ -757,13 +623,13 @@
                 console.error(err);
             }
         }
-        
+
         async function deleteMapping(id) {
-            if (!confirm('ยืนยันลบ Mapping นี้?')) return;
+            if (!confirm('ลบการจับคู่นี้?')) return;
             try {
-                await fetch('/api/mappings/' + id, {method: 'DELETE'});
+                await fetch('/api/mappings/' + id, { method: 'DELETE' });
                 loadMappings();
-            } catch (err) {}
+            } catch (err) { }
         }
 
         // ══════════════════════════════════════
@@ -772,13 +638,13 @@
 
         let templateColumns = null;
         const ACTIONS = [
-            ['approve', '✅ ยอมรับตามที่ AI เสนอ'],
-            ['set', '✏️ เลือกคอลัมน์เอง'],
-            ['extra', '📦 ผลตรวจนอก template (เก็บแยก)'],
-            ['ignore', '🚫 ไม่ใช่ผลตรวจ (ไม่ต้องเก็บ)'],
-            ['skip', '⏸ ไม่แน่ใจ ข้ามไว้ก่อน'],
+            ['approve', 'ยอมรับตามที่ AI เสนอ'],
+            ['set', 'เลือกคอลัมน์เอง'],
+            ['extra', 'ผลตรวจนอก template (เก็บแยก)'],
+            ['ignore', 'ไม่ใช่ผลตรวจ (ไม่ต้องเก็บ)'],
+            ['skip', 'ไม่แน่ใจ ข้ามไว้ก่อน'],
         ];
-        const KIND_LABEL = { value: 'ค่าที่อ่านไม่ได้/ผิดปกติ', cid: 'เลขบัตรประชาชนไม่ถูกต้อง',
+        const KIND_LABEL = { value: 'ค่าที่อ่านไม่ได้หรือผิดปกติ', cid: 'เลขบัตรประชาชนไม่ถูกต้อง',
                              comment: 'มีแต่ข้อความผลตรวจ', profile: 'อ่านโครงสร้างไฟล์ไม่ได้' };
         const ROLE_TH = { first_name: 'ชื่อ', last_name: 'นามสกุล', full_name: 'ชื่อ-สกุล', department_id: 'แผนก', visit_date: 'วันที่ตรวจ' };
         const TITLE_DATE = '__report_title_date__';
@@ -795,11 +661,10 @@
         async function loadReviews() {
             if (!templateColumns) templateColumns = await fetch('/api/template/columns').then(r => r.json());
             const items = await fetch('/api/reviews?status=open').then(r => r.json());
-            const list = document.getElementById('reviewList');
             document.getElementById('reviewEmpty').hidden = items.length > 0;
             const byFile = {};
             items.forEach(r => (byFile[r.source_file_id] = byFile[r.source_file_id] || []).push(r));
-            list.innerHTML = Object.entries(byFile).map(([fid, rs]) => fileBlock(fid, rs)).join('');
+            document.getElementById('reviewList').innerHTML = Object.entries(byFile).map(([fid, rs]) => fileBlock(fid, rs)).join('');
             refreshReviewCount();
         }
 
@@ -817,14 +682,17 @@
             const others = rs.filter(r => !['mapping', 'identity', 'comment', 'department'].includes(r.kind));
             const counts = {};
             others.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
+            const decisions = maps.length + ids.length + cmts.length + depts.length;
             return `<div class="review-file" data-file="${Number(fid)}">
-                <div class="review-file-head">ไฟล์ #${esc(fid)} — ชื่อ lab/หัวคอลัมน์ที่ต้องยืนยัน ${maps.length} รายการ</div>
-                ${ids.map(identityCard).join('')}
-                ${depts.map(deptCard).join('')}
-                ${maps.map(mappingCard).join('')}
-                ${cmts.map(commentCard).join('')}
-                ${maps.length || ids.length || cmts.length || depts.length ? `<button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจของไฟล์นี้</button>` : ''}
-                ${Object.entries(counts).map(([k, n]) => `<div class="review-other">• ${esc(KIND_LABEL[k] || k)}: ${n} รายการ</div>`).join('')}
+                <div class="review-file-head">ไฟล์ #${esc(fid)}<span class="muted">${decisions} เรื่องที่ต้องตัดสินใจ</span></div>
+                <div class="review-file-body">
+                    ${ids.map(identityCard).join('')}
+                    ${depts.map(deptCard).join('')}
+                    ${maps.map(mappingCard).join('')}
+                    ${cmts.map(commentCard).join('')}
+                    ${Object.entries(counts).map(([k, n]) => `<div class="review-other">${esc(KIND_LABEL[k] || k)}: ${n} รายการ</div>`).join('')}
+                </div>
+                ${decisions ? `<div class="review-foot"><button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจ</button></div>` : ''}
             </div>`;
         }
 
@@ -834,32 +702,34 @@
                 ? `<option value="${esc(c.header)}">วันที่ในหัวรายงาน (${esc(c.date)}): “${esc((c.samples || [])[0] || '')}”</option>`
                 : `<option value="${esc(c.header)}">${esc(c.header)} — เช่น ${esc((c.samples || []).join(', '))}</option>`).join('');
             return `<div class="review-card identity-card" data-review="${Number(r.id)}">
-                <div class="review-label">⚠️ ${esc(p.reason)} <span class="unit">sheet: ${esc(p.sheet)}</span></div>
+                <div class="review-kind">หาคอลัมน์ข้อมูลคนไม่พบ</div>
+                <div class="review-label">${esc(p.reason)} <span class="unit">sheet ${esc(p.sheet)}</span></div>
                 ${(p.missing || []).map(role => `<div class="review-actions"><label>${esc(ROLE_TH[role] || role)}</label>
-                    <select class="id-pick" data-role="${esc(role)}"><option value="">⏸ ไม่แน่ใจ ข้ามไว้ก่อน</option>${opts}</select></div>`).join('')}
+                    <select class="id-pick" data-role="${esc(role)}"><option value="">ไม่แน่ใจ ข้ามไว้ก่อน</option>${opts}</select></div>`).join('')}
             </div>`;
         }
 
         function deptCard(r) {
             const p = r.payload;
             return `<div class="review-card dept-card" data-review="${Number(r.id)}">
-                <div class="review-label">แผนก “${esc(p.name)}” <span class="unit">${Number(p.count || 0)} คน</span></div>
-                <div class="muted">${esc(p.reason || '')}</div>
+                <div class="review-kind">รหัสแผนก · ตอบครั้งเดียว ระบบจำไว้สำหรับโรงพยาบาลนี้</div>
+                <div class="review-label">“${esc(p.name)}” <span class="unit">${Number(p.count || 0)} คน</span></div>
                 <div class="review-actions"><input class="dept-code" placeholder="รหัสแผนก เช่น QC (เว้นว่าง = ข้ามไว้ก่อน)"></div>
             </div>`;
         }
 
         function commentCard(group) {
             const r = group[0], p = r.payload, a = p.proposal || {}, b = p.check || {};
-            const v = x => x.value === 1 ? 'ปกติ' : x.value === 2 ? 'ผิดปกติ' : 'ไม่แน่ใจ';
+            const v = x => x.value === 1 ? '<span class="tag ok">ปกติ</span>' : x.value === 2 ? '<span class="tag bad">ผิดปกติ</span>' : '<span class="tag warn">ไม่แน่ใจ</span>';
             return `<div class="review-card comment-card" data-review="${Number(r.id)}">
-                <div class="review-label">“${esc(p.text)}” <span class="unit">${esc(p.column)} · ${group.length} คน</span></div>
+                <div class="review-kind">ข้อความผลตรวจ · ${esc(p.column)} · ${group.length} คน</div>
+                <div class="review-label">“${esc(p.text)}”</div>
                 <div class="review-grid">
-                    <div><b>AI ตัวที่ 1</b>: ${a.value !== undefined ? esc(v(a)) + ' · ' + esc(a.confidence) : '—'}<br><span class="muted">${esc(a.reason || '')}</span></div>
-                    <div><b>AI ตัวที่ 2</b>: ${b.value !== undefined ? esc(v(b)) + ' · ' + esc(b.confidence) : '—'}<br><span class="muted">${esc(b.reason || '')}</span></div>
+                    <div><b>AI ตัวที่ 1</b> ${a.value !== undefined ? v(a) + ' <span class="muted">' + esc(a.confidence) + '</span>' : '—'}<br><span class="muted">${esc(a.reason || '')}</span></div>
+                    <div><b>AI ตัวที่ 2</b> ${b.value !== undefined ? v(b) + ' <span class="muted">' + esc(b.confidence) + '</span>' : '—'}<br><span class="muted">${esc(b.reason || '')}</span></div>
                 </div>
                 <div class="review-actions"><select class="cmt-val">
-                    <option value="">⏸ ไม่แน่ใจ ข้ามไว้ก่อน</option>
+                    <option value="">ไม่แน่ใจ ข้ามไว้ก่อน</option>
                     <option value="1" ${a.value === 1 && b.value === 1 ? 'selected' : ''}>1 — ปกติ</option>
                     <option value="2" ${a.value === 2 && b.value === 2 ? 'selected' : ''}>2 — ผิดปกติ</option>
                 </select></div>
@@ -870,23 +740,29 @@
             const p = r.payload, prop = p.proposal || {}, ver = p.verification || {};
             const colOptions = templateColumns.map(c =>
                 `<option value="${esc(c.column)}" ${c.column === (prop.target || p.suggestion) ? 'selected' : ''}>${esc(c.column)} — ${esc(c.desc)}</option>`).join('');
-            const verdict = ver.verdict ? `${ver.agrees ? '👍 เห็นด้วย' : ver.verdict === 'wrong' ? '👎 ไม่เห็นด้วย' : '🤔 ไม่แน่ใจ'}`
-                + (ver.agrees ? '' : ` → ${esc(ver.target)} ${ver.unit ? '(' + esc(ver.unit) + ')' : ''}`) : '—';
+            const verdict = ver.verdict
+                ? (ver.agrees ? '<span class="tag ok">เห็นด้วย</span>' : ver.verdict === 'wrong' ? '<span class="tag bad">ไม่เห็นด้วย</span>' : '<span class="tag warn">ไม่แน่ใจ</span>')
+                  + (ver.agrees ? '' : ` → ${esc(ver.target)} ${ver.unit ? '(' + esc(ver.unit) + ')' : ''}`)
+                : '—';
+            const hasProp = prop.target && prop.target !== '__unknown__';
+            const actions = ACTIONS.filter(([a]) => a !== 'approve' || hasProp);
+            const first = hasProp ? 'approve' : 'skip';   // never preselect a column nobody proposed
             return `<div class="review-card" data-review="${Number(r.id)}">
-                <div class="review-label">“${esc(p.label)}” ${p.unit ? `<span class="unit">หน่วยในไฟล์: ${esc(p.unit)}</span>` : ''}</div>
-                ${p.maybe_identity ? '<div class="review-warn">⚠️ คอลัมน์นี้อาจเป็นชื่อหรือแผนก — ถ้าใช่ ให้เลือกในรายการ “หาคอลัมน์ไม่พบ” ด้านบน และที่นี่เลือก “ไม่แน่ใจ”</div>' : ''}
+                <div class="review-kind">ชื่อ lab หรือหัวคอลัมน์ที่ไม่รู้จัก</div>
+                <div class="review-label">“${esc(p.label)}” ${p.unit ? `<span class="unit">หน่วยในไฟล์ ${esc(p.unit)}</span>` : ''}</div>
+                ${p.maybe_identity ? '<div class="review-warn">คอลัมน์นี้อาจเป็นชื่อหรือแผนก ถ้าใช่ ให้เลือกในการ์ด “หาคอลัมน์ข้อมูลคนไม่พบ” และที่นี่เลือก “ไม่แน่ใจ”</div>' : ''}
                 <div class="review-grid">
-                    <div><b>ค่าตัวอย่างจากไฟล์</b> (${Number(p.count || 0)} ค่า)<br>${(p.samples || []).map(s => `<code>${esc(s)}</code>`).join(' ')}</div>
-                    <div><b>AI เสนอ</b>: ${prop.target ? `${esc(prop.target)} ${prop.unit ? '(' + esc(prop.unit) + ')' : ''} · ความมั่นใจ ${esc(prop.confidence)}` : 'ไม่มี'}
+                    <div><b>ค่าตัวอย่าง</b> <span class="muted">${Number(p.count || 0)} ค่า</span><br>${(p.samples || []).map(s => `<code>${esc(s)}</code>`).join('')}</div>
+                    <div><b>AI เสนอ</b> ${prop.target ? `${esc(prop.target)} ${prop.unit ? '(' + esc(prop.unit) + ')' : ''} <span class="muted">มั่นใจ ${esc(prop.confidence)}</span>` : 'ไม่มี'}
                          <br><span class="muted">${esc(prop.reason || p.reason || '')}</span></div>
-                    <div><b>ผู้ตรวจ AI</b>: ${verdict}<br><span class="muted">${esc(ver.reason || '')}</span></div>
-                    <div><b>ตรวจช่วงค่า</b>: ${prop.range_ok === true ? '✅ ทุกค่าอยู่ในช่วงที่เป็นไปได้' : prop.range_note ? '⚠️ ' + esc(prop.range_note) : '—'}</div>
+                    <div><b>AI ตรวจทาน</b> ${verdict}<br><span class="muted">${esc(ver.reason || '')}</span></div>
+                    <div><b>ช่วงค่า</b> ${prop.range_ok === true ? '<span class="tag ok">ทุกค่าอยู่ในช่วง</span>' : prop.range_note ? '<span class="tag warn">' + esc(prop.range_note) + '</span>' : '—'}</div>
                 </div>
                 <div class="review-actions">
-                    <select class="act">${ACTIONS.filter(([a]) => a !== 'approve' || prop.target && prop.target !== '__unknown__')
-                        .map(([a, t]) => `<option value="${a}">${t}</option>`).join('')}</select>
-                    <select class="target">${colOptions}</select>
-                    <input class="unit-in" placeholder="หน่วยของค่าในไฟล์ เช่น g/L" value="${esc(p.unit || prop.unit || '')}">
+                    <select class="act" onchange="this.closest('.review-card').classList.toggle('show-set', this.value === 'set')">
+                        ${actions.map(([a, t]) => `<option value="${a}" ${a === first ? 'selected' : ''}>${t}</option>`).join('')}</select>
+                    <select class="target set-only">${prop.target || p.suggestion ? '' : '<option value="" selected>— เลือกคอลัมน์ —</option>'}${colOptions}</select>
+                    <input class="unit-in set-only" placeholder="หน่วยของค่าในไฟล์ เช่น g/L" value="${esc(p.unit || prop.unit || '')}">
                 </div>
             </div>`;
         }
@@ -894,14 +770,13 @@
         async function submitDecisions(fid) {
             const block = document.querySelector(`.review-file[data-file="${fid}"]`);
             const cards = block.querySelectorAll('.review-card:not(.identity-card):not(.comment-card):not(.dept-card)');
-            const deptCards = block.querySelectorAll('.dept-card');
-            const commentCards = block.querySelectorAll('.comment-card');
             const decisions = [];
-            deptCards.forEach(c => {
+            let noTarget = false;
+            block.querySelectorAll('.dept-card').forEach(c => {
                 const code = c.querySelector('.dept-code').value.trim();
                 if (code) decisions.push({ review_id: Number(c.dataset.review), action: 'department', code });
             });
-            commentCards.forEach(c => {
+            block.querySelectorAll('.comment-card').forEach(c => {
                 const val = c.querySelector('.cmt-val').value;
                 if (val) decisions.push({ review_id: Number(c.dataset.review), action: 'comment', value: Number(val) });
             });
@@ -913,15 +788,27 @@
             cards.forEach(c => {
                 const action = c.querySelector('.act').value;
                 const d = { review_id: Number(c.dataset.review), action };
-                if (action === 'set') { d.target = c.querySelector('.target').value; d.unit = c.querySelector('.unit-in').value || null; }
+                if (action === 'set') {
+                    d.target = c.querySelector('.target').value;
+                    d.unit = c.querySelector('.unit-in').value || null;
+                    if (!d.target) noTarget = true;
+                }
                 decisions.push(d);
             });
+            if (noTarget) { alert('มีรายการที่เลือก “เลือกคอลัมน์เอง” แต่ยังไม่ได้เลือกคอลัมน์'); return; }
+            const btn = block.querySelector('.review-foot .btn');
+            if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
             const res = await fetch(`/api/files/${fid}/decisions`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ decisions }),
             });
-            if (!res.ok) { alert((await res.json()).detail || 'บันทึกไม่สำเร็จ'); return; }
+            if (!res.ok) {
+                alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
+                if (btn) { btn.disabled = false; btn.textContent = 'บันทึกการตัดสินใจ'; }
+                return;
+            }
             loadReviews();
+            refreshConflictCount();
         }
 
         // ══════════════════════════════════════
@@ -944,9 +831,11 @@
             items.forEach(c => (byFile[c.source_file_id] = byFile[c.source_file_id] || []).push(c));
             document.getElementById('conflictList').innerHTML = Object.entries(byFile).map(([fid, cs]) => `
                 <div class="review-file">
-                    <div class="review-file-head">ไฟล์ #${esc(fid)} ${esc(cs[0].incoming_from.file || '')} — ${cs.length} ค่าไม่ตรงกับที่มีอยู่
-                        <button class="btn btn-primary btn-sm" onclick="acceptAllConflicts(${Number(fid)})">ยอมรับค่าใหม่ทั้งไฟล์</button></div>
-                    <div class="table-wrapper"><table>
+                    <div class="review-file-head">
+                        <span>ไฟล์ #${esc(fid)} ${esc(cs[0].incoming_from.file || '')} <span class="muted">${cs.length} ค่าไม่ตรงกับที่มีอยู่</span></span>
+                        <button class="btn btn-sm" onclick="acceptAllConflicts(${Number(fid)})">ใช้ค่าใหม่ทั้งไฟล์</button>
+                    </div>
+                    <div class="table-wrapper" style="border:0;border-radius:0;"><table>
                         <thead><tr><th>คน</th><th>วันที่ตรวจ</th><th>ช่อง</th><th>ค่าในระบบ</th><th>ค่าใหม่</th><th></th></tr></thead>
                         <tbody>${cs.map(conflictRow).join('')}</tbody>
                     </table></div>
@@ -976,7 +865,7 @@
         }
 
         async function acceptAllConflicts(fid) {
-            if (!confirm('ใช้ค่าใหม่จากไฟล์นี้ทั้งหมด? (ค่าเดิมจะถูกเก็บไว้ในประวัติ)')) return;
+            if (!confirm('ใช้ค่าใหม่จากไฟล์นี้ทั้งหมด? ค่าเดิมจะถูกเก็บไว้ในประวัติ')) return;
             const res = await fetch(`/api/files/${fid}/conflicts/accept-all`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
             if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
@@ -999,7 +888,7 @@
                 card('green', 'ระบบทำเองได้', pct(m.automation_rate),
                      `อัตโนมัติ ${m.cells.automatic.toLocaleString()} · คนช่วย ${m.cells.assisted.toLocaleString()} · รอ ${m.cells.waiting.toLocaleString()} ค่า`),
                 card('amber', 'รอเจ้าหน้าที่', (m.open_reviews + m.open_conflicts).toLocaleString(),
-                     `รายการรอตรวจ ${m.open_reviews} · ข้อมูลขัดแย้ง ${m.open_conflicts}`),
+                     `รอตรวจ ${m.open_reviews} · ขัดแย้ง ${m.open_conflicts}`),
                 card('blue', 'เวลาเฉลี่ยต่อไฟล์', m.avg_seconds_per_file == null ? '—' : m.avg_seconds_per_file + ' วินาที',
                      `${m.files} ไฟล์ · ${m.hospitals} โรงพยาบาล · ${m.people_visits.toLocaleString()} คน-ครั้ง`),
                 card('rose', 'ค่า AI ต่อไฟล์', m.llm_cost_per_file_usd == null ? '—' : '$' + m.llm_cost_per_file_usd,
@@ -1012,7 +901,7 @@
             const v = Object.fromEntries(CALC_FIELDS.map(id => [id, parseFloat(document.getElementById(id).value)]));
             try { localStorage.setItem('calc', JSON.stringify(v)); } catch (e) { /* storage may be blocked */ }
             const out = document.getElementById('calcOut');
-            if (!metrics || metrics.avg_seconds_per_file == null) { out.innerHTML = '<span class="muted">ยังไม่มีเวลาที่วัดได้ — อัปโหลดไฟล์อย่างน้อย 1 ไฟล์ก่อน</span>'; return; }
+            if (!metrics || metrics.avg_seconds_per_file == null) { out.innerHTML = '<span class="muted">ยังไม่มีเวลาที่วัดได้ นำเข้าไฟล์อย่างน้อย 1 ไฟล์ก่อน</span>'; return; }
             if (CALC_FIELDS.some(id => !(v[id] >= 0))) { out.innerHTML = '<span class="muted">กรอกให้ครบทุกช่องเพื่อคำนวณ</span>'; return; }
             const files = v.cHosp * v.cFiles;
             const itemsPerFile = metrics.files ? (metrics.human_decisions + metrics.open_reviews) / metrics.files : 0;
@@ -1020,7 +909,7 @@
             const systemH = files * (metrics.avg_seconds_per_file + itemsPerFile * v.cReview) / 3600;
             const saved = manualH - systemH;
             out.innerHTML = `<div class="calc-result">ประหยัดได้ประมาณ <b>${Math.max(0, saved).toLocaleString(undefined, { maximumFractionDigits: 0 })} ชั่วโมงต่อปี</b>
-                ${manualH > 0 ? `(${(saved / manualH * 100).toFixed(0)}% ของเวลาที่ใช้ตอนนี้)` : ''}</div>
+                ${manualH > 0 ? `<span class="muted">(${(saved / manualH * 100).toFixed(0)}% ของเวลาที่ใช้ตอนนี้)</span>` : ''}</div>
                 <div class="muted">ด้วยมือ: ${files.toLocaleString()} ไฟล์ × ${v.cPeople} คน × ${v.cMin} นาที = ${manualH.toLocaleString(undefined, { maximumFractionDigits: 0 })} ชม.
                 · ด้วยระบบ: ${files.toLocaleString()} ไฟล์ × (${metrics.avg_seconds_per_file} วินาที + ${itemsPerFile.toFixed(1)} รายการ × ${v.cReview} วินาที) = ${systemH.toLocaleString(undefined, { maximumFractionDigits: 1 })} ชม.
                 · ค่าที่วัดได้มาจาก ${metrics.files} ไฟล์ในระบบนี้</div>`;
@@ -1033,7 +922,6 @@
         } catch (e) { /* no saved inputs */ }
 
         // ── Initialize ──
-        refreshDashboard();
         refreshReviewCount();
         refreshConflictCount();
     </script>
