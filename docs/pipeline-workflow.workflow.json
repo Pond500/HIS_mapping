@@ -1,0 +1,382 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "ตัดสินใจตรงไหน ด้วยกฎอะไร",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "external": {
+          "label": "ไฟล์เข้า"
+        },
+        "security": {
+          "label": "จุดตัดสินด้วยกฎ"
+        },
+        "cloud": {
+          "label": "AI ช่วยคิด"
+        },
+        "frontend": {
+          "label": "เจ้าหน้าที่"
+        },
+        "database": {
+          "label": "บันทึก / จำ"
+        }
+      }
+    },
+    "views": [
+      {
+        "id": "rule-known",
+        "label": "① รู้จักชื่อนี้ไหม?",
+        "focus": [
+          "file",
+          "known",
+          "values"
+        ],
+        "note": "เทียบแบบตรงตัวกับชื่อที่เคยยืนยัน รู้จักแล้วข้าม AI ไป ③ เลย"
+      },
+      {
+        "id": "ai-pair",
+        "label": "AI ตัวที่ 1 และ 2",
+        "focus": [
+          "ai1",
+          "ai2",
+          "trust"
+        ],
+        "note": "ตัวที่ 1 เสนอช่องและหน่วย ตัวที่ 2 ตอบเองแยกกัน ต้องตรงกันถึงผ่าน ② · AI ไม่เห็นชื่อหรือเลขบัตร"
+      },
+      {
+        "id": "ai-text",
+        "label": "AI คู่อ่านข้อความ",
+        "focus": [
+          "values",
+          "comments",
+          "saved",
+          "officer"
+        ],
+        "note": "ข้อความผลตรวจใหม่ AI 2 ตัวจัดว่าปกติหรือผิดปกติ ต้องตรงกัน"
+      },
+      {
+        "id": "rule-values",
+        "label": "③ ค่าแต่ละช่องถูกไหม?",
+        "focus": [
+          "values",
+          "saved",
+          "officer"
+        ],
+        "note": "เลขบัตรถูก อ่านค่าได้แน่นอน อยู่ในช่วง ไม่ขัดของเดิม จึงบันทึก"
+      },
+      {
+        "id": "people",
+        "label": "เจ้าหน้าที่อยู่ตรงไหน",
+        "focus": [
+          "hid",
+          "hignore",
+          "officer",
+          "learn"
+        ],
+        "note": "อะไรที่กฎตัดสินไม่ได้ ระบบไม่เดา ถามเจ้าหน้าที่ แล้วจำคำตอบไว้"
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "system",
+      "label": "ระบบ (กฎตายตัว)"
+    },
+    {
+      "id": "ai",
+      "label": "AI ช่วยคิด"
+    },
+    {
+      "id": "people",
+      "label": "เจ้าหน้าที่ (ตรงไหนถามคน)",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "p1",
+      "label": "1 · รับไฟล์และจับคู่",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "p2",
+      "label": "2 · AI ช่วยคิด",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "p3",
+      "label": "3 · ตรวจแล้วบันทึก",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "groups": [
+    {
+      "id": "two_ai",
+      "label": "AI 2 ตัว คนละบริษัท",
+      "lane": "ai",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "file",
+    "known",
+    "ai1",
+    "ai2",
+    "trust",
+    "values",
+    "saved"
+  ],
+  "nodes": [
+    {
+      "id": "file",
+      "lane": "system",
+      "col": 0,
+      "type": "external",
+      "label": "รับไฟล์ + หาข้อมูลคน",
+      "sublabel": "เลขบัตร · ชื่อ · วันที่",
+      "width": 160
+    },
+    {
+      "id": "known",
+      "lane": "system",
+      "col": 1,
+      "type": "security",
+      "label": "① รู้จักชื่อนี้ไหม?",
+      "sublabel": "ตรงตัวเท่านั้น ไม่เดา",
+      "width": 160
+    },
+    {
+      "id": "values",
+      "lane": "system",
+      "col": 4,
+      "type": "security",
+      "label": "③ ค่าแต่ละช่องถูกไหม?",
+      "sublabel": "เลขบัตร · ช่วงค่า · ขัดแย้ง",
+      "width": 160
+    },
+    {
+      "id": "saved",
+      "lane": "system",
+      "col": 5,
+      "type": "database",
+      "label": "บันทึกเข้าระบบ",
+      "sublabel": "จำที่มาของทุกค่า",
+      "width": 160
+    },
+    {
+      "id": "ai1",
+      "lane": "ai",
+      "col": 2,
+      "type": "cloud",
+      "label": "AI ตัวที่ 1 เสนอ",
+      "sublabel": "ช่องไหน + หน่วยอะไร",
+      "width": 160
+    },
+    {
+      "id": "ai2",
+      "lane": "ai",
+      "col": 3,
+      "type": "cloud",
+      "label": "AI ตัวที่ 2 ตรวจทาน",
+      "sublabel": "ตอบเองแยกกัน",
+      "width": 160
+    },
+    {
+      "id": "trust",
+      "lane": "ai",
+      "col": 4,
+      "type": "security",
+      "label": "② เชื่อ AI ได้ไหม?",
+      "sublabel": "ตรงกัน · มั่นใจ · ในช่วง",
+      "width": 160
+    },
+    {
+      "id": "comments",
+      "lane": "ai",
+      "col": 5,
+      "type": "cloud",
+      "label": "AI คู่อ่านข้อความ",
+      "sublabel": "ปกติ / ผิดปกติ",
+      "width": 160
+    },
+    {
+      "id": "hid",
+      "lane": "people",
+      "col": 0,
+      "type": "frontend",
+      "label": "เลือกคอลัมน์ชื่อ / แผนก",
+      "sublabel": "หัวคอลัมน์ไม่รู้จัก",
+      "width": 160
+    },
+    {
+      "id": "hignore",
+      "lane": "people",
+      "col": 2,
+      "type": "frontend",
+      "label": "ยืนยัน \"ไม่ต้องเก็บ\"",
+      "sublabel": "คนตอบเสมอ",
+      "width": 160
+    },
+    {
+      "id": "learn",
+      "lane": "people",
+      "col": 3,
+      "type": "database",
+      "label": "ระบบจำคำตอบ",
+      "sublabel": "ครั้งหน้าไม่ถามซ้ำ",
+      "width": 160
+    },
+    {
+      "id": "officer",
+      "lane": "people",
+      "col": 4,
+      "type": "frontend",
+      "label": "เจ้าหน้าที่ตัดสิน",
+      "sublabel": "ดูหลักฐานแล้วยืนยัน",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-file-known",
+      "from": "file",
+      "to": "known"
+    },
+    {
+      "id": "e-file-hid",
+      "from": "file",
+      "to": "hid",
+      "label": "หาไม่เจอ",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "e-known-values",
+      "from": "known",
+      "to": "values",
+      "label": "รู้จัก: ไม่ต้องใช้ AI",
+      "variant": "emphasis",
+      "role": "branch"
+    },
+    {
+      "id": "e-known-ai1",
+      "from": "known",
+      "to": "ai1",
+      "label": "ไม่รู้จัก"
+    },
+    {
+      "id": "e-ai1-ai2",
+      "from": "ai1",
+      "to": "ai2",
+      "label": "ถามแยกกัน"
+    },
+    {
+      "id": "e-ai1-hignore",
+      "from": "ai1",
+      "to": "hignore",
+      "label": "เสนอไม่ต้องเก็บ",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "e-ai2-trust",
+      "from": "ai2",
+      "to": "trust"
+    },
+    {
+      "id": "e-trust-values",
+      "from": "trust",
+      "to": "values",
+      "label": "ผ่าน",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-trust-officer",
+      "from": "trust",
+      "to": "officer",
+      "label": "ไม่ผ่าน",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "e-values-saved",
+      "from": "values",
+      "to": "saved",
+      "label": "ถูกต้อง",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-values-officer",
+      "from": "values",
+      "to": "officer",
+      "label": "ไม่ผ่าน",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "e-values-comments",
+      "from": "values",
+      "to": "comments",
+      "label": "ข้อความผลตรวจ",
+      "role": "branch"
+    },
+    {
+      "id": "e-comments-saved",
+      "from": "comments",
+      "to": "saved",
+      "label": "ตรงกัน"
+    },
+    {
+      "id": "e-comments-officer",
+      "from": "comments",
+      "to": "officer",
+      "label": "ไม่ตรงกัน",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "e-officer-learn",
+      "from": "officer",
+      "to": "learn",
+      "label": "ยืนยัน"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "① รู้จักชื่อนี้ไหม? ตัดสินยังไง",
+      "items": [
+        "ตรงทุกตัวอักษรเท่านั้น ไม่เดา",
+        "ค้น: รพ. นั้น → template → กลาง",
+        "หน่วยต้องอยู่ในตารางมาตรฐาน"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "AI แต่ละตัวตัดสินอะไร",
+      "items": [
+        "ตัวที่ 1: ช่องไหน หน่วยอะไร",
+        "ตัวที่ 2: ตอบแยก ต้องตรงกัน",
+        "คู่ข้อความ: ปกติ/ผิดปกติ ต้องตรงกัน"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "③ ค่าแต่ละช่องถูกไหม? ตัดสินยังไง",
+      "items": [
+        "เลขบัตรผ่านสูตรตรวจหลักที่ 13",
+        "อ่านได้แน่นอน และอยู่ในช่วง",
+        "ต่างจากค่าเดิม → ไม่ทับ ให้คนเลือก"
+      ]
+    }
+  ]
+}
