@@ -1,0 +1,23 @@
+# Reverse proxy for the external API (D19, docs/api.md).
+#
+# Only /api/v1 is reachable from the internet. The staff web page and its internal API
+# (everything else) are NOT exposed: staff reach them on the internal network or over
+# an SSH tunnel. Replace api.example.go.th with the server's domain; Caddy obtains and
+# renews the HTTPS certificate itself (ports 80 and 443 must be open to it).
+
+api.example.go.th {
+	handle /api/v1/* {
+		request_body {
+			max_size 25MB
+		}
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+
+	log {
+		output file /var/log/caddy/his-mapping-api.log
+	}
+}

@@ -63,6 +63,8 @@ docker compose up -d postgres              # DB only, then run the app locally f
 
 Learned mappings (`origin` in `human` / `agent_approved` / `agent_auto`) are keyed by the exact (label, unit) seen in the file and store the **total** factor.
 
+**External API** (D19, [docs/api.md](docs/api.md)): hospital HIS systems send files to `/api/v1` (`app/routes/api_v1.py`, its own FastAPI app mounted at `/api/v1`, with docs at `/api/v1/docs`). Callers authenticate with an `X-API-Key` header (`app/api_keys.py`). Only the SHA-256 of a key is stored. A key belongs to one hospital, so the hospital a file is filed under comes from the key, never from the request. `POST /files` registers the file and answers 202 at once. `service.run_upload` then runs as a background task, at most `API_MAX_PARALLEL` at a time. On startup, files still `processing` are run again (`resume_unfinished`). Sending the same bytes again returns the earlier file. Callers can only read the status of their own hospital's files, never people's results. Keys are managed with `scripts/manage_api_keys.py`. Only `/api/v1` may be exposed to the internet ([deploy/Caddyfile](deploy/Caddyfile)). All the other `/api/...` routes belong to the staff page and have no authentication. Rate limiting and the background queue are in-process, so run one app process.
+
 **Review API** (`app/routes/reviews.py`): `GET /api/reviews?status=open&file_id=`, `GET /api/files/{id}`, `POST /api/files/{id}/decisions` (actions `approve` / `set` target+unit / `extra` / `ignore` / `skip`), and `GET /api/template/columns`.
 
 **Pipeline** (`app/pipeline/`, rules only, no LLM; the graph wraps it):

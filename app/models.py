@@ -51,6 +51,8 @@ class SourceFile(Base):
     stats: Mapped[dict] = mapped_column(JSON, default=dict)
     errors: Mapped[list] = mapped_column(JSON, default=list)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # the API key that sent the file (D19); NULL when it came through the staff web page
+    api_key_id: Mapped[int | None] = mapped_column(ForeignKey("api_keys.id"))
 
     def to_dict(self):
         s = self.stats or {}
@@ -67,6 +69,21 @@ class SourceFile(Base):
             "errors": self.errors or [],
             "created_at": self.uploaded_at.isoformat() if self.uploaded_at else None,
         }
+
+
+class ApiKey(Base):
+    """A key for the external API (/api/v1, D19). It belongs to one hospital: files sent
+    with it are registered under that hospital. Only the SHA-256 of the key is stored."""
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hospital_id: Mapped[int] = mapped_column(ForeignKey("hospitals.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))                 # who uses it, e.g. "HIS รพ.ตัวอย่าง"
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    prefix: Mapped[str] = mapped_column(String(20))                # first characters, to recognise a key
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class FileProfile(Base):

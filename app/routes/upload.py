@@ -27,7 +27,8 @@ def storage_dir() -> str:
     return os.environ.get("STORAGE_DIR", os.path.join(ROOT, "storage", "uploads"))
 
 
-def register_file(db: Session, filename: str, content: bytes, hospital: str | None) -> SourceFile:
+def register_file(db: Session, filename: str, content: bytes, hospital: str | None,
+                  api_key_id: int | None = None) -> SourceFile:
     """Stores the original bytes and creates the SourceFile row (committed)."""
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     sha = hashlib.sha256(content).hexdigest()
@@ -37,7 +38,7 @@ def register_file(db: Session, filename: str, content: bytes, hospital: str | No
         fh.write(content)
     h = get_or_create_hospital(db, hospital)
     sf = SourceFile(hospital_id=h.id, filename=filename, file_type=ext, sha256=sha,
-                    stored_path=stored_path, status="processing", stats={}, errors=[])
+                    stored_path=stored_path, status="processing", stats={}, errors=[], api_key_id=api_key_id)
     db.add(sf)
     db.commit()
     db.refresh(sf)
