@@ -1,11 +1,25 @@
-# Reverse proxy for the external API (D19, docs/api.md).
+# Reverse proxy for the HIS Mapping server (D19, D22 — see docs/api.md).
 #
-# Only /api/v1 is reachable from the internet. The staff web page and its internal API
-# (everything else) are NOT exposed: staff reach them on the internal network or over
-# an SSH tunnel. Replace api.example.go.th with the server's domain; Caddy obtains and
-# renews the HTTPS certificate itself (ports 80 and 443 must be open to it).
+# Two doors, on purpose:
+#
+#   /api/v1/*   the hospitals' HIS systems. No password here: callers authenticate with
+#               their own X-API-Key, and a browser password would block them.
+#   everything  the staff web pages. Behind a password at the proxy AND the app's own
+#   else        sign-in, so a leaked link alone is not enough and a bug in the app's
+#               session handling is not the only thing standing in front of the data.
+#
+# Replace api.example.go.th with the server's domain. Caddy obtains and renews the
+# HTTPS certificate itself; ports 80 and 443 must reach it.
+#
+# Before starting, on the server:
+#   1. caddy hash-password        -> paste the hash into basic_auth below
+#   2. set APP_SECRET in .env to a long random string (openssl rand -base64 48).
+#      If it is empty the app writes a key file under STORAGE_DIR instead, and every
+#      deploy that does not keep that directory signs everyone out.
+#   3. make sure storage/ is a persistent volume: it holds the uploaded originals.
 
 api.example.go.th {
+	# ── the hospitals' API: key-authenticated, no browser password ──
 	handle /api/v1/* {
 		request_body {
 			max_size 25MB
@@ -13,11 +27,29 @@ api.example.go.th {
 		reverse_proxy 127.0.0.1:8000
 	}
 
+	# ── the staff pages and the API behind them ──
 	handle {
-		respond "Not found" 404
+		basic_auth {
+			# one account only, as agreed. Generate with: caddy hash-password
+			envocc $2a$14$REPLACE_WITH_THE_HASH_FROM_CADDY_HASH_PASSWORD
+		}
+
+		request_body {
+			max_size 25MB
+		}
+
+		header {
+			# the staff pages are not meant to be framed or sniffed
+			X-Frame-Options "DENY"
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "same-origin"
+			-Server
+		}
+
+		reverse_proxy 127.0.0.1:8000
 	}
 
 	log {
-		output file /var/log/caddy/his-mapping-api.log
+		output file /var/log/caddy/his-mapping.log
 	}
 }

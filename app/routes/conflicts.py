@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+from app.auth import require_user
 from app.database import get_db
 from app.models import Conflict, Employee, PendingReview, SourceFile, ValueHistory, ValueProvenance
 from app.template import FIELDS_BY_COLUMN
@@ -97,7 +98,7 @@ def _refresh_file_status(db: Session, file_id: int):
 
 @router.get("/conflicts")
 def list_conflicts(status: str = "open", file_id: int | None = None, limit: int = 5000,
-                   db: Session = Depends(get_db)):
+                   db: Session = Depends(get_db), user=Depends(require_user)):
     """Same cap story as list_reviews: an unseen conflict is an undecided conflict."""
     q = db.query(Conflict).filter(Conflict.status == status)
     if file_id is not None:
@@ -106,7 +107,7 @@ def list_conflicts(status: str = "open", file_id: int | None = None, limit: int 
 
 
 @router.post("/conflicts/{conflict_id}/resolve")
-def resolve(conflict_id: int, body: Resolve, db: Session = Depends(get_db)):
+def resolve(conflict_id: int, body: Resolve, db: Session = Depends(get_db), user=Depends(require_user)):
     c = db.get(Conflict, conflict_id)
     if c is None:
         raise HTTPException(404, "ไม่พบข้อมูลขัดแย้ง")
@@ -118,7 +119,7 @@ def resolve(conflict_id: int, body: Resolve, db: Session = Depends(get_db)):
 
 
 @router.post("/files/{file_id}/conflicts/accept-all")
-def accept_all(file_id: int, body: AcceptAll, db: Session = Depends(get_db)):
+def accept_all(file_id: int, body: AcceptAll, db: Session = Depends(get_db), user=Depends(require_user)):
     open_ = db.query(Conflict).filter(Conflict.source_file_id == file_id, Conflict.status == "open").all()
     for c in open_:
         _resolve(db, c, "replace", body.by)

@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+from app.auth import require_user
 from app.database import get_db
 from app.graph import service
 from app.models import PendingReview, SourceFile
@@ -45,7 +46,7 @@ def _review_dict(r: PendingReview) -> dict:
 
 
 @router.get("/template/columns")
-def template_columns(all: bool = False):
+def template_columns(all: bool = False, user=Depends(require_user)):
     """
     Result columns for the reviewer's "set" choice.
 
@@ -67,7 +68,7 @@ def template_columns(all: bool = False):
 
 @router.get("/reviews")
 def list_reviews(status: str = "open", file_id: int | None = None, limit: int = 5000,
-                 db: Session = Depends(get_db)):
+                 db: Session = Depends(get_db), user=Depends(require_user)):
     """
     The cap used to be a silent 500. Reviews are the only way an item waiting for a
     human is visible at all, so anything past the cap waited forever with nothing on
@@ -82,7 +83,7 @@ def list_reviews(status: str = "open", file_id: int | None = None, limit: int = 
 
 
 @router.get("/files/{file_id}")
-def file_status(file_id: int, db: Session = Depends(get_db)):
+def file_status(file_id: int, db: Session = Depends(get_db), user=Depends(require_user)):
     if db.get(SourceFile, file_id) is None:
         raise HTTPException(404, "ไม่พบไฟล์")
     db.close()   # never hold a transaction open while the graph/checkpointer works
@@ -90,7 +91,7 @@ def file_status(file_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/files/{file_id}/decisions")
-def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db)):
+def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db), user=Depends(require_user)):
     decisions = []
     for d in body.decisions:
         r = db.get(PendingReview, d.review_id)

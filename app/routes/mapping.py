@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from pydantic import BaseModel
 
+from app.auth import require_user
 from app.database import get_db
 from app.models import LabMapping
 from app.template import RESULT_COLUMNS
@@ -23,14 +24,14 @@ class LabMappingCreate(BaseModel):
 
 
 @router.get("/")
-def get_mappings(db: Session = Depends(get_db)):
+def get_mappings(db: Session = Depends(get_db), user=Depends(require_user)):
     """ดึงข้อมูล mapping ทั้งหมด เรียงตามเวลาที่เพิ่มเข้ามา"""
     mappings = db.query(LabMapping).order_by(LabMapping.hospital_id.is_(None), desc(LabMapping.created_at)).all()
     return [m.to_dict() for m in mappings]
 
 
 @router.post("/")
-def create_mapping(mapping: LabMappingCreate, db: Session = Depends(get_db)):
+def create_mapping(mapping: LabMappingCreate, db: Session = Depends(get_db), user=Depends(require_user)):
     """เพิ่มเงื่อนไข Mapping ใหม่"""
     his_lab_name = mapping.his_lab_name.lower().strip()
     
@@ -58,7 +59,7 @@ def create_mapping(mapping: LabMappingCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{mapping_id}")
-def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
+def delete_mapping(mapping_id: int, db: Session = Depends(get_db), user=Depends(require_user)):
     """ลบการแมปออก"""
     mapping = db.get(LabMapping, mapping_id)
     if not mapping:
