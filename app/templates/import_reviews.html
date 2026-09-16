@@ -6,7 +6,7 @@
     <div>
         <h1 class="page-title">งานที่ต้องตรวจ</h1>
         <p class="page-sub">ระบบบันทึกเฉพาะค่าที่แน่ใจแล้ว รายการในหน้านี้ยังไม่เข้าระบบจนกว่าคุณจะยืนยัน
-            ถ้าไม่แน่ใจ เลือก “ไม่แน่ใจ ข้ามไว้ก่อน” ได้เสมอ รายการจะรออยู่ที่นี่</p>
+            ถ้าไม่แน่ใจ เลือก “ข้ามไว้ก่อน” ได้เสมอ รายการจะรออยู่ที่นี่</p>
     </div>
     <div class="head-actions">
         <a class="btn" href="/import">← นำเข้าผลตรวจ</a>
@@ -20,6 +20,11 @@
 </div>
 
 <section id="pane-reviews">
+    <div class="filter-row" id="filterRow" hidden>
+        <input id="filterText" placeholder="ค้นหาชื่อในไฟล์ เช่น Hb, CXR, ฝ่ายผลิต">
+        <label class="check"><input type="checkbox" id="onlyUndecided"> แสดงเฉพาะที่ยังไม่ตัดสิน</label>
+    </div>
+    <div id="capNote" class="review-warn" hidden></div>
     <div id="reviewList"></div>
     <div id="reviewEmpty" class="card center" hidden>
         <div class="empty-mark">✓</div>
@@ -40,10 +45,18 @@
 
 {% block scripts %}
 <script>
-    // ══════════════════════════════════════════════════════════════════
-    // Moved from the old single page (D20). The decision logic is copied
-    // unchanged on purpose: the measured precision depends on it.
-    // ══════════════════════════════════════════════════════════════════
+    /* ══════════════════════════════════════════════════════════════════
+     * One row per decision, evidence one click away.
+     *
+     * The decision logic is the same as the old page, deliberately: a row with
+     * no AI proposal offers no "accept" and starts at "skip", the column picker
+     * appears only when someone asks for it, and saving refuses while a row set
+     * to "choose a column" has none. The measured precision rests on that.
+     *
+     * There is no "accept everything the AI proposed" button. Everything on this
+     * page is here BECAUSE the system could not decide it alone; a bulk accept
+     * would turn the review into a rubber stamp.
+     * ══════════════════════════════════════════════════════════════════ */
 
     let templateColumns = null;
     const ACTIONS = [
@@ -51,7 +64,7 @@
         ['set', 'เลือกคอลัมน์เอง'],
         ['extra', 'ผลตรวจนอก template (เก็บแยก)'],
         ['ignore', 'ไม่ใช่ผลตรวจ (ไม่ต้องเก็บ)'],
-        ['skip', 'ไม่แน่ใจ ข้ามไว้ก่อน'],
+        ['skip', 'ข้ามไว้ก่อน'],
     ];
     const KIND_LABEL = { value: 'ค่าที่อ่านไม่ได้หรือผิดปกติ', cid: 'เลขบัตรประชาชนไม่ถูกต้อง',
                          comment: 'มีแต่ข้อความผลตรวจ', profile: 'อ่านโครงสร้างไฟล์ไม่ได้' };
@@ -71,35 +84,41 @@
         return isNaN(d) ? esc(iso) : d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
     }
 
-    // ── รอตรวจ ──────────────────────────────────────────────────────
-
-    /*
-     * Counts the questions the page actually asks, not the rows behind them. One answer
-     * settles every row with the same label or the same finding text, so the raw row count
-     * (435 for one file here) reads as a backlog where the page asks 46 questions.
-     */
     function setReviewCount(n) {
         const pill = document.getElementById('reviewCount');
         pill.textContent = n;
         pill.hidden = n === 0;
     }
 
+    // ── รอตรวจ ──────────────────────────────────────────────────────
+
     async function loadReviews() {
         if (!templateColumns) templateColumns = await fetch('/api/template/columns').then(r => r.json());
-        const items = await fetch('/api/reviews?status=open').then(r => r.json());
+        // ask for a cap we choose, and say so when we hit it: an item waiting for a
+        // human that never reaches the screen waits forever, and nobody finds out
+        const CAP = 5000;
+        const items = await fetch(`/api/reviews?status=open&limit=${CAP}`).then(r => r.json());
+        const capped = items.length >= CAP;
+        const note = document.getElementById('capNote');
+        note.hidden = !capped;
+        if (capped) note.textContent =
+            `แสดง ${CAP} รายการแรกเท่านั้น ยังมีรายการที่รอการตัดสินอยู่อีก จัดการรายการในหน้านี้ให้เสร็จแล้วเปิดใหม่เพื่อดูส่วนที่เหลือ`;
         document.getElementById('reviewEmpty').hidden = items.length > 0;
+        document.getElementById('filterRow').hidden = items.length === 0;
         const byFile = {};
         items.forEach(r => (byFile[r.source_file_id] = byFile[r.source_file_id] || []).push(r));
         document.getElementById('reviewList').innerHTML =
             Object.entries(byFile).map(([fid, rs]) => fileBlock(fid, rs)).join('');
-        setReviewCount(document.querySelectorAll('#reviewList .review-card').length);
+        setReviewCount(document.querySelectorAll('#reviewList tr.dec').length);
+        refreshProgress();
+        applyFilter();
     }
 
     function fileBlock(fid, rs) {
         const maps = rs.filter(r => r.kind === 'mapping');
         const ids = rs.filter(r => r.kind === 'identity');
         const depts = rs.filter(r => r.kind === 'department');
-        // one card per distinct finding text: the answer applies to every row with that text
+        // one row per distinct finding text: the answer applies to every row with that text
         const cmtGroups = {};
         rs.filter(r => r.kind === 'comment').forEach(r => {
             const k = r.payload.column + '|' + String(r.payload.text || '').trim().toLowerCase();
@@ -109,119 +128,220 @@
         const others = rs.filter(r => !['mapping', 'identity', 'comment', 'department'].includes(r.kind));
         const counts = {};
         others.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
-        const decisions = maps.length + ids.length + cmts.length + depts.length;
+
+        const rows = [
+            ...ids.flatMap(identityRows),
+            ...depts.map(deptRow),
+            ...maps.map(mappingRow),
+            ...cmts.map(commentRow),
+        ].join('');
+        const n = ids.reduce((s, r) => s + (r.payload.missing || []).length, 0) + depts.length + maps.length + cmts.length;
+
         return `<div class="review-file" data-file="${Number(fid)}">
-            <div class="review-file-head">ไฟล์ #${esc(fid)}<span class="muted">${decisions} เรื่องที่ต้องตัดสินใจ</span></div>
-            <div class="review-file-body">
-                ${ids.map(identityCard).join('')}
-                ${depts.map(deptCard).join('')}
-                ${maps.map(mappingCard).join('')}
-                ${cmts.map(commentCard).join('')}
-                ${Object.entries(counts).map(([k, n]) => `<div class="review-other">${esc(KIND_LABEL[k] || k)}: ${n} รายการ</div>`).join('')}
+            <div class="review-file-head">
+                <span>ไฟล์ #${esc(fid)}</span>
+                <span class="progress-line"><span class="done-count">0</span> จาก ${n} เรื่องที่ตัดสินแล้ว</span>
             </div>
-            ${decisions ? `<div class="review-foot"><button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจ</button></div>` : ''}
+            <div class="table-wrap dec-wrap"><table class="dec-table">
+                <thead><tr>
+                    <th style="width:1%"></th><th>เรื่องที่ต้องตัดสิน</th><th>ค่าตัวอย่างในไฟล์</th>
+                    <th>AI ว่าอย่างไร</th><th style="width:1%">การตัดสินใจ</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table></div>
+            ${Object.entries(counts).map(([k, m]) => `<div class="review-other">${esc(KIND_LABEL[k] || k)}: ${m} รายการ</div>`).join('')}
+            ${n ? `<div class="review-foot">
+                <span class="muted" id="foot-${Number(fid)}"></span>
+                <button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจ</button>
+            </div>` : ''}
         </div>`;
     }
 
-    function identityCard(r) {
-        const p = r.payload;
-        const opts = (p.candidates || []).map(c => c.header === TITLE_DATE
-            ? `<option value="${esc(c.header)}">วันที่ในหัวรายงาน (${esc(c.date)}): “${esc((c.samples || [])[0] || '')}”</option>`
-            : `<option value="${esc(c.header)}">${esc(c.header)} — เช่น ${esc((c.samples || []).join(', '))}</option>`).join('');
-        return `<div class="review-card identity-card" data-review="${Number(r.id)}">
-            <div class="review-kind">หาคอลัมน์ข้อมูลคนไม่พบ</div>
-            <div class="review-label">${esc(p.reason)} <span class="unit">sheet ${esc(p.sheet)}</span></div>
-            ${(p.missing || []).map(role => `<div class="review-actions"><label>${esc(ROLE_TH[role] || role)}</label>
-                <select class="id-pick" data-role="${esc(role)}"><option value="">ไม่แน่ใจ ข้ามไว้ก่อน</option>${opts}</select></div>`).join('')}
-        </div>`;
+    function caret(hasDetail) {
+        return hasDetail ? `<td class="caret" onclick="toggleDetail(this)" title="ดูหลักฐานเต็ม">▸</td>` : '<td></td>';
     }
 
-    function deptCard(r) {
-        const p = r.payload;
-        return `<div class="review-card dept-card" data-review="${Number(r.id)}">
-            <div class="review-kind">รหัสแผนก · ตอบครั้งเดียว ระบบจำไว้สำหรับหน่วยบริการนี้</div>
-            <div class="review-label">“${esc(p.name)}” <span class="unit">${Number(p.count || 0)} คน</span></div>
-            <div class="review-actions"><input class="dept-code" placeholder="รหัสแผนก เช่น QC (เว้นว่าง = ข้ามไว้ก่อน)"></div>
-        </div>`;
+    function toggleDetail(td) {
+        const row = td.closest('tr');
+        const detail = row.nextElementSibling;
+        const open = detail.hasAttribute('hidden');
+        if (open) detail.removeAttribute('hidden'); else detail.setAttribute('hidden', '');
+        td.textContent = open ? '▾' : '▸';
     }
 
-    function commentCard(group) {
-        const r = group[0], p = r.payload, a = p.proposal || {}, b = p.check || {};
-        const v = x => x.value === 1 ? '<span class="tag ok">ปกติ</span>'
-            : x.value === 2 ? '<span class="tag bad">ผิดปกติ</span>' : '<span class="tag warn">ไม่แน่ใจ</span>';
-        return `<div class="review-card comment-card" data-review="${Number(r.id)}">
-            <div class="review-kind">ข้อความผลตรวจ · ${esc(p.column)} · ${group.length} คน</div>
-            <div class="review-label">“${esc(p.text)}”</div>
-            <div class="review-grid">
-                <div><b>AI ตัวที่ 1</b> ${a.value !== undefined ? v(a) + ' <span class="muted">' + esc(a.confidence) + '</span>' : '—'}<br><span class="muted">${esc(a.reason || '')}</span></div>
-                <div><b>AI ตัวที่ 2</b> ${b.value !== undefined ? v(b) + ' <span class="muted">' + esc(b.confidence) + '</span>' : '—'}<br><span class="muted">${esc(b.reason || '')}</span></div>
-            </div>
-            <div class="review-actions"><select class="cmt-val">
-                <option value="">ไม่แน่ใจ ข้ามไว้ก่อน</option>
-                <option value="1" ${a.value === 1 && b.value === 1 ? 'selected' : ''}>1 — ปกติ</option>
-                <option value="2" ${a.value === 2 && b.value === 2 ? 'selected' : ''}>2 — ผิดปกติ</option>
-            </select></div>
-        </div>`;
+    function samples(list, max) {
+        const s = (list || []).slice(0, max).map(x => `<code>${esc(x)}</code>`).join('');
+        return s || '<span class="muted">—</span>';
     }
 
-    function mappingCard(r) {
+    function mappingRow(r) {
         const p = r.payload, prop = p.proposal || {}, ver = p.verification || {};
-        const colOptions = templateColumns.map(c =>
-            `<option value="${esc(c.column)}" ${c.column === (prop.target || p.suggestion) ? 'selected' : ''}>${esc(c.column)} — ${esc(c.desc)}</option>`).join('');
-        const verdict = ver.verdict
-            ? (ver.agrees ? '<span class="tag ok">เห็นด้วย</span>' : ver.verdict === 'wrong' ? '<span class="tag bad">ไม่เห็นด้วย</span>' : '<span class="tag warn">ไม่แน่ใจ</span>')
-              + (ver.agrees ? '' : ` → ${esc(ver.target)} ${ver.unit ? '(' + esc(ver.unit) + ')' : ''}`)
-            : '—';
         const hasProp = prop.target && prop.target !== '__unknown__';
         const actions = ACTIONS.filter(([a]) => a !== 'approve' || hasProp);
         const first = hasProp ? 'approve' : 'skip';   // never preselect a column nobody proposed
-        return `<div class="review-card" data-review="${Number(r.id)}">
-            <div class="review-kind">ชื่อ lab หรือหัวคอลัมน์ที่ไม่รู้จัก</div>
-            <div class="review-label">“${esc(p.label)}” ${p.unit ? `<span class="unit">หน่วยในไฟล์ ${esc(p.unit)}</span>` : ''}</div>
-            ${p.maybe_identity ? '<div class="review-warn">คอลัมน์นี้อาจเป็นชื่อหรือแผนก ถ้าใช่ ให้เลือกในการ์ด “หาคอลัมน์ข้อมูลคนไม่พบ” และที่นี่เลือก “ไม่แน่ใจ”</div>' : ''}
-            <div class="review-grid">
-                <div><b>ค่าตัวอย่าง</b> <span class="muted">${Number(p.count || 0)} ค่า</span><br>${(p.samples || []).map(s => `<code>${esc(s)}</code>`).join('')}</div>
-                <div><b>AI เสนอ</b> ${prop.target ? `${esc(prop.target)} ${prop.unit ? '(' + esc(prop.unit) + ')' : ''} <span class="muted">มั่นใจ ${esc(prop.confidence)}</span>` : 'ไม่มี'}
-                     <br><span class="muted">${esc(prop.reason || p.reason || '')}</span></div>
-                <div><b>AI ตรวจทาน</b> ${verdict}<br><span class="muted">${esc(ver.reason || '')}</span></div>
-                <div><b>ช่วงค่า</b> ${prop.range_ok === true ? '<span class="tag ok">ทุกค่าอยู่ในช่วง</span>' : prop.range_note ? '<span class="tag warn">' + esc(prop.range_note) + '</span>' : '—'}</div>
-            </div>
-            <div class="review-actions">
-                <select class="act" onchange="this.closest('.review-card').classList.toggle('show-set', this.value === 'set')">
+        const agree = ver.verdict
+            ? (ver.agrees ? '<span class="tag ok">AI ตรงกัน</span>'
+               : ver.verdict === 'wrong' ? '<span class="tag bad">AI ไม่ตรงกัน</span>'
+               : '<span class="tag warn">AI ไม่แน่ใจ</span>')
+            : '';
+        const range = prop.range_ok === true ? '<span class="tag ok">ค่าอยู่ในช่วง</span>'
+            : prop.range_note ? `<span class="tag warn">${esc(prop.range_note)}</span>` : '';
+        const colOptions = templateColumns.map(c =>
+            `<option value="${esc(c.column)}" ${c.column === (prop.target || p.suggestion) ? 'selected' : ''}>${esc(c.column)} — ${esc(c.desc)}</option>`).join('');
+
+        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="mapping" data-text="${esc(p.label)}">
+            ${caret(true)}
+            <td><b>${esc(p.label)}</b>${p.unit ? `<div class="muted">หน่วยในไฟล์ ${esc(p.unit)}</div>` : ''}
+                ${p.maybe_identity ? '<div class="tag warn">อาจเป็นชื่อหรือแผนก</div>' : ''}</td>
+            <td class="samples">${samples(p.samples, 4)}<div class="muted">${Number(p.count || 0)} ค่า</div></td>
+            <td>${hasProp ? `<b>${esc(prop.target)}</b>${prop.unit ? ' (' + esc(prop.unit) + ')' : ''}
+                    <div class="chips">${agree}${range}</div>`
+                : '<span class="muted">ไม่ได้เสนอ</span>'}</td>
+            <td class="decide">
+                <select class="act" onchange="onAct(this)">
                     ${actions.map(([a, t]) => `<option value="${a}" ${a === first ? 'selected' : ''}>${t}</option>`).join('')}</select>
                 <select class="target set-only">${prop.target || p.suggestion ? '' : '<option value="" selected>— เลือกคอลัมน์ —</option>'}${colOptions}</select>
-                <input class="unit-in set-only" placeholder="หน่วยของค่าในไฟล์ เช่น g/L" value="${esc(p.unit || prop.unit || '')}">
+                <input class="unit-in set-only" placeholder="หน่วยในไฟล์ เช่น g/L" value="${esc(p.unit || prop.unit || '')}">
+            </td>
+        </tr>
+        <tr class="dec-detail" hidden><td></td><td colspan="4">
+            <div class="review-grid">
+                <div><b>ค่าตัวอย่างทั้งหมด</b><br>${samples(p.samples, 12)}</div>
+                <div><b>AI เสนอ</b> ${hasProp ? `${esc(prop.target)} <span class="muted">มั่นใจ ${esc(prop.confidence)}</span>` : 'ไม่มี'}
+                     <br><span class="muted">${esc(prop.reason || p.reason || '')}</span></div>
+                <div><b>AI ตรวจทาน</b> ${agree || '—'}${ver.agrees === false && ver.target ? ` → ${esc(ver.target)}` : ''}
+                     <br><span class="muted">${esc(ver.reason || '')}</span></div>
+                <div><b>ช่วงค่า</b> ${range || '—'}</div>
             </div>
-        </div>`;
+        </td></tr>`;
     }
+
+    function commentRow(group) {
+        const r = group[0], p = r.payload, a = p.proposal || {}, b = p.check || {};
+        const v = x => x.value === 1 ? '<span class="tag ok">ปกติ</span>'
+            : x.value === 2 ? '<span class="tag bad">ผิดปกติ</span>' : '<span class="tag warn">ไม่แน่ใจ</span>';
+        const both = a.value !== undefined && a.value === b.value;
+        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="comment" data-text="${esc(p.text)}">
+            ${caret(true)}
+            <td><b>“${esc(p.text)}”</b><div class="muted">ข้อความในช่อง ${esc(p.column)} · ${group.length} คน</div></td>
+            <td class="samples"><span class="muted">—</span></td>
+            <td>${a.value !== undefined ? v(a) : '<span class="muted">ไม่ได้เสนอ</span>'}
+                <div class="chips">${both ? '<span class="tag ok">AI ตรงกัน</span>' : '<span class="tag warn">AI ไม่ตรงกัน</span>'}</div></td>
+            <td class="decide">
+                <select class="cmt-val" onchange="refreshProgress()">
+                    <option value="">ข้ามไว้ก่อน</option>
+                    <option value="1" ${both && a.value === 1 ? 'selected' : ''}>ปกติ (1)</option>
+                    <option value="2" ${both && a.value === 2 ? 'selected' : ''}>ผิดปกติ (2)</option>
+                </select>
+            </td>
+        </tr>
+        <tr class="dec-detail" hidden><td></td><td colspan="4">
+            <div class="review-grid">
+                <div><b>AI ตัวที่ 1</b> ${a.value !== undefined ? v(a) + ' <span class="muted">' + esc(a.confidence) + '</span>' : '—'}
+                     <br><span class="muted">${esc(a.reason || '')}</span></div>
+                <div><b>AI ตัวที่ 2</b> ${b.value !== undefined ? v(b) + ' <span class="muted">' + esc(b.confidence) + '</span>' : '—'}
+                     <br><span class="muted">${esc(b.reason || '')}</span></div>
+            </div>
+        </td></tr>`;
+    }
+
+    function deptRow(r) {
+        const p = r.payload;
+        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="department" data-text="${esc(p.name)}">
+            <td></td>
+            <td><b>“${esc(p.name)}”</b><div class="muted">ต้องการรหัสแผนก · ตอบครั้งเดียว ระบบจำไว้ให้หน่วยบริการนี้</div></td>
+            <td class="samples"><span class="muted">${Number(p.count || 0)} คน</span></td>
+            <td><span class="muted">ระบบไม่เดารหัส</span></td>
+            <td class="decide"><input class="dept-code" placeholder="เช่น QC (เว้นว่าง = ข้าม)" oninput="refreshProgress()"></td>
+        </tr>`;
+    }
+
+    function identityRows(r) {
+        const p = r.payload;
+        const opts = (p.candidates || []).map(c => c.header === TITLE_DATE
+            ? `<option value="${esc(c.header)}">วันที่ในหัวรายงาน (${esc(c.date)})</option>`
+            : `<option value="${esc(c.header)}">${esc(c.header)} — เช่น ${esc((c.samples || []).slice(0, 2).join(', '))}</option>`).join('');
+        return (p.missing || []).map(role => `<tr class="dec" data-review="${Number(r.id)}" data-kind="identity"
+                data-role="${esc(role)}" data-text="${esc(ROLE_TH[role] || role)}">
+            <td></td>
+            <td><b>หาคอลัมน์ “${esc(ROLE_TH[role] || role)}” ไม่พบ</b><div class="muted">${esc(p.reason)} · sheet ${esc(p.sheet)}</div></td>
+            <td class="samples"><span class="muted">—</span></td>
+            <td><span class="muted">ระบบไม่เดาคอลัมน์ข้อมูลคน</span></td>
+            <td class="decide"><select class="id-pick" data-role="${esc(role)}" onchange="refreshProgress()">
+                <option value="">ข้ามไว้ก่อน</option>${opts}</select></td>
+        </tr>`);
+    }
+
+    function onAct(sel) {
+        sel.closest('tr').classList.toggle('show-set', sel.value === 'set');
+        refreshProgress();
+    }
+
+    /** A row counts as decided once it says something other than "skip". */
+    function rowDecided(tr) {
+        const kind = tr.dataset.kind;
+        if (kind === 'mapping') return tr.querySelector('.act').value !== 'skip';
+        if (kind === 'comment') return tr.querySelector('.cmt-val').value !== '';
+        if (kind === 'department') return tr.querySelector('.dept-code').value.trim() !== '';
+        return tr.querySelector('.id-pick').value !== '';
+    }
+
+    function refreshProgress() {
+        document.querySelectorAll('#reviewList .review-file').forEach(block => {
+            const rows = [...block.querySelectorAll('tr.dec')];
+            const done = rows.filter(rowDecided);
+            done.forEach(r => r.classList.add('decided'));
+            rows.filter(r => !done.includes(r)).forEach(r => r.classList.remove('decided'));
+            const el = block.querySelector('.done-count');
+            if (el) el.textContent = done.length;
+            const foot = block.querySelector('.review-foot .muted');
+            if (foot) foot.textContent = done.length === 0
+                ? 'ยังไม่ได้ตัดสินเรื่องใดเลย กดบันทึกได้ แต่จะไม่มีอะไรเปลี่ยน'
+                : `จะบันทึก ${done.length} เรื่อง ที่เหลือยังรออยู่ที่นี่`;
+        });
+        applyFilter();
+    }
+
+    function applyFilter() {
+        const q = (document.getElementById('filterText').value || '').trim().toLowerCase();
+        const only = document.getElementById('onlyUndecided').checked;
+        document.querySelectorAll('#reviewList tr.dec').forEach(tr => {
+            const hitText = !q || (tr.dataset.text || '').toLowerCase().includes(q);
+            const hitState = !only || !tr.classList.contains('decided');
+            const show = hitText && hitState;
+            tr.hidden = !show;
+            const detail = tr.nextElementSibling;
+            if (detail && detail.classList.contains('dec-detail') && !show) detail.hidden = true;
+        });
+    }
+    document.getElementById('filterText').addEventListener('input', applyFilter);
+    document.getElementById('onlyUndecided').addEventListener('change', applyFilter);
 
     async function submitDecisions(fid) {
         const block = document.querySelector(`.review-file[data-file="${fid}"]`);
-        const cards = block.querySelectorAll('.review-card:not(.identity-card):not(.comment-card):not(.dept-card)');
         const decisions = [];
         let noTarget = false;
-        block.querySelectorAll('.dept-card').forEach(c => {
-            const code = c.querySelector('.dept-code').value.trim();
-            if (code) decisions.push({ review_id: Number(c.dataset.review), action: 'department', code });
-        });
-        block.querySelectorAll('.comment-card').forEach(c => {
-            const val = c.querySelector('.cmt-val').value;
-            if (val) decisions.push({ review_id: Number(c.dataset.review), action: 'comment', value: Number(val) });
-        });
-        block.querySelectorAll('.identity-card').forEach(c => {
-            c.querySelectorAll('.id-pick').forEach(sel => {
-                if (sel.value) decisions.push({ review_id: Number(c.dataset.review), action: 'identity', role: sel.dataset.role, header: sel.value });
-            });
-        });
-        cards.forEach(c => {
-            const action = c.querySelector('.act').value;
-            const d = { review_id: Number(c.dataset.review), action };
-            if (action === 'set') {
-                d.target = c.querySelector('.target').value;
-                d.unit = c.querySelector('.unit-in').value || null;
-                if (!d.target) noTarget = true;
+        block.querySelectorAll('tr.dec').forEach(tr => {
+            const id = Number(tr.dataset.review), kind = tr.dataset.kind;
+            if (kind === 'department') {
+                const code = tr.querySelector('.dept-code').value.trim();
+                if (code) decisions.push({ review_id: id, action: 'department', code });
+            } else if (kind === 'comment') {
+                const val = tr.querySelector('.cmt-val').value;
+                if (val) decisions.push({ review_id: id, action: 'comment', value: Number(val) });
+            } else if (kind === 'identity') {
+                const sel = tr.querySelector('.id-pick');
+                if (sel.value) decisions.push({ review_id: id, action: 'identity', role: sel.dataset.role, header: sel.value });
+            } else {
+                const action = tr.querySelector('.act').value;
+                const d = { review_id: id, action };
+                if (action === 'set') {
+                    d.target = tr.querySelector('.target').value;
+                    d.unit = tr.querySelector('.unit-in').value || null;
+                    if (!d.target) noTarget = true;
+                }
+                decisions.push(d);
             }
-            decisions.push(d);
         });
         if (noTarget) { alert('มีรายการที่เลือก “เลือกคอลัมน์เอง” แต่ยังไม่ได้เลือกคอลัมน์'); return; }
         const btn = block.querySelector('.review-foot .btn');

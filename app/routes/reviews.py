@@ -53,11 +53,19 @@ def template_columns():
 
 
 @router.get("/reviews")
-def list_reviews(status: str = "open", file_id: int | None = None, db: Session = Depends(get_db)):
+def list_reviews(status: str = "open", file_id: int | None = None, limit: int = 5000,
+                 db: Session = Depends(get_db)):
+    """
+    The cap used to be a silent 500. Reviews are the only way an item waiting for a
+    human is visible at all, so anything past the cap waited forever with nothing on
+    the screen to say so: on 2026-09-16 one database held 521 open reviews and the page
+    showed 3 of the 24 mapping questions. Callers now choose the cap and can tell they
+    hit it, because the answer comes back exactly `limit` long.
+    """
     q = db.query(PendingReview).filter(PendingReview.status == status)
     if file_id is not None:
         q = q.filter(PendingReview.source_file_id == file_id)
-    return [_review_dict(r) for r in q.order_by(desc(PendingReview.id)).limit(500)]
+    return [_review_dict(r) for r in q.order_by(desc(PendingReview.id)).limit(max(1, limit))]
 
 
 @router.get("/files/{file_id}")
