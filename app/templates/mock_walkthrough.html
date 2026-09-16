@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block title %}รายงานผล Walk Through Survey — ตัวอย่างหน้าจอ{% endblock %}
+
+{% block content %}
+<div class="mock-banner">
+    <b>ตัวอย่างหน้าจอ (mockup)</b> ยังไม่ต่อฐานข้อมูล ข้อมูลในหน้านี้เป็นข้อมูลสมมติ กดปุ่มดูการทำงานได้ แต่ยังไม่บันทึกจริง
+</div>
+
+<h1 class="page-title">WalkThrough Survey</h1>
+<p class="page-sub">รายงานผลการเดินสำรวจสถานประกอบการ และส่งให้แพทย์อนุมัติ</p>
+
+<div id="app"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /* ตัวอย่างข้อมูล — ของจริงจะมาจากฐานข้อมูล */
+    const COMPANIES = [
+        {
+            id: 1, name: 'ห้างหุ้นส่วนจำกัด พงษ์ศรา คอนกรีต', tax: '0503539001102', status: 'รออนุมัติ',
+            year: 2568, updated: '24/02/2568', employees: 46, address: 'เลขที่ 102 หมู่ 3 ต.ช่างเคิ่ง อ.แม่แจ่ม จ.เชียงใหม่ 50270',
+            business: 'การผลิตผลิตภัณฑ์คอนกรีตเพื่อใช้ในการก่อสร้าง', doctor: 'นัฐชรินทร์ จันทร์หอม',
+            departments: [
+                { name: 'ผลิต 1', risks: [['Silicosis - ฝุ่นซิลิกา', 'ต่ำ'], ['Lead - ตะกั่ว', 'สูงมาก']],
+                  tests: ['Chest X-ray - ภาพถ่ายรังสีทรวงอก', 'Venous blood lead', 'Complete blood count', 'Creatinine'] },
+                { name: 'ประกันคุณภาพ', risks: [['Pesticides - สารกำจัดศัตรูพืช', 'สูงมาก'], ['Confined - อับอากาศ', 'สูง']],
+                  tests: ['EKG', 'Choline Esterase', 'Complete blood count', 'Spirometry', 'Hearing ability', 'Far vision test'] },
+            ],
+        },
+        { id: 2, name: 'บริษัท ไทยเท็กซ์ไทล์ จำกัด', tax: '0105536000123', status: 'อนุมัติแล้ว', year: 2568,
+          updated: '18/02/2568', employees: 128, address: 'เลขที่ 88 ถ.พระราม 2 กรุงเทพมหานคร 10150',
+          business: 'การผลิตสิ่งทอ', doctor: 'บัญชา สุขใจ', departments: [] },
+        { id: 3, name: 'บริษัท ลพบุรีเกษตรภัณฑ์ จำกัด', tax: '0165559000456', status: 'ระหว่างดำเนินการ', year: 2568,
+          updated: '26/02/2568', employees: 64, address: 'เลขที่ 7 ต.ท่าศาลา อ.เมือง จ.ลพบุรี 15000',
+          business: 'ผลิตปุ๋ยและเคมีเกษตร', doctor: '-', departments: [] },
+    ];
+    const RISK_LEVELS = ['ยอมรับได้', 'ต่ำ', 'ปานกลาง', 'สูง', 'สูงมาก'];
+    const RISK_TYPES = ['Silicosis - ฝุ่นซิลิกา', 'Lead - ตะกั่ว', 'Pesticides - สารกำจัดศัตรูพืช', 'Confined - อับอากาศ', 'Noise - เสียงดัง'];
+    const TABS = ['ภาพรวม', 'อนุมัติ', 'รออนุมัติ', 'ระหว่างดำเนินการ'];
+
+    let tab = 'ภาพรวม';
+    let openId = null;
+    const app = document.getElementById('app');
+
+    const riskClass = l => ({ 'ยอมรับได้': 'ok', 'ต่ำ': 'low', 'ปานกลาง': 'mid', 'สูง': 'high', 'สูงมาก': 'top' }[l] || '');
+    const statusClass = s => ({ 'อนุมัติแล้ว': 'ok', 'รออนุมัติ': 'wait', 'ระหว่างดำเนินการ': 'doing' }[s] || '');
+
+    function render() {
+        openId ? renderCompany(COMPANIES.find(c => c.id === openId)) : renderList();
+    }
+
+    function renderList() {
+        const rows = COMPANIES.filter(c => tab === 'ภาพรวม'
+            || (tab === 'อนุมัติ' && c.status === 'อนุมัติแล้ว')
+            || (tab === 'รออนุมัติ' && c.status === 'รออนุมัติ')
+            || (tab === 'ระหว่างดำเนินการ' && c.status === 'ระหว่างดำเนินการ'));
+        app.innerHTML = `
+            <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+                <button class="btn" id="mineBtn">ส่งผลตรวจโดยฉัน</button>
+                <button class="btn btn-primary" id="addBtn">เพิ่มผล Walkthrough Survey</button>
+            </div>
+
+            <div class="card">
+                <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+                    <div class="avatar">{{ (user.name or user.username)[0]|upper }}</div>
+                    <div>
+                        <b>{{ user.name }} {{ user.surname }}</b>
+                        <div class="muted">หน่วยบริการ: {{ hospital }}</div>
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    ${TABS.map(t => `<button class="tab ${t === tab ? 'on' : ''}" data-tab="${t}">${t}</button>`).join('')}
+                    <input class="tab-search" id="search" placeholder="ค้นหาบริษัท">
+                </div>
+
+                <div class="table-wrap" style="margin-top:14px;">
+                    <table>
+                        <thead><tr><th>ชื่อบริษัท</th><th>สถานะ</th><th>ปีที่สำรวจ</th><th>อัปเดตล่าสุด</th><th></th></tr></thead>
+                        <tbody>${rows.length ? rows.map(c => `
+                            <tr>
+                                <td><b>${esc(c.name)}</b><div class="muted">เลขทะเบียน: ${esc(c.tax)}</div></td>
+                                <td><span class="chip ${statusClass(c.status)}">${esc(c.status)}</span></td>
+                                <td>${c.year}</td>
+                                <td>${esc(c.updated)}</td>
+                                <td><button class="btn btn-sm btn-primary" data-open="${c.id}">ดูรายละเอียด</button></td>
+                            </tr>`).join('') : `<tr><td colspan="5" class="center muted" style="padding:28px;">ไม่พบบริษัทในสถานะนี้</td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+
+        document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+        document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { openId = Number(b.dataset.open); render(); }));
+        document.getElementById('addBtn').addEventListener('click', () => showModal('searchModal'));
+        document.getElementById('mineBtn').addEventListener('click', () => alert('ตัวอย่างหน้าจอ: จะกรองเฉพาะรายการที่คุณเป็นผู้ส่งผลตรวจ'));
+    }
+
+    function renderCompany(c) {
+        app.innerHTML = `
+            <button class="btn btn-sm" id="backBtn" style="margin-bottom:14px;">← กลับไปรายการบริษัท</button>
+            <h2 class="page-title" style="font-size:22px;">${esc(c.name)}</h2>
+            <p class="muted" style="margin-bottom:16px;">WalkThrough Survey › เพิ่มผล WalkThrough Survey › ${esc(c.name)}</p>
+
+            <div class="card">
+                <div class="band" style="margin-top:0;">ส่วนที่ 1 : ข้อมูลทั่วไป</div>
+                <div class="summary">
+                    ${[['เลขทะเบียนนิติบุคคล', c.tax], ['ชื่อสถานประกอบการ', c.name], ['ประเภทกิจการ', c.business],
+                       ['จำนวนพนักงานทั้งหมด', c.employees + ' คน'], ['ที่ตั้ง', c.address], ['แพทย์ผู้อนุมัติ', c.doctor]]
+                        .map(([k, v]) => `<div class="summary-row"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="band" style="margin-top:0;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                    <span>ส่วนที่ 2 : ข้อมูลการ Walkthrough Survey ตามแผนก ปี ${c.year}
+                        <span class="chip ${statusClass(c.status)}">${esc(c.status)}</span></span>
+                    <select style="width:auto;"><option>ข้อมูลปีผลตรวจ 2568</option><option>2567</option></select>
+                </div>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+                    <label class="field" style="margin:0;"><span>วันที่เดินสำรวจ <b class="req">*</b></span>
+                        <input value="24/02/2568" placeholder="วว/ดด/ปปปป" style="width:200px;"></label>
+                    <div style="display:flex;gap:10px;align-items:flex-end;margin-left:auto;">
+                        <button class="btn" id="docBtn">อัปโหลดเอกสาร Walkthrough Survey</button>
+                        <button class="btn" id="deptBtn">จัดการแผนก</button>
+                        <button class="btn" id="copyBtn">คัดลอกข้อมูลปี 2567</button>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>ชื่อแผนก</th><th>ประเภทความเสี่ยง (ระดับความเสี่ยง)</th><th>รายการตรวจ</th><th></th></tr></thead>
+                        <tbody>${c.departments.length ? c.departments.map((d, i) => `
+                            <tr>
+                                <td><b>${esc(d.name)}</b></td>
+                                <td>${d.risks.map(([name, level]) =>
+                                    `<div style="margin-bottom:6px;">${esc(name)} <span class="chip ${riskClass(level)}">${esc(level)}</span></div>`).join('')}</td>
+                                <td><ul class="test-list">${d.tests.map(t => `<li>${esc(t)}</li>`).join('')}</ul></td>
+                                <td class="row-actions">
+                                    <button class="btn btn-sm" data-edit-dept="${i}">แก้ไข</button>
+                                    <button class="btn btn-sm btn-danger" data-del-dept="${i}">ลบ</button>
+                                </td>
+                            </tr>`).join('') : `<tr><td colspan="4" class="center muted" style="padding:24px;">ยังไม่มีแผนก กด "จัดการแผนก" เพื่อเพิ่ม</td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+                    <button class="btn btn-primary" id="sendBtn">ส่งรายงานผลตรวจ →</button>
+                </div>
+            </div>`;
+
+        document.getElementById('backBtn').addEventListener('click', () => { openId = null; render(); });
+        document.getElementById('deptBtn').addEventListener('click', () => showModal('deptModal'));
+        document.getElementById('sendBtn').addEventListener('click', () => showModal('sendModal'));
+        document.getElementById('docBtn').addEventListener('click', () => showModal('docModal'));
+        document.getElementById('copyBtn').addEventListener('click', () =>
+            alert('ตัวอย่างหน้าจอ: คัดลอกแผนกและปัจจัยเสี่ยงจากปี 2567 ได้เฉพาะบริษัทที่ผลปีนั้นอนุมัติแล้ว'));
+        document.querySelectorAll('[data-edit-dept]').forEach(b => b.addEventListener('click', () => showModal('riskModal')));
+        document.querySelectorAll('[data-del-dept]').forEach(b => b.addEventListener('click', () =>
+            confirm('ลบแผนกนี้ออกจากบริษัท ใช่หรือไม่?')));
+    }
+
+    function showModal(id) { document.getElementById(id).hidden = false; }
+    document.addEventListener('click', e => {
+        const close = e.target.closest('[data-close]');
+        if (close) document.getElementById(close.dataset.close).hidden = true;
+    });
+
+    render();
+</script>
+
+<!-- ค้นหาบริษัท -->
+<div class="modal-back" id="searchModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>เพิ่มผล WalkThrough Survey</span><button class="close" data-close="searchModal">×</button></div>
+        <div class="modal-body">
+            <label class="field"><span>ค้นหาบริษัท</span>
+                <input placeholder="ชื่อบริษัท หรือเลขนิติบุคคล 13 หลัก" value="0503539001102"></label>
+            <div class="doc-item"><span>🏢 ห้างหุ้นส่วนจำกัด พงษ์ศรา คอนกรีต</span><button class="btn btn-sm">เลือก</button></div>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close="searchModal">ปิด</button>
+            <button class="btn btn-primary" data-close="searchModal">ค้นหา</button></div>
+    </div>
+</div>
+
+<!-- จัดการแผนก -->
+<div class="modal-back" id="deptModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>จัดการแผนก</span><button class="close" data-close="deptModal">×</button></div>
+        <div class="modal-body">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span class="muted">รายชื่อแผนกของบริษัทนี้</span>
+                <button class="btn btn-sm btn-primary">+ เพิ่มชื่อแผนก</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>รหัสแผนก</th><th>ชื่อแผนก</th><th></th></tr></thead>
+                    <tbody>
+                        <tr><td>10230</td><td>ผลิต 1</td><td class="row-actions">
+                            <button class="btn btn-sm">+ ประเมินความเสี่ยง</button>
+                            <button class="btn btn-sm">แก้ชื่อ</button>
+                            <button class="btn btn-sm btn-danger">ลบ</button></td></tr>
+                        <tr><td>10243</td><td>ประกันคุณภาพ</td><td class="row-actions">
+                            <button class="btn btn-sm">+ ประเมินความเสี่ยง</button>
+                            <button class="btn btn-sm">แก้ชื่อ</button>
+                            <button class="btn btn-sm btn-danger">ลบ</button></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close="deptModal">ย้อนกลับ</button></div>
+    </div>
+</div>
+
+<!-- ประเมินความเสี่ยงของแผนก -->
+<div class="modal-back" id="riskModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>แก้ไขความเสี่ยงแผนก ผลิต 1</span><button class="close" data-close="riskModal">×</button></div>
+        <div class="modal-body">
+            <p class="muted" style="margin-bottom:12px;">ใส่ข้อมูลใหม่ หรือกรอกข้อมูลให้ครบถ้วน</p>
+            <div class="form-row">
+                <label class="field"><span>ประเภทปัจจัยเสี่ยง</span>
+                    <select>${''}<option>เลือกประเภทปัจจัยเสี่ยง</option></select></label>
+                <label class="field"><span>ระดับความเสี่ยง</span>
+                    <select><option>เลือกระดับความเสี่ยง</option></select></label>
+            </div>
+            <button class="btn btn-sm">+ เพิ่มปัจจัยเสี่ยงอื่น ๆ</button>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close="riskModal">ย้อนกลับ</button>
+            <button class="btn btn-primary" data-close="riskModal">บันทึกความเสี่ยง</button></div>
+    </div>
+</div>
+
+<!-- อัปโหลดเอกสาร -->
+<div class="modal-back" id="docModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>เอกสาร Walkthrough Survey</span><button class="close" data-close="docModal">×</button></div>
+        <div class="modal-body">
+            <div class="upload-box">
+                <div style="font-size:28px;">☁️</div>
+                <div>ลากไฟล์มาวางที่นี่ หรือ</div>
+                <button class="btn btn-sm btn-primary">+ เลือกไฟล์ Walkthrough Survey</button>
+                <div class="muted">รองรับเฉพาะไฟล์ .pdf</div>
+            </div>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close="docModal">ยกเลิก</button>
+            <button class="btn btn-primary" data-close="docModal">ยืนยัน</button></div>
+    </div>
+</div>
+
+<!-- ส่งผลตรวจและอนุมัติ -->
+<div class="modal-back" id="sendModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>ส่งผลตรวจและอนุมัติ</span><button class="close" data-close="sendModal">×</button></div>
+        <div class="modal-body">
+            <p class="muted" style="margin-bottom:14px;">ตรวจสอบข้อมูลรายงานผลตรวจ Walkthrough Survey และอนุมัติผล</p>
+            <div class="summary">
+                <div class="summary-row"><span>ชื่อบริษัท</span><b>ห้างหุ้นส่วนจำกัด พงษ์ศรา คอนกรีต</b></div>
+                <div class="summary-row"><span>สถานะผลตรวจ</span><b><span class="chip wait">รออนุมัติ</span></b></div>
+                <div class="summary-row"><span>จำนวนแผนกที่เพิ่ม</span><b>2 แผนก</b></div>
+                <div class="summary-row"><span>ผู้กรอกผล</span><b>{{ user.name }} {{ user.surname }}</b></div>
+            </div>
+            <label class="field" style="margin-top:14px;"><span>แพทย์ผู้อนุมัติผล</span>
+                <select>
+                    <option>นัฐชรินทร์ จันทร์หอม (อาชีวเวชกรรมและเวชกรรมสิ่งแวดล้อม)</option>
+                    <option>บัญชา สุขใจ (อาชีวเวชกรรม)</option>
+                </select></label>
+            <p class="muted">แพทย์จะเห็นรายการนี้ในบัญชีของตนเอง และกด "อนุมัติส่งรายงาน" เพื่อยืนยันผล</p>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close="sendModal">ยกเลิก</button>
+            <button class="btn btn-primary" data-close="sendModal">ส่งรายงาน</button></div>
+    </div>
+</div>
+{% endblock %}

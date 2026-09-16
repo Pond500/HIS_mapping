@@ -162,6 +162,42 @@ tbody tr:hover td { background: #fafbfe; }
 .summary-row:last-child { border-bottom: 0; }
 .summary-row span { color: var(--text-2); }
 
+/* ── mockup pages (Walk Through Survey / Health Report) ── */
+.mock-banner { background: #fff8e6; border: 1px solid #f0d9a0; color: #7a5a00; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; font-size: 14px; }
+.tabs { display: flex; gap: 6px; align-items: center; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.tab { border: 0; background: none; font: inherit; font-size: 14.5px; color: var(--text-2); padding: 10px 14px; cursor: pointer; border-bottom: 2px solid transparent; }
+.tab:hover { color: var(--text); }
+.tab.on { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+.tab-search { margin-left: auto; max-width: 240px; }
+.chip { display: inline-block; padding: 2px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 500; background: #eef1f6; color: var(--text-2); }
+.chip.ok { background: #e6f5ec; color: var(--green); }
+.chip.wait { background: #fdecec; color: var(--red); }
+.chip.doing { background: #fff6e0; color: var(--amber); }
+.chip.low { background: #fff7d6; color: #8a6d00; }
+.chip.mid { background: #ffeccc; color: #a35b00; }
+.chip.high { background: #ffe0d6; color: #b03b12; }
+.chip.top { background: #ffd9e6; color: #a3004c; }
+.test-list { margin: 0 0 0 18px; font-size: 13.5px; line-height: 1.7; color: var(--text-2); }
+.donut { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; flex: none; position: relative; }
+.donut::before { content: ''; position: absolute; inset: 18px; background: var(--surface); border-radius: 50%; }
+.donut span { position: relative; font-weight: 700; font-size: 15px; }
+.legend-list { font-size: 13px; line-height: 1.9; color: var(--text-2); }
+.legend-list i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.bar { height: 10px; background: #eef1f6; border-radius: 999px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--blue); border-radius: 999px; }
+.upload-box { border: 1.5px dashed var(--border); border-radius: 10px; padding: 26px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* dashboard tiles: a real grid (plain .card would stack, its margin fights the columns) */
+.tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 16px; }
+.tile-grid > .tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin: 0; }
+.tile-grid > .tile.wide { grid-column: 1 / -1; }
+.no-data { color: var(--text-3); font-size: 13px; }
+/* The action column of a long table must not spill out of the frame.
+   A `display:flex` cell leaves the table's layout, so keep it a real cell
+   and space the buttons with a margin instead. */
+td.row-actions { display: table-cell; white-space: nowrap; width: 1%; text-align: right; }
+td.row-actions .btn + .btn { margin-left: 6px; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 10px; }
+
 /* ── login ── */
 .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); }
 .login-card { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; background: var(--surface); border-radius: 14px; overflow: hidden; box-shadow: 0 18px 50px rgba(20,25,40,.12); width: min(940px, 100%); }

@@ -104,6 +104,28 @@ def registration_page(request: Request, response: Response, db: Session = Depend
     return page
 
 
+@router.get("/walkthrough", response_class=HTMLResponse)
+def walkthrough_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """รายงานผล Walk Through Survey — mockup only, nothing is stored yet."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "mock_walkthrough.html", _ctx(request, user, db, active="walkthrough"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/health-report", response_class=HTMLResponse)
+def health_report_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """รายงานผลตรวจสุขภาพกลุ่มเสี่ยง — mockup only, nothing is stored yet."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "mock_health.html", _ctx(request, user, db, active="health"))
+    page.headers.update(response.headers)
+    return page
+
+
 @router.get("/import", response_class=HTMLResponse)
 def import_page(request: Request, response: Response, db: Session = Depends(get_db)):
     """This project's own converter screen (upload, reviews, conflicts, dashboard)."""

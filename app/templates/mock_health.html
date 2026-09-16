@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}รายงานผลตรวจสุขภาพกลุ่มเสี่ยง — ตัวอย่างหน้าจอ{% endblock %}
+
+{% block content %}
+<div class="mock-banner">
+    <b>ตัวอย่างหน้าจอ (mockup)</b> ยังไม่ต่อฐานข้อมูล ข้อมูลในหน้านี้เป็นข้อมูลสมมติ กดปุ่มดูการทำงานได้ แต่ยังไม่บันทึกจริง
+</div>
+
+<h1 class="page-title">Health Report</h1>
+<p class="page-sub">รายงานผลตรวจสุขภาพกลุ่มเสี่ยงของสถานประกอบการที่ผ่าน Walkthrough Survey แล้ว</p>
+
+<div id="app"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /* ตัวอย่างข้อมูล — ของจริงจะมาจากฐานข้อมูลและไฟล์ที่อัปโหลด */
+    const COMPANY = {
+        name: 'ห้างหุ้นส่วนจำกัด พงษ์ศรา คอนกรีต', tax: '0503539001102', round: 'ประจำปี', year: 2568,
+        employees: 46, checked: 0, departments: [['ผลิต 1', 0, 25], ['ประกันคุณภาพ', 0, 21]],
+        risks: [['Lead - ตะกั่ว', 27.17, '#2f6fed'], ['Silicosis - ฝุ่นซิลิกา', 22.83, '#f0a202'],
+                ['Pesticides - สารกำจัดศัตรูพืช', 27.17, '#6d28d9'], ['Confined - อับอากาศ', 22.83, '#14a37f']],
+        levels: [['ยอมรับได้', 0], ['ต่ำ', 27.17], ['ปานกลาง', 0], ['สูง', 22.83], ['สูงมาก', 50]],
+        sex: [['ชาย', 68], ['หญิง', 32]],
+    };
+    const PEOPLE = [
+        ['ภาณุวัฒน์ จำไพ', '5738921656478', 'ชาย', 'ผลิต 1', 'วิศวกรฝ่ายผลิต', 8, 'ไม่พบข้อมูล'],
+        ['วงพต เสิศล้ำ', '6638126579285', 'ชาย', 'ผลิต 1', 'วิศวกรฝ่ายผลิต', 31, 'ตรวจแล้ว'],
+        ['ศิริพร จันทร์สว่าง', '3657391648587', 'หญิง', 'ผลิต 1', 'วิศวกรฝ่ายผลิต', 20, 'ไม่พบข้อมูล'],
+        ['ปิ่นมณ ษญูอุ', '6174920384756', 'หญิง', 'ผลิต 1', 'ผู้จัดการฝ่ายผลิต', 13, 'ไม่มาตรวจ'],
+        ['ฉมบศักดิ์ ถวงวัต', '3255640710259', 'ชาย', 'ผลิต 1', 'ผู้จัดการฝ่ายผลิต', 13, 'ไม่พบข้อมูล'],
+        ['ธีมวา พบสุข', '8741052439874', 'ชาย', 'ประกันคุณภาพ', 'หัวหน้าฝ่ายผลิต', 11, 'ไม่พบข้อมูล'],
+        ['ภาณุวัฒน์ อัครเดช', '1528394062714', 'ชาย', 'ประกันคุณภาพ', 'วิศวกรฝ่ายผลิต', 11, 'ตรวจแล้ว'],
+    ];
+    const STATUS_CLASS = { 'ตรวจแล้ว': 'ok', 'ไม่มาตรวจ': 'wait', 'ไม่พบข้อมูล': 'doing' };
+
+    let view = 'search';      // search -> dashboard
+    let tab = 'ภาพรวม';
+    const app = document.getElementById('app');
+
+    function donut(parts) {
+        let acc = 0;
+        const stops = parts.map(([, pct, color]) => {
+            const from = acc; acc += pct;
+            return `${color} ${from}% ${acc}%`;
+        });
+        if (acc < 100) stops.push(`#e9edf5 ${acc}% 100%`);
+        return `<div class="donut" style="background:conic-gradient(${stops.join(',')});"><span>${Math.round(acc)}%</span></div>`;
+    }
+
+    function render() { view === 'search' ? renderSearch() : renderDashboard(); }
+
+    function renderSearch() {
+        app.innerHTML = `
+            <div class="card">
+                <div class="band" style="margin-top:0;">ค้นหาบริษัท</div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                    <label class="field" style="flex:1 1 320px;margin:0;"><span>เลขนิติบุคคล 13 หลัก หรือชื่อบริษัท</span>
+                        <input id="q" value="0503539001102"></label>
+                    <button class="btn btn-primary" id="searchBtn">ค้นหา</button>
+                </div>
+                <div class="doc-item" style="margin-top:14px;">
+                    <span>🏢 ${esc(COMPANY.name)} <span class="muted">(ผ่าน Walkthrough Survey ปี ${COMPANY.year})</span></span>
+                    <button class="btn btn-sm btn-primary" id="pickBtn">เลือก</button>
+                </div>
+                <p class="muted" style="margin-top:12px;">
+                    บริษัทที่ยังไม่ผ่าน Walkthrough Survey จะไม่สามารถรายงานผลตรวจสุขภาพได้ และหน่วยบริการต้องขึ้นทะเบียนก่อน
+                </p>
+            </div>`;
+        document.getElementById('pickBtn').addEventListener('click', () => { view = 'dashboard'; render(); });
+        document.getElementById('searchBtn').addEventListener('click', () => alert('ตัวอย่างหน้าจอ: ค้นหาจากเลขนิติบุคคลหรือชื่อบริษัท'));
+    }
+
+    function renderDashboard() {
+        app.innerHTML = `
+            <button class="btn btn-sm" id="backBtn" style="margin-bottom:14px;">← กลับไปค้นหาบริษัท</button>
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">
+                    <div>
+                        <h2 style="font-size:20px;font-weight:700;">${esc(COMPANY.name)}</h2>
+                        <div class="muted">รอบการตรวจ: ${esc(COMPANY.round)} ปี ${COMPANY.year} · เลขทะเบียน ${esc(COMPANY.tax)}</div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-sm" id="dashBtn">ดาวน์โหลด Dashboard</button>
+                        <button class="btn btn-sm" id="tplBtn">Template ผลตรวจ</button>
+                        <button class="btn btn-sm" id="addPeopleBtn">+ รายชื่อพนักงาน</button>
+                        <button class="btn btn-sm btn-primary" id="addResultBtn">+ ผลตรวจสุขภาพ</button>
+                    </div>
+                </div>
+
+                <div class="tabs" style="margin-top:16px;">
+                    ${['ภาพรวม', 'รายบุคคล'].map(t => `<button class="tab ${t === tab ? 'on' : ''}" data-tab="${t}">${t}</button>`).join('')}
+                </div>
+
+                ${tab === 'ภาพรวม' ? overview() : people()}
+            </div>`;
+
+        document.getElementById('backBtn').addEventListener('click', () => { view = 'search'; render(); });
+        document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+        document.getElementById('addPeopleBtn').addEventListener('click', () => showModal('peopleModal'));
+        document.getElementById('addResultBtn').addEventListener('click', () => showModal('resultModal'));
+        document.getElementById('dashBtn').addEventListener('click', () => alert('ตัวอย่างหน้าจอ: ดาวน์โหลดภาพสรุปแดชบอร์ดเป็นไฟล์'));
+        document.getElementById('tplBtn').addEventListener('click', () => alert('ตัวอย่างหน้าจอ: ดาวน์โหลดไฟล์ Template สำหรับกรอกผลตรวจ (.xlsx)'));
+        const send = document.getElementById('sendBtn');
+        if (send) send.addEventListener('click', () => showModal('sendModal'));
+    }
+
+    function overview() {
+        return `
+            <div class="tile-grid">
+                <div class="tile">
+                    <div class="muted">จำนวนพนักงาน (คน)</div>
+                    <div style="font-size:34px;font-weight:700;">${COMPANY.employees}</div>
+                    <div class="no-data">นำเข้ารายชื่อแล้ว ${COMPANY.employees} คน</div>
+                </div>
+                <div class="tile">
+                    <div class="muted" style="margin-bottom:10px;">สถานะผลตรวจร่างกาย</div>
+                    <div style="display:flex;align-items:center;gap:14px;">
+                        ${donut([['ตรวจแล้ว', COMPANY.checked, '#2f6fed']])}
+                        <div class="legend-list">
+                            <div><i style="background:#2f6fed"></i> ตรวจแล้ว</div>
+                            <div><i style="background:#f26b52"></i> ไม่มาตรวจ</div>
+                            <div><i style="background:#e9edf5"></i> ไม่พบข้อมูล</div>
+                        </div>
+                    </div>
+                    ${COMPANY.checked === 0 ? `<div class="no-data" style="margin-top:8px;">ยังไม่มีผลตรวจในรอบนี้</div>` : ''}
+                </div>
+                <div class="tile">
+                    <div class="muted" style="margin-bottom:10px;">เพศ</div>
+                    <div style="display:flex;align-items:center;gap:14px;">
+                        ${donut([['ชาย', COMPANY.sex[0][1], '#2f6fed'], ['หญิง', COMPANY.sex[1][1], '#6d28d9']])}
+                        <div class="legend-list">
+                            <div><i style="background:#2f6fed"></i> ชาย ${COMPANY.sex[0][1]}%</div>
+                            <div><i style="background:#6d28d9"></i> หญิง ${COMPANY.sex[1][1]}%</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tile">
+                    <div class="muted" style="margin-bottom:10px;">จำนวนคนแต่ละแผนก (ตรวจแล้ว/ทั้งหมด)</div>
+                    ${COMPANY.departments.map(([name, done, total]) =>
+                        `<div class="summary-row" style="border:0;padding:6px 0;"><span>${esc(name)}</span><b>${done}/${total}</b></div>`).join('')}
+                </div>
+
+                <div class="tile">
+                    <div class="muted" style="margin-bottom:10px;">ประเภทความเสี่ยง</div>
+                    <div style="display:flex;align-items:center;gap:14px;">
+                        ${donut(COMPANY.risks.map(([n, p, c]) => [n, p, c]))}
+                        <div class="legend-list">
+                            ${COMPANY.risks.map(([n, p, c]) => `<div><i style="background:${c}"></i> ${esc(n)} ${p}%</div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="tile wide">
+                    <div class="muted" style="margin-bottom:10px;">ระดับความเสี่ยง</div>
+                    ${COMPANY.levels.map(([name, pct]) => `
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                            <span class="chip ${({ 'ยอมรับได้': 'ok', 'ต่ำ': 'low', 'ปานกลาง': 'mid', 'สูง': 'high', 'สูงมาก': 'top' })[name]}"
+                                  style="min-width:86px;text-align:center;">${esc(name)}</span>
+                            <div class="bar" style="flex:1;"><i style="width:${pct}%"></i></div>
+                            <b style="width:56px;text-align:right;">${pct}%</b>
+                        </div>`).join('')}
+                </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+                <button class="btn btn-primary" id="sendBtn">ส่งรายงานผลตรวจ →</button>
+            </div>`;
+    }
+
+    function people() {
+        return `
+            <div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;">
+                <input placeholder="ค้นหาชื่อพนักงาน" style="max-width:280px;">
+                <select style="width:auto;"><option>สถานะทั้งหมด</option><option>ตรวจแล้ว</option><option>ไม่มาตรวจ</option><option>ไม่พบข้อมูล</option></select>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>ชื่อ-นามสกุล</th><th>เพศ</th><th>แผนก</th><th>ตำแหน่ง</th><th>อายุงาน (ปี)</th><th>สถานะ</th><th></th></tr></thead>
+                    <tbody>${PEOPLE.map(([name, cid, sex, dept, role, years, status]) => `
+                        <tr>
+                            <td><b>${esc(name)}</b><div class="muted">เลขบัตรประชาชน: ${esc(cid)}</div></td>
+                            <td>${esc(sex)}</td><td>${esc(dept)}</td><td>${esc(role)}</td><td>${years}</td>
+                            <td><span class="chip ${STATUS_CLASS[status]}">${esc(status)}</span></td>
+                            <td class="row-actions">
+                                <button class="btn btn-sm" data-person="${esc(name)}">รายละเอียด</button>
+                                <button class="btn btn-sm">แก้ไข</button>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" style="margin-top:14px;">
+                <button class="btn btn-sm">←</button><span class="muted">หน้า 1 / 5 · 46 คน</span><button class="btn btn-sm">→</button>
+            </div>`;
+    }
+
+    function showModal(id) { document.getElementById(id).hidden = false; }
+    document.addEventListener('click', e => {
+        const close = e.target.closest('[data-close]');
+        if (close) document.getElementById(close.dataset.close).hidden = true;
+        const person = e.target.closest('[data-person]');
+        if (person) showModal('personModal');
+    });
+
+    render();
+</script>
+
+<!-- อัปโหลดรายชื่อพนักงาน -->
+<div class="modal-back" id="peopleModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>เพิ่มไฟล์รายชื่อพนักงานตรวจสุขภาพ</span><button class="close" data-close="peopleModal">×</button></div>
+        <div class="modal-body">
+            <div class="form-row">
+                <label class="field"><span>เลือกรอบการตรวจสุขภาพ <b class="req">*</b></span>
+                    <select><option>ประจำปี</option><option>ก่อนเข้าทำงาน</option><option>ก่อนกลับเข้าทำงาน</option></select></label>
+                <label class="field"><span>เลือกวันที่ <b class="req">*</b></span><input type="date" value="2026-02-24"></label>
+            </div>
+            <div class="upload-box">
+                <div style="font-size:28px;">☁️</div>
+                <div>ลากไฟล์มาวางที่นี่ หรือ</div>
+                <button class="btn btn-sm btn-primary">+ เพิ่มไฟล์</button>
+                <div class="muted">กรุณาเตรียมไฟล์ นามสกุล .csv, .xlsx หรือ .xls</div>
+            </div>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close="peopleModal">ยกเลิก</button>
+            <button class="btn btn-primary" data-close="peopleModal">นำเข้าไฟล์รายชื่อ</button></div>
+    </div>
+</div>
+
+<!-- อัปโหลดผลตรวจ -->
+<div class="modal-back" id="resultModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>เพิ่มไฟล์ผลตรวจสุขภาพพนักงาน</span><button class="close" data-close="resultModal">×</button></div>
+        <div class="modal-body">
+            <div class="upload-box">
+                <div style="font-size:28px;">☁️</div>
+                <div>ลากไฟล์มาวางที่นี่ หรือ</div>
+                <button class="btn btn-sm btn-primary">+ เพิ่มไฟล์ผลตรวจ</button>
+                <div class="muted">รองรับ .csv, .xlsx และ .xls</div>
+            </div>
+            <p class="muted" style="margin-top:12px;">
+                ไฟล์ผลตรวจจะถูกส่งเข้าตัวแปลงข้อมูลของระบบ (HIS Mapping) ค่าที่ระบบไม่แน่ใจจะขึ้นให้เจ้าหน้าที่ตรวจก่อนบันทึก
+            </p>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close="resultModal">ยกเลิก</button>
+            <button class="btn btn-primary" data-close="resultModal">นำเข้าผลตรวจ</button></div>
+    </div>
+</div>
+
+<!-- รายละเอียดพนักงาน -->
+<div class="modal-back" id="personModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>ผลตรวจรายบุคคล</span><button class="close" data-close="personModal">×</button></div>
+        <div class="modal-body">
+            <div class="summary" style="margin-bottom:14px;">
+                <div class="summary-row"><span>ชื่อ-นามสกุล</span><b>วงพต เสิศล้ำ</b></div>
+                <div class="summary-row"><span>แผนก / ตำแหน่ง</span><b>ผลิต 1 · วิศวกรฝ่ายผลิต</b></div>
+                <div class="summary-row"><span>ความเสี่ยงของแผนก</span><b>Silicosis <span class="chip low">ต่ำ</span> Lead <span class="chip top">สูงมาก</span></b></div>
+            </div>
+            <div class="band" style="margin-top:0;">ผลตรวจ</div>
+            <div class="summary">
+                ${''}
+                <div class="summary-row"><span>RBC ChE</span><b>1 %</b></div>
+                <div class="summary-row"><span>Plasma ChE (BChE)</span><b>1 %</b></div>
+                <div class="summary-row"><span>Chest X-ray</span><b>ปกติ</b></div>
+                <div class="summary-row"><span>SGOT / AST</span><b>25 U/L</b></div>
+                <div class="summary-row"><span>SGPT / ALT</span><b>28 U/L</b></div>
+                <div class="summary-row"><span>Total Bilirubin</span><b>0.9 mg/dL</b></div>
+            </div>
+        </div>
+        <div class="modal-foot"><button class="btn btn-primary" data-close="personModal">ปิด</button></div>
+    </div>
+</div>
+
+<!-- ส่งรายงาน -->
+<div class="modal-back" id="sendModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>ยืนยันการส่งรายงานผลตรวจ</span><button class="close" data-close="sendModal">×</button></div>
+        <div class="modal-body">
+            <p class="muted" style="margin-bottom:12px;">กรุณาตรวจสอบรายละเอียดและยืนยันเพื่อดำเนินการส่งข้อมูล</p>
+            <div class="summary">
+                <div class="summary-row"><span>ชื่อบริษัท</span><b>ห้างหุ้นส่วนจำกัด พงษ์ศรา คอนกรีต</b></div>
+                <div class="summary-row"><span>วันที่ส่งผล</span><b>24/02/2568 เวลา 23:17 น.</b></div>
+                <div class="summary-row"><span>ผู้ส่งข้อมูล</span><b>{{ user.name }} {{ user.surname }}</b></div>
+            </div>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close="sendModal">ยกเลิก</button>
+            <button class="btn btn-primary" data-close="sendModal">ยืนยัน</button></div>
+    </div>
+</div>
+{% endblock %}
