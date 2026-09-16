@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/envocc.css">
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="brand">
+                <div class="brand-mark" title="Env-Occ">EO</div>
+                <div>
+                    <div class="brand-name">กรมควบคุมโรค</div>
+                    <div class="brand-sub">ระบบควบคุมโรคจากการประกอบอาชีพและโรคจากสิ่งแวดล้อม</div>
+                </div>
+            </div>
+            <div class="who">
+                <div class="who-text">
+                    <b>{{ user.name }} {{ user.surname }}</b>
+                    หน่วยบริการ: {{ hospital }}<br>สิทธิ์: {{ role_th }} · {{ user.username }}
+                </div>
+                <div class="avatar">{{ (user.name or user.username)[0]|upper }}</div>
+                <div class="dropdown">
+                    <button class="menu-btn" id="userMenuBtn" aria-label="เมนูผู้ใช้">⋮</button>
+                    <div class="dropdown-list" id="userMenu" hidden>
+                        <a href="/">เมนูหลัก</a>
+                        <a href="/profile">โปรไฟล์</a>
+                        <button type="button" id="logoutBtn">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="page">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // shown text that comes from the database goes through esc()
+        function esc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        async function api(url, options) {
+            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+            let body = null;
+            try { body = await res.json(); } catch (e) { /* no body */ }
+            if (!res.ok) {
+                const d = body && body.detail;
+                throw new Error((d && d.message) || (typeof d === 'string' ? d : '') || 'เกิดข้อผิดพลาด');
+            }
+            if (res.redirected || res.status === 401) location.href = '/login';
+            return body;
+        }
+        const menuBtn = document.getElementById('userMenuBtn');
+        const menu = document.getElementById('userMenu');
+        menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
+        document.addEventListener('click', () => { menu.hidden = true; });
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            location.href = '/login';
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

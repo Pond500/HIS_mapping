@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}เมนูหลัก — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<div class="menu-head">
+    <h1>ระบบที่คุณต้องการใช้งาน</h1>
+    <p class="page-sub">เลือกระบบที่คุณต้องการใช้งาน</p>
+</div>
+
+<div class="menu-grid">
+    {% for item in menu %}
+    <a class="menu-card" href="{{ item.href }}">
+        <span class="menu-icon">🖥</span>
+        <span>{{ item.label }}</span>
+    </a>
+    {% endfor %}
+</div>
+
+{% if staff_menu %}
+<div class="menu-divider">สำหรับเจ้าหน้าที่</div>
+<div class="menu-grid">
+    {% for item in staff_menu %}
+    <a class="menu-card" href="{{ item.href }}">
+        <span class="menu-icon">👥</span>
+        <span>{{ item.label }}</span>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

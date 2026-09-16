@@ -12,8 +12,8 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    JSON, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String,
-    Text, UniqueConstraint, func,
+    JSON, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger,
+    String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -84,6 +84,35 @@ class ApiKey(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class AppUser(Base):
+    """A person who signs in to the staff web pages (Env-Occ manual: เข้าสู่ระบบ / จัดการผู้ใช้งาน).
+    Roles: superadmin (ส่วนกลาง) / admin (ผู้ดูแลหน่วยบริการ) / doctor (แพทย์) / staff (เจ้าหน้าที่).
+    A user belongs to one hospital ("สังกัด"); superadmin may have none."""
+    __tablename__ = "app_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(100), unique=True)
+    name: Mapped[str] = mapped_column(String(200))
+    surname: Mapped[str] = mapped_column(String(200), default="")
+    email: Mapped[str] = mapped_column(String(200), index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20), index=True)
+    hospital_id: Mapped[int | None] = mapped_column(ForeignKey("hospitals.id"), index=True)
+    license_no: Mapped[str | None] = mapped_column(String(50))       # เลขใบประกอบวิชาชีพ (แพทย์)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    def to_dict(self):
+        return {"id": self.id, "username": self.username, "name": self.name, "surname": self.surname,
+                "email": self.email, "role": self.role, "hospital_id": self.hospital_id,
+                "license_no": self.license_no, "is_active": self.is_active,
+                "created_by": self.created_by,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+                "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None}
 
 
 class FileProfile(Base):

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}โปรไฟล์ — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<h1 class="page-title">โปรไฟล์</h1>
+<p class="page-sub">แก้ไขข้อมูลของคุณ และเปลี่ยนรหัสผ่าน</p>
+
+<div class="card" style="margin-top:20px;">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:22px;">
+        <div class="avatar" style="width:64px;height:64px;font-size:26px;">{{ (user.name or user.username)[0]|upper }}</div>
+        <div>
+            <div style="font-size:20px;font-weight:700;">{{ user.name }} {{ user.surname }}</div>
+            <div class="muted">{{ user.username }} · {{ role_th }} · {{ hospital }}</div>
+        </div>
+    </div>
+
+    <form id="profileForm">
+        <div class="form-row">
+            <label class="field" for="name"><span>ชื่อ <b class="req">*</b></span>
+                <input id="name" value="{{ user.name }}" required></label>
+            <label class="field" for="surname"><span>นามสกุล</span>
+                <input id="surname" value="{{ user.surname }}"></label>
+        </div>
+
+        <div class="form-row">
+            <label class="field"><span>User ID</span><input value="{{ user.username }}" readonly></label>
+            <label class="field"><span>สิทธิ์การใช้งาน</span><input value="{{ role_th }}" readonly></label>
+        </div>
+
+        <div class="form-row">
+            <label class="field"><span>สังกัด</span><input value="{{ hospital }}" readonly></label>
+            <label class="field" for="email"><span>E-mail <b class="req">*</b></span>
+                <input id="email" type="email" value="{{ user.email }}" required></label>
+        </div>
+
+        <label class="field" for="password"><span>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</span>
+            <span class="with-eye">
+                <input id="password" type="password" minlength="8" placeholder="อย่างน้อย 8 ตัวอักษร" autocomplete="new-password">
+                <button class="eye" type="button" id="toggle" aria-label="แสดงรหัสผ่าน">👁</button>
+            </span>
+        </label>
+
+        <div class="err" id="err" hidden></div>
+        <div class="ok-note" id="ok" hidden>บันทึกแล้ว</div>
+
+        <div style="display:flex;gap:10px;margin-top:8px;">
+            <button class="btn btn-primary" type="submit" id="save">บันทึก</button>
+            <a class="btn" href="/">กลับเมนูหลัก</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const pw = document.getElementById('password');
+    document.getElementById('toggle').addEventListener('click', () => {
+        pw.type = pw.type === 'password' ? 'text' : 'password';
+    });
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const err = document.getElementById('err'), ok = document.getElementById('ok');
+        err.hidden = ok.hidden = true;
+        const body = {
+            name: document.getElementById('name').value,
+            surname: document.getElementById('surname').value,
+            email: document.getElementById('email').value,
+        };
+        if (pw.value) body.password = pw.value;
+        try {
+            await api('/api/auth/profile', { method: 'PATCH', body: JSON.stringify(body) });
+            ok.hidden = false;
+            pw.value = '';
+            setTimeout(() => location.reload(), 700);
+        } catch (e2) {
+            err.textContent = e2.message;
+            err.hidden = false;
+        }
+    });
+</script>
+{% endblock %}

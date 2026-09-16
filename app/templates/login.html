@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เข้าสู่ระบบ — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม</title>
+    <link rel="stylesheet" href="/static/css/envocc.css">
+</head>
+
+<body>
+    <div class="login-wrap">
+        <div class="login-card">
+            <form class="login-form" id="loginForm">
+                <h1>เข้าสู่ระบบ</h1>
+
+                <label class="field" for="username">
+                    <span>USERNAME</span>
+                    <input id="username" name="username" autocomplete="username" placeholder="username ที่ได้รับ" required autofocus>
+                </label>
+
+                <label class="field" for="password">
+                    <span>PASSWORD</span>
+                    <span class="with-eye">
+                        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+                        <button class="eye" type="button" id="toggle" aria-label="แสดงรหัสผ่าน">👁</button>
+                    </span>
+                </label>
+
+                <div class="err" id="err" hidden></div>
+
+                <button class="btn btn-primary" type="submit" id="submit" style="width:100%;justify-content:center;">Sign In</button>
+
+                <p class="login-note">
+                    ยังไม่มีบัญชี ติดต่อผู้ดูแลหน่วยบริการของท่านเพื่อขอ username และ password<br>
+                    แพทย์ที่ต้องการสิทธิ์ใช้งาน ให้ลงทะเบียนผ่านผู้ดูแลระบบส่วนกลาง
+                </p>
+            </form>
+
+            <div class="login-side">
+                <h2>ระบบควบคุมโรค</h2>
+                <p>จากการประกอบอาชีพและโรคจากสิ่งแวดล้อม</p>
+                <div class="art">🩺</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const err = document.getElementById('err');
+        const submit = document.getElementById('submit');
+        const pw = document.getElementById('password');
+        document.getElementById('toggle').addEventListener('click', () => {
+            pw.type = pw.type === 'password' ? 'text' : 'password';
+        });
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            err.hidden = true;
+            submit.disabled = true;
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: document.getElementById('username').value, password: pw.value }),
+                });
+                const body = await res.json();
+                if (!res.ok) throw new Error((body.detail && body.detail.message) || 'เข้าสู่ระบบไม่สำเร็จ');
+                const next = new URLSearchParams(location.search).get('next') || '/';
+                location.href = next.startsWith('/') ? next : '/';
+            } catch (e2) {
+                err.textContent = e2.message;
+                err.hidden = false;
+                submit.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>

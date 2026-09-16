@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}จัดการผู้ใช้งาน — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<h1 class="page-title">จัดการผู้ใช้งาน</h1>
+<p class="page-sub">
+    สร้างและแก้ไขผู้ใช้ได้เฉพาะในสังกัดของคุณ และให้สิทธิ์ได้ไม่เกินสิทธิ์ของตัวเอง
+    สิทธิ์แพทย์ต้องผ่านการลงทะเบียนแพทย์เท่านั้น
+</p>
+
+<div class="card" style="margin-top:20px;">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <input id="search" placeholder="ค้นหาชื่อ, User ID หรืออีเมล" style="max-width:320px;">
+        <button class="btn btn-primary" id="addBtn">เพิ่มผู้ใช้ +</button>
+    </div>
+
+    <div class="muted" id="count" style="margin-bottom:8px;"></div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ชื่อ - นามสกุล</th><th>User ID</th><th>สิทธิ์</th><th>สังกัด</th>
+                    <th>อีเมล</th><th>สร้างเมื่อ</th><th>สร้างโดย</th><th></th>
+                </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- เพิ่มผู้ใช้ -->
+<div class="modal-back" id="addModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>เพิ่มผู้ใช้งาน</span><button class="close" data-close="addModal">×</button></div>
+        <form id="addForm">
+            <div class="modal-body">
+                <label class="field" for="addEmail"><span>อีเมลผู้ใช้งาน <b class="req">*</b></span>
+                    <input id="addEmail" type="email" required placeholder="name@example.com"></label>
+                <div class="form-row">
+                    <label class="field" for="addName"><span>ชื่อ</span><input id="addName"></label>
+                    <label class="field" for="addSurname"><span>นามสกุล</span><input id="addSurname"></label>
+                </div>
+                <label class="field" for="addRole"><span>สิทธิ์ผู้ใช้งาน <b class="req">*</b></span>
+                    <select id="addRole">
+                        <option value="staff">เจ้าหน้าที่</option>
+                        {% if user.role in ('superadmin', 'admin') %}<option value="admin">ผู้ดูแลหน่วยบริการ</option>{% endif %}
+                        {% if user.role == 'superadmin' %}<option value="superadmin">ผู้ดูแลระบบส่วนกลาง</option>{% endif %}
+                    </select>
+                </label>
+                {% if user.role == 'superadmin' %}
+                <label class="field" for="addHospital"><span>สังกัดหน่วยบริการ (รหัส)</span>
+                    <input id="addHospital" placeholder="เช่น H01 — เว้นว่าง = สังกัดเดียวกับคุณ"></label>
+                {% endif %}
+                <div class="err" id="addErr" hidden></div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn" type="button" data-close="addModal">ยกเลิก</button>
+                <button class="btn btn-primary" type="submit">Add User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- รหัสผ่านที่สร้างให้ -->
+<div class="modal-back" id="pwModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>สร้างผู้ใช้งานแล้ว</span><button class="close" data-close="pwModal">×</button></div>
+        <div class="modal-body">
+            <p style="margin-bottom:12px;">ส่ง username และรหัสผ่านนี้ให้ผู้ใช้ทางช่องทางที่ปลอดภัย <b>ระบบแสดงรหัสผ่านครั้งเดียว</b></p>
+            <div class="password-box" id="pwText"></div>
+            <p class="muted" style="margin-top:12px;">ระบบยังไม่มีการส่งอีเมลอัตโนมัติ</p>
+        </div>
+        <div class="modal-foot"><button class="btn btn-primary" data-close="pwModal">ตกลง</button></div>
+    </div>
+</div>
+
+<!-- แก้ไขผู้ใช้ -->
+<div class="modal-back" id="editModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>แก้ไขผู้ใช้งาน</span><button class="close" data-close="editModal">×</button></div>
+        <form id="editForm">
+            <div class="modal-body">
+                <input type="hidden" id="editId">
+                <div class="form-row">
+                    <label class="field" for="editName"><span>ชื่อ <b class="req">*</b></span><input id="editName" required></label>
+                    <label class="field" for="editSurname"><span>นามสกุล</span><input id="editSurname"></label>
+                </div>
+                <label class="field" for="editRole"><span>สิทธิ์ผู้ใช้งาน</span>
+                    <select id="editRole">
+                        <option value="staff">เจ้าหน้าที่</option>
+                        {% if user.role in ('superadmin', 'admin') %}<option value="admin">ผู้ดูแลหน่วยบริการ</option>{% endif %}
+                        {% if user.role == 'superadmin' %}<option value="superadmin">ผู้ดูแลระบบส่วนกลาง</option>{% endif %}
+                    </select>
+                </label>
+                <label class="field" for="editPassword"><span>ตั้งรหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</span>
+                    <input id="editPassword" type="password" minlength="8" placeholder="อย่างน้อย 8 ตัวอักษร"></label>
+                <div class="err" id="editErr" hidden></div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn" type="button" data-close="editModal">ยกเลิก</button>
+                <button class="btn btn-primary" type="submit">บันทึก</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ROLE_TH = { superadmin: 'ผู้ดูแลระบบส่วนกลาง', admin: 'ผู้ดูแลหน่วยบริการ', doctor: 'แพทย์', staff: 'เจ้าหน้าที่' };
+    let users = [];
+
+    function show(id, on) { document.getElementById(id).hidden = !on; }
+    document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => show(b.dataset.close, false)));
+
+    function fmtDate(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`;
+    }
+
+    async function load() {
+        const q = document.getElementById('search').value.trim();
+        users = await api('/api/users?q=' + encodeURIComponent(q));
+        document.getElementById('count').textContent = `ทั้งหมด ${users.length} รายการ`;
+        document.getElementById('rows').innerHTML = users.map(u => `
+            <tr>
+                <td>${esc(u.name)} ${esc(u.surname)}${u.is_active ? '' : ' <span class="tag off">ปิดใช้งาน</span>'}</td>
+                <td>${esc(u.username)}</td>
+                <td><span class="tag">${esc(ROLE_TH[u.role] || u.role)}</span></td>
+                <td>${esc(u.hospital) || '—'}</td>
+                <td>${esc(u.email)}</td>
+                <td>${fmtDate(u.created_at)}</td>
+                <td>${esc(u.created_by) || '—'}</td>
+                <td class="row-actions">
+                    <button class="btn btn-sm" onclick="openEdit(${u.id})">แก้ไข</button>
+                    ${u.is_active ? `<button class="btn btn-sm btn-danger" onclick="deactivate(${u.id})">ปิดใช้งาน</button>` : ''}
+                </td>
+            </tr>`).join('');
+    }
+
+    let timer;
+    document.getElementById('search').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 300); });
+
+    document.getElementById('addBtn').addEventListener('click', () => {
+        document.getElementById('addForm').reset();
+        document.getElementById('addErr').hidden = true;
+        show('addModal', true);
+    });
+
+    document.getElementById('addForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const err = document.getElementById('addErr');
+        err.hidden = true;
+        const body = {
+            email: document.getElementById('addEmail').value,
+            name: document.getElementById('addName').value,
+            surname: document.getElementById('addSurname').value,
+            role: document.getElementById('addRole').value,
+        };
+        const hosp = document.getElementById('addHospital');
+        if (hosp && hosp.value.trim()) body.hospital = hosp.value.trim();
+        try {
+            const res = await api('/api/users', { method: 'POST', body: JSON.stringify(body) });
+            show('addModal', false);
+            document.getElementById('pwText').textContent = `${res.user.username}  /  ${res.password}`;
+            show('pwModal', true);
+            load();
+        } catch (e2) { err.textContent = e2.message; err.hidden = false; }
+    });
+
+    function openEdit(id) {
+        const u = users.find(x => x.id === id);
+        if (!u) return;
+        document.getElementById('editId').value = u.id;
+        document.getElementById('editName').value = u.name;
+        document.getElementById('editSurname').value = u.surname;
+        document.getElementById('editPassword').value = '';
+        const role = document.getElementById('editRole');
+        role.value = u.role;
+        role.disabled = u.role === 'doctor';      // doctors keep their role
+        document.getElementById('editErr').hidden = true;
+        show('editModal', true);
+    }
+
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const err = document.getElementById('editErr');
+        err.hidden = true;
+        const id = document.getElementById('editId').value;
+        const body = {
+            name: document.getElementById('editName').value,
+            surname: document.getElementById('editSurname').value,
+        };
+        const role = document.getElementById('editRole');
+        if (!role.disabled) body.role = role.value;
+        const pw = document.getElementById('editPassword').value;
+        if (pw) body.password = pw;
+        try {
+            await api('/api/users/' + id, { method: 'PATCH', body: JSON.stringify(body) });
+            show('editModal', false);
+            load();
+        } catch (e2) { err.textContent = e2.message; err.hidden = false; }
+    });
+
+    async function deactivate(id) {
+        const u = users.find(x => x.id === id);
+        if (!confirm(`ปิดการใช้งานบัญชี ${u ? u.username : ''} ใช่หรือไม่? ประวัติการทำงานยังอยู่`)) return;
+        try { await api('/api/users/' + id, { method: 'DELETE' }); load(); }
+        catch (e) { alert(e.message); }
+    }
+
+    load();
+</script>
+{% endblock %}

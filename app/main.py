@@ -8,16 +8,16 @@ import os
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.graph import service
-from app.routes import api_v1, conflicts, dashboard, mapping, reviews, upload, upload_legacy
+from app.routes import (
+    accounts, api_v1, conflicts, dashboard, mapping, pages, reviews, upload, upload_legacy,
+)
 
 
 @asynccontextmanager
@@ -38,7 +38,7 @@ app = FastAPI(title="HIS Mapping", description="แปลงข้อมูล H
 # Static files & templates
 BASE_DIR = os.path.dirname(__file__)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+# the HTML pages themselves live in app/routes/pages.py
 
 # External API for hospital HIS systems (D19), with its own docs at /api/v1/docs. Mounted
 # before the internal routes so none of them can shadow it. Only /api/v1 may be exposed
@@ -46,6 +46,7 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/api/v1", api_v1.api)
 
 # Routes (internal)
+app.include_router(accounts.router)
 app.include_router(upload.router)
 app.include_router(upload_legacy.router)
 app.include_router(dashboard.router)
@@ -58,6 +59,4 @@ app.include_router(conflicts.router)
 # Pages
 # ---------------------------------------------------------------------------
 
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+app.include_router(pages.router)     # /login, /, /profile, /users, /import (Env-Occ style)
