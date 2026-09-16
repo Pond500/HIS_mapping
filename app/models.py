@@ -115,6 +115,50 @@ class AppUser(Base):
                 "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None}
 
 
+class ServiceRegistration(Base):
+    """One application to register a medical service unit (Env-Occ manual: ขึ้นทะเบียนหน่วยบริการ).
+
+    `data` holds the six steps of the form, `documents` the uploaded PDFs per field, and
+    `review_notes` what the reviewer asked to fix. The original files live on disk under
+    storage/registrations/, like uploaded result files."""
+    __tablename__ = "service_registrations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hospital_id: Mapped[int] = mapped_column(ForeignKey("hospitals.id"), index=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("app_users.id"))
+    # draft / submitted / changes_requested / approved / issued / cancelled
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    stage: Mapped[int] = mapped_column(Integer, default=1)          # 1..6 on the status timeline
+    data: Mapped[dict] = mapped_column(JSON, default=dict)          # {"step1": {...}, ...}
+    documents: Mapped[dict] = mapped_column(JSON, default=dict)     # {"field key": [ {...file...} ]}
+    review_notes: Mapped[list] = mapped_column(JSON, default=list)  # [{key, label, note, fixed}]
+    delivery: Mapped[dict] = mapped_column(JSON, default=dict)      # how the certificate is sent
+    certificate_path: Mapped[str | None] = mapped_column(String(1000))
+    certificate_downloaded: Mapped[bool] = mapped_column(Boolean, default=False)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    issued_at: Mapped[datetime | None] = mapped_column(DateTime)
+    expires_on: Mapped[date | None] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    def to_dict(self):
+        return {
+            "id": self.id, "hospital_id": self.hospital_id, "status": self.status, "stage": self.stage,
+            "data": self.data or {}, "documents": self.documents or {},
+            "review_notes": self.review_notes or [], "delivery": self.delivery or {},
+            "has_certificate": bool(self.certificate_path),
+            "certificate_downloaded": self.certificate_downloaded,
+            "submitted_at": self.submitted_at.isoformat() if self.submitted_at else None,
+            "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
+            "approved_at": self.approved_at.isoformat() if self.approved_at else None,
+            "issued_at": self.issued_at.isoformat() if self.issued_at else None,
+            "expires_on": self.expires_on.isoformat() if self.expires_on else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class FileProfile(Base):
     """Confirmed parse spec for a file layout, reused for the same hospital."""
     __tablename__ = "file_profiles"

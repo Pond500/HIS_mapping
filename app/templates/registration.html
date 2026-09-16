@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+{% block title %}ขึ้นทะเบียนหน่วยบริการ — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<h1 class="page-title">ข้อมูลลงทะเบียนหน่วยบริการ</h1>
+<p class="page-sub" id="unitName">{{ hospital }}</p>
+
+<div id="app"><div class="card center muted">กำลังโหลด…</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let SPEC = null;        // steps from the server
+    let TIMELINE = [];
+    let REG = null;         // the current application
+    let HISTORY = [];
+    let step = 0;           // index in SPEC while editing
+    let editing = false;
+
+    const EDITABLE = ['draft', 'changes_requested'];
+    const app = document.getElementById('app');
+
+    async function load() {
+        const res = await api('/api/registration');
+        SPEC = res.steps; TIMELINE = res.timeline; REG = res.current; HISTORY = res.history;
+        if (REG && EDITABLE.includes(REG.status) && !editing) step = 0;
+        render();
+    }
+
+    function render() {
+        if (!REG) return renderEmpty();
+        if (editing && EDITABLE.includes(REG.status)) return renderWizard();
+        return renderStatus();
+    }
+
+    /* ---------- no application yet ---------- */
+    function renderEmpty() {
+        app.innerHTML = `
+            <div class="card">
+                <div class="band" style="margin-top:0;">ไม่พบข้อมูลการลงทะเบียนปัจจุบัน</div>
+                <button class="btn btn-primary" style="width:100%;justify-content:center;" id="startBtn">
+                    เริ่มลงทะเบียนหน่วยบริการ</button>
+            </div>
+            ${historyCard()}`;
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            REG = await api('/api/registration', { method: 'POST' });
+            editing = true; step = 0; render();
+        });
+    }
+
+    function historyCard() {
+        return `
+            <div class="card">
+                <div class="band" style="margin-top:0;">ประวัติการยื่นลงทะเบียน</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>วันที่ยื่นเอกสาร</th><th>สถานะ</th><th>วันอนุมัติ</th><th>วันหมดอายุ</th><th>ใบขึ้นทะเบียน</th></tr></thead>
+                        <tbody>${HISTORY.length ? HISTORY.map(r => `
+                            <tr>
+                                <td>${thaiDate(r.submitted_at)}</td>
+                                <td>${esc(r.status_th)}</td>
+                                <td>${thaiDate(r.approved_at)}</td>
+                                <td>${thaiDate(r.expires_on)}</td>
+                                <td>${r.has_certificate
+                                        ? `<a class="btn btn-sm btn-green" href="/api/registration/${r.id}/file?certificate=true">โหลดใบขึ้นทะเบียน</a>`
+                                        : '—'}</td>
+                            </tr>`).join('')
+                            : `<tr><td colspan="5" class="center muted" style="padding:28px;">ไม่พบข้อมูลประวัติการลงทะเบียน</td></tr>`}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+    }
+
+    /* ---------- status of the current application ---------- */
+    function renderStatus() {
+        const stage = REG.stage || 1;
+        const failed = REG.status === 'changes_requested';
+        app.innerHTML = `
+            <div class="card">
+                <div class="band" style="margin-top:0;">สถานะการขึ้นทะเบียน</div>
+                <div class="timeline">
+                    ${TIMELINE.map((label, i) => {
+                        const n = i + 1;
+                        const state = failed && n === 2 ? 'bad' : (n < stage ? 'done' : (n === stage ? 'now' : ''));
+                        return `<div class="tl-step ${state}">
+                                    <div class="tl-dot">${state === 'done' ? '✓' : (state === 'bad' ? '✕' : n)}</div>
+                                    <div class="tl-label">${esc(label)}</div>
+                                </div>`;
+                    }).join('')}
+                </div>
+                <div style="margin-top:18px;">
+                    <span class="tag">${esc(REG.status_th)}</span>
+                    ${REG.submitted_at ? `<span class="muted" style="margin-left:10px;">ยื่นเมื่อ ${thaiDate(REG.submitted_at)}</span>` : ''}
+                    ${REG.approved_at ? `<span class="muted" style="margin-left:10px;">อนุมัติ ${thaiDate(REG.approved_at)}</span>` : ''}
+                </div>
+
+                ${failed ? `
+                <div class="notes">
+                    <b>รายการที่ต้องแก้ไข</b>
+                    <ul>${(REG.review_notes || []).map(n => `<li><b>${esc(n.label)}</b>${n.note ? ' — ' + esc(n.note) : ''}</li>`).join('')}</ul>
+                </div>` : ''}
+
+                ${EDITABLE.includes(REG.status) ? `
+                    <button class="btn btn-primary" id="editBtn" style="width:100%;justify-content:center;margin-top:18px;">
+                        ${REG.status === 'draft' ? 'กรอกฟอร์มลงทะเบียนต่อ' : 'แก้ไขเอกสารตามที่แจ้ง'}</button>
+                    ${REG.status === 'draft' ? `<button class="btn btn-danger btn-sm" id="cancelBtn" style="margin-top:10px;">ยกเลิกการลงทะเบียนปัจจุบัน</button>` : ''}
+                ` : ''}
+                ${REG.has_certificate ? `
+                    <a class="btn btn-green" style="margin-top:18px;" href="/api/registration/${REG.id}/file?certificate=true">
+                        โหลดใบขึ้นทะเบียน</a>
+                    <div class="muted" style="margin-top:6px;">
+                        ${REG.certificate_downloaded ? 'โหลดไปแล้ว หากต้องการอีกครั้งติดต่อหน่วยงานที่รับขึ้นทะเบียน' : 'โหลดได้ 1 ครั้ง'}
+                    </div>` : ''}
+            </div>
+            ${historyCard()}`;
+
+        const edit = document.getElementById('editBtn');
+        if (edit) edit.addEventListener('click', () => { editing = true; step = 0; render(); });
+        const cancel = document.getElementById('cancelBtn');
+        if (cancel) cancel.addEventListener('click', async () => {
+            if (!confirm('ยกเลิกแบบร่างนี้ทั้งหมด ใช่หรือไม่?')) return;
+            await api(`/api/registration/${REG.id}/cancel`, { method: 'POST' });
+            REG = null; editing = false; load();
+        });
+    }
+
+    /* ---------- the six-step form ---------- */
+    function renderWizard() {
+        const s = SPEC[step];
+        const values = (REG.data || {})[s.id] || {};
+        app.innerHTML = `
+            <div class="stepper">
+                ${SPEC.map((x, i) => {
+                    // ✓ only when that step really has everything the manual asks for
+                    const left = ((REG.missing || {})[x.title] || []).length;
+                    const done = !x.summary && left === 0 && x.sections.length > 0;
+                    return `
+                    <button class="step-dot ${i === step ? 'now' : (done ? 'done' : '')}" data-go="${i}">
+                        <span class="dot">${done && i !== step ? '✓' : i + 1}</span>
+                        <span class="dot-label">${esc(x.title)}
+                            ${left ? `<span class="dot-left">ยังขาด ${left} รายการ</span>` : ''}</span>
+                    </button>`;
+                }).join('')}
+            </div>
+
+            <div class="card">
+                ${s.summary ? summaryHtml() : s.sections.map(sec => sectionHtml(sec, values)).join('')}
+                <div class="err" id="stepErr" hidden></div>
+                <div style="display:flex;justify-content:space-between;gap:10px;margin-top:22px;">
+                    <button class="btn" id="backBtn" ${step === 0 ? 'disabled' : ''}>ย้อนกลับ</button>
+                    <div style="display:flex;gap:10px;">
+                        <button class="btn" id="saveBtn">บันทึกแบบร่าง</button>
+                        ${step === SPEC.length - 1
+                            ? `<button class="btn btn-primary" id="submitBtn">ยื่นลงทะเบียน</button>`
+                            : `<button class="btn btn-primary" id="nextBtn">ถัดไป</button>`}
+                    </div>
+                </div>
+            </div>`;
+
+        document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', async () => {
+            await saveStep(); step = Number(b.dataset.go); render();
+        }));
+        document.getElementById('backBtn').addEventListener('click', async () => {
+            await saveStep(); step = Math.max(0, step - 1); render();
+        });
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            await saveStep(); alert('บันทึกแบบร่างแล้ว');
+        });
+        const next = document.getElementById('nextBtn');
+        if (next) next.addEventListener('click', async () => {
+            await saveStep(); step = Math.min(SPEC.length - 1, step + 1); render();
+        });
+        const submit = document.getElementById('submitBtn');
+        if (submit) submit.addEventListener('click', doSubmit);
+        wireUploads();
+        wirePeople();
+        wireConditions();
+    }
+
+    function sectionHtml(sec, values) {
+        return `<div class="band">${esc(sec.title)}</div>
+                <div class="form-row">${sec.fields.map(f => fieldHtml(f, values)).join('')}</div>`;
+    }
+
+    function fieldHtml(f, values) {
+        const v = values[f.key] ?? f.default ?? '';
+        const req = f.required || f.required_when ? ' <b class="req">*</b>' : '';
+        const help = f.help ? `<div class="field-help">${esc(f.help)}</div>` : '';
+        const when = f.when ? ` data-when='${JSON.stringify(f.when)}'` : '';
+        const wide = ['textarea', 'docs', 'people', 'radio'].includes(f.kind) ? ' style="grid-column:1/-1;"' : '';
+
+        if (f.kind === 'docs') return `
+            <div class="field-block"${wide}${when}>
+                <div class="doc-head"><span>${esc(f.label)}${req}</span>
+                    <label class="btn btn-sm">+ อัปโหลด
+                        <input type="file" accept="application/pdf" hidden data-upload="${esc(f.key)}"></label></div>
+                ${help}
+                <div class="doc-list" id="docs-${esc(f.key)}">${docListHtml(f.key, (REG.documents || {})[f.key] || [])}</div>
+            </div>`;
+
+        if (f.kind === 'people') return `
+            <div class="field-block"${wide}${when}>
+                <div class="doc-head"><span>${esc(f.label)}${req}</span>
+                    <button class="btn btn-sm" data-add-person="${esc(f.key)}">+ เพิ่ม${esc(f.label)}</button></div>
+                ${help}
+                <div id="people-${esc(f.key)}">${(v || []).map((p, i) => personHtml(f, p, i)).join('')}</div>
+            </div>`;
+
+        if (f.kind === 'textarea') return `
+            <label class="field"${wide}${when}><span>${esc(f.label)}${req}</span>
+                <textarea rows="3" data-key="${esc(f.key)}">${esc(v)}</textarea>${help}</label>`;
+
+        if (f.kind === 'select') return `
+            <label class="field"${when}><span>${esc(f.label)}${req}</span>
+                <select data-key="${esc(f.key)}">
+                    <option value="">เลือก${esc(f.label)}</option>
+                    ${f.options.map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+                </select>${help}</label>`;
+
+        if (f.kind === 'radio') return `
+            <div class="field"${wide}${when}><span>${esc(f.label)}${req}</span>
+                ${f.options.map(o => `
+                    <label class="radio"><input type="radio" name="${esc(f.key)}" data-key="${esc(f.key)}"
+                        value="${esc(o)}" ${o === v ? 'checked' : ''}> ${esc(o)}</label>`).join('')}
+                ${help}</div>`;
+
+        const type = { date: 'date', number: 'number', email: 'email' }[f.kind] || 'text';
+        const extra = f.kind === 'cid' ? ' inputmode="numeric" maxlength="13" placeholder="เลข 13 หลัก"' : '';
+        return `<label class="field"${when}><span>${esc(f.label)}${req}</span>
+                    <input type="${type}" data-key="${esc(f.key)}" value="${esc(v)}"${extra}>${help}</label>`;
+    }
+
+    function personHtml(f, p, i) {
+        return `
+            <div class="person">
+                <div class="person-head">
+                    <b>${esc(f.label)} คนที่ ${i + 1}</b>
+                    <button class="btn btn-sm btn-danger" data-del-person="${esc(f.key)}" data-index="${i}">ลบ</button>
+                </div>
+                <div class="form-row">
+                    <label class="field"><span>คำนำหน้า</span>
+                        <input data-person="${esc(f.key)}" data-index="${i}" data-field="title" value="${esc(p.title || '')}"></label>
+                    <label class="field"><span>ชื่อ <b class="req">*</b></span>
+                        <input data-person="${esc(f.key)}" data-index="${i}" data-field="name" value="${esc(p.name || '')}"></label>
+                    <label class="field"><span>นามสกุล</span>
+                        <input data-person="${esc(f.key)}" data-index="${i}" data-field="surname" value="${esc(p.surname || '')}"></label>
+                </div>
+                ${(f.person_docs || []).map(d => `
+                    <div class="field-block">
+                        <div class="doc-head"><span>${esc(d.label)}${d.min ? ' <b class="req">*</b>' : ''}</span>
+                            <label class="btn btn-sm">+ อัปโหลด
+                                <input type="file" accept="application/pdf" hidden
+                                       data-upload="${esc(f.key)}:${esc(d.key)}" data-person-index="${i}"></label></div>
+                        ${d.help ? `<div class="field-help">${esc(d.help)}</div>` : ''}
+                        <div class="doc-list">${docListHtml(`${f.key}:${d.key}`, ((p.documents || {})[d.key]) || [], i)}</div>
+                    </div>`).join('')}
+            </div>`;
+    }
+
+    function docListHtml(key, docs, personIndex) {
+        if (!docs.length) return `<div class="muted">ยังไม่มีเอกสาร</div>`;
+        return docs.map(d => `
+            <div class="doc-item">
+                <a href="/api/registration/${REG.id}/file?sha256=${esc(d.sha256)}" target="_blank">📄 ${esc(d.filename)}</a>
+                <button class="btn btn-sm btn-danger" data-del-doc="${esc(key)}" data-sha="${esc(d.sha256)}"
+                        ${personIndex === undefined ? '' : `data-person-index="${personIndex}"`}>ลบ</button>
+            </div>`).join('');
+    }
+
+    function summaryHtml() {
+        const missing = REG.missing || {};
+        const blocks = SPEC.filter(s => s.sections.length).map(s => {
+            const values = (REG.data || {})[s.id] || {};
+            const rows = [];
+            s.sections.forEach(sec => sec.fields.forEach(f => {
+                if (f.kind === 'docs') {
+                    const n = ((REG.documents || {})[f.key] || []).length;
+                    rows.push([f.label, n ? `${n} ไฟล์` : '—']);
+                } else if (f.kind === 'people') {
+                    const people = (values[f.key] || []).filter(p => (p.name || '').trim());
+                    rows.push([f.label, people.length ? people.map(p => `${p.title || ''}${p.name} ${p.surname || ''}`).join(', ') : '—']);
+                } else {
+                    rows.push([f.label, values[f.key] || '—']);
+                }
+            }));
+            return `<div class="band">${esc(s.title)}</div>
+                    <div class="summary">${rows.map(([k, v]) => `
+                        <div class="summary-row"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
+        }).join('');
+        const left = Object.entries(missing);
+        return `
+            ${left.length ? `<div class="notes"><b>ยังกรอกไม่ครบ</b><ul>${left.map(([title, items]) =>
+                `<li>${esc(title)}: ${items.map(esc).join(' · ')}</li>`).join('')}</ul></div>` : ''}
+            ${blocks}`;
+    }
+
+    /* ---------- reading the form ---------- */
+    function collect() {
+        const values = {};
+        document.querySelectorAll('[data-key]').forEach(el => {
+            if (el.type === 'radio') { if (el.checked) values[el.dataset.key] = el.value; }
+            else values[el.dataset.key] = el.value;
+        });
+        // people fields keep their documents, so start from what the server has
+        const s = SPEC[step];
+        const current = (REG.data || {})[s.id] || {};
+        (s.sections || []).forEach(sec => sec.fields.forEach(f => {
+            if (f.kind !== 'people') return;
+            const people = (current[f.key] || []).map(p => ({ ...p }));
+            document.querySelectorAll(`[data-person="${f.key}"]`).forEach(el => {
+                const i = Number(el.dataset.index);
+                people[i] = { ...(people[i] || {}), [el.dataset.field]: el.value };
+            });
+            values[f.key] = people;
+        }));
+        return values;
+    }
+
+    async function saveStep() {
+        const s = SPEC[step];
+        if (s.summary) return;
+        REG = await api(`/api/registration/${REG.id}/step/${s.id}`, {
+            method: 'PATCH', body: JSON.stringify({ values: collect() }),
+        });
+    }
+
+    async function doSubmit() {
+        const err = document.getElementById('stepErr');
+        err.hidden = true;
+        await saveStep();
+        try {
+            REG = await api(`/api/registration/${REG.id}/submit`, { method: 'POST' });
+            editing = false;
+            alert('ยื่นลงทะเบียนสำเร็จ ท่านสามารถตรวจสอบสถานะได้ที่หน้านี้');
+            load();
+        } catch (e) {
+            const left = Object.entries(REG.missing || {});
+            err.innerHTML = esc(e.message) + (left.length ? '<br>' + left.map(([t, items]) =>
+                `${esc(t)}: ${items.map(esc).join(' · ')}`).join('<br>') : '');
+            err.hidden = false;
+        }
+    }
+
+    /* ---------- uploads, people, conditional fields ---------- */
+    function wireUploads() {
+        document.querySelectorAll('[data-upload]').forEach(input => {
+            input.addEventListener('change', async () => {
+                if (!input.files.length) return;
+                await saveStep();               // keep typed values before the page redraws
+                const fd = new FormData();
+                fd.append('key', input.dataset.upload);
+                fd.append('file', input.files[0]);
+                if (input.dataset.personIndex !== undefined) fd.append('person', input.dataset.personIndex);
+                try {
+                    const res = await fetch(`/api/registration/${REG.id}/documents`, { method: 'POST', body: fd });
+                    const body = await res.json();
+                    if (!res.ok) throw new Error((body.detail && body.detail.message) || 'อัปโหลดไม่สำเร็จ');
+                    REG = body.registration;
+                    render();
+                } catch (e) { alert(e.message); }
+                input.value = '';
+            });
+        });
+        document.querySelectorAll('[data-del-doc]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('ลบเอกสารนี้?')) return;
+                await saveStep();
+                const q = new URLSearchParams({ key: btn.dataset.delDoc, sha256: btn.dataset.sha });
+                if (btn.dataset.personIndex !== undefined) q.set('person', btn.dataset.personIndex);
+                REG = await api(`/api/registration/${REG.id}/documents?` + q, { method: 'DELETE' });
+                render();
+            });
+        });
+    }
+
+    function wirePeople() {
+        document.querySelectorAll('[data-add-person]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const key = btn.dataset.addPerson;
+                const values = collect();
+                values[key] = [...(values[key] || []), { title: '', name: '', surname: '', documents: {} }];
+                REG = await api(`/api/registration/${REG.id}/step/${SPEC[step].id}`, {
+                    method: 'PATCH', body: JSON.stringify({ values }),
+                });
+                render();
+            });
+        });
+        document.querySelectorAll('[data-del-person]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('ลบรายชื่อนี้?')) return;
+                const key = btn.dataset.delPerson, i = Number(btn.dataset.index);
+                const values = collect();
+                values[key] = (values[key] || []).filter((_, k) => k !== i);
+                REG = await api(`/api/registration/${REG.id}/step/${SPEC[step].id}`, {
+                    method: 'PATCH', body: JSON.stringify({ values }),
+                });
+                render();
+            });
+        });
+    }
+
+    function wireConditions() {
+        const apply = () => {
+            document.querySelectorAll('[data-when]').forEach(el => {
+                const when = JSON.parse(el.dataset.when);
+                el.hidden = !Object.entries(when).every(([k, want]) => {
+                    const input = document.querySelector(`[data-key="${k}"]:checked`) || document.querySelector(`[data-key="${k}"]`);
+                    return input && input.value === want;
+                });
+            });
+        };
+        document.querySelectorAll('[data-key]').forEach(el => el.addEventListener('change', apply));
+        apply();
+    }
+
+    function thaiDate(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`;
+    }
+
+    load();
+</script>
+{% endblock %}

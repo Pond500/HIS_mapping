@@ -93,6 +93,17 @@ def users_page(request: Request, response: Response, db: Session = Depends(get_d
     return page
 
 
+@router.get("/registration", response_class=HTMLResponse)
+def registration_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """ขึ้นทะเบียนหน่วยบริการ: the six-step form, its status timeline and the history."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "registration.html", _ctx(request, user, db, active="registration"))
+    page.headers.update(response.headers)
+    return page
+
+
 @router.get("/import", response_class=HTMLResponse)
 def import_page(request: Request, response: Response, db: Session = Depends(get_db)):
     """This project's own converter screen (upload, reviews, conflicts, dashboard)."""
