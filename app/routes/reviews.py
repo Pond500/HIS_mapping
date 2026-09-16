@@ -17,7 +17,7 @@ from app.database import get_db
 from app.graph import service
 from app.models import PendingReview, SourceFile
 from app.pipeline import units as U
-from app.template import FIELDS_BY_COLUMN, RESULT_COLUMNS
+from app.template import COLUMNS, FIELDS_BY_COLUMN, RESULT_COLUMNS
 
 router = APIRouter(prefix="/api", tags=["reviews"])
 
@@ -45,11 +45,24 @@ def _review_dict(r: PendingReview) -> dict:
 
 
 @router.get("/template/columns")
-def template_columns():
-    """Result columns for the reviewer's "set" choice."""
+def template_columns(all: bool = False):
+    """
+    Result columns for the reviewer's "set" choice.
+
+    `all=true` adds the five person columns and each column's template header and
+    group, so a page can lay out a person's results without hard-coding the 45
+    columns again: template.py stays the single source of truth.
+    """
     from app.agents.catalog import DESC
-    return [{"column": c, "kind": FIELDS_BY_COLUMN[c].kind, "unit": FIELDS_BY_COLUMN[c].unit, "desc": DESC[c]}
-            for c in RESULT_COLUMNS]
+    columns = COLUMNS if all else RESULT_COLUMNS
+    out = []
+    for c in columns:
+        f = FIELDS_BY_COLUMN[c]
+        row = {"column": c, "kind": f.kind, "unit": f.unit, "desc": DESC.get(c, f.header)}
+        if all:
+            row.update(header=f.header, group=f.group)
+        out.append(row)
+    return out
 
 
 @router.get("/reviews")

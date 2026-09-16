@@ -32,6 +32,7 @@ MENU = [
     {"key": "health", "label": "รายงานผลตรวจสุขภาพกลุ่มเสี่ยง", "href": "/health-report", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "import", "label": "นำเข้าผลตรวจ (AI)", "href": "/import", "roles": ("superadmin", "admin", "staff")},
     {"key": "reviews", "label": "งานที่ต้องตรวจ", "href": "/reviews", "roles": ("superadmin", "admin", "staff")},
+    {"key": "people", "label": "ข้อมูลพนักงาน", "href": "/people", "roles": ("superadmin", "admin", "staff", "doctor")},
 ]
 STAFF_MENU = [
     {"key": "users", "label": "จัดการผู้ใช้งาน", "href": "/users", "roles": ("superadmin", "admin")},
@@ -147,6 +148,18 @@ def reviews_page(request: Request, response: Response, db: Session = Depends(get
         return redirect
     page = templates.TemplateResponse(request, "import_reviews.html",
                                       _ctx(request, user, db, active="reviews"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/people", response_class=HTMLResponse)
+def people_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """ข้อมูลพนักงาน: the results that are in the system, one person at a time."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "import_people.html",
+                                      _ctx(request, user, db, active="people"))
     page.headers.update(response.headers)
     return page
 

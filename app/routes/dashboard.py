@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import desc, func, text
 from sqlalchemy.orm import Session
 
+from app.auth import require_roles, require_user
 from app.database import get_db
 from app.models import (AgentDecision, Conflict, Employee, LabMapping, PendingReview, SourceFile, ValueHistory,
                         ValueProvenance)
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/api", tags=["dashboard"])
 
 
 @router.get("/stats")
-def get_stats(db: Session = Depends(get_db)):
+def get_stats(db: Session = Depends(get_db), user=Depends(require_user)):
     """สถิติรวมสำหรับ dashboard."""
     total = db.query(func.count(Employee.id)).scalar() or 0
     total_uploads = db.query(func.count(SourceFile.id)).scalar() or 0
@@ -62,6 +63,7 @@ def get_employees(
     per_page: int = Query(20, ge=1, le=100),
     search: str = Query("", max_length=100),
     db: Session = Depends(get_db),
+    user=Depends(require_user),
 ):
     """ดึงข้อมูลพนักงานแบบ paginated + search."""
     query = db.query(Employee)
@@ -92,7 +94,7 @@ def get_employees(
 
 
 @router.get("/employees/{employee_id}")
-def get_employee(employee_id: int, db: Session = Depends(get_db)):
+def get_employee(employee_id: int, db: Session = Depends(get_db), user=Depends(require_user)):
     """ดูรายละเอียดพนักงานรายคน."""
     emp = db.get(Employee, employee_id)
     if not emp:
@@ -101,14 +103,15 @@ def get_employee(employee_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/upload-logs")
-def get_upload_logs(db: Session = Depends(get_db)):
+def get_upload_logs(db: Session = Depends(get_db), user=Depends(require_user)):
     """ประวัติการ upload."""
     logs = db.query(SourceFile).order_by(desc(SourceFile.uploaded_at)).limit(50).all()
     return [l.to_dict() for l in logs]
 
 
 @router.delete("/employees")
-def delete_all_employees(db: Session = Depends(get_db)):
+def delete_all_employees(db: Session = Depends(get_db),
+                         user=Depends(require_roles("superadmin"))):
     """ลบข้อมูลผลตรวจและไฟล์ทั้งหมด (mapping และโรงพยาบาลยังอยู่)."""
     count = db.query(Employee).count()
     db.execute(text("TRUNCATE employees, source_files RESTART IDENTITY CASCADE"))
@@ -117,7 +120,7 @@ def delete_all_employees(db: Session = Depends(get_db)):
 
 
 @router.get("/export")
-def export_excel(db: Session = Depends(get_db)):
+def export_excel(db: Session = Depends(get_db), user=Depends(require_user)):
     """Export ข้อมูลทั้งหมดเป็น Excel."""
     employees = db.query(Employee).order_by(Employee.cid).all()
 
@@ -160,7 +163,7 @@ HUMAN_ORIGINS = ("human", "agent_approved")
 
 
 @router.get("/metrics")
-def metrics(db: Session = Depends(get_db)):
+def metrics(db: Session = Depends(get_db), user=Depends(require_user)):
     """
     Measured system numbers (D5). No assumed staff times here — the time-saving calculator on
     the page takes the agency's own numbers.

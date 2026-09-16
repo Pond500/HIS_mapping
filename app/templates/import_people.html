@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}ข้อมูลพนักงาน — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<div class="page-head-row">
+    <div>
+        <h1 class="page-title">ข้อมูลพนักงาน</h1>
+        <p class="page-sub">ผลตรวจที่เข้าระบบแล้ว ค้นด้วยชื่อ เลขบัตรประชาชน หรือแผนก
+            กดที่แถวเพื่อดูทุกช่องของคนนั้น</p>
+    </div>
+    <div class="head-actions">
+        <a class="btn" href="/import">← นำเข้าผลตรวจ</a>
+        <a class="btn" href="/">เมนูหลัก</a>
+    </div>
+</div>
+
+<div class="filter-row">
+    <input id="searchInput" placeholder="ค้นหาชื่อ เลขบัตรประชาชน หรือแผนก">
+    <span class="muted" id="totalNote"></span>
+    <span class="grow"></span>
+    <button class="btn" onclick="load()">รีเฟรช</button>
+    <a class="btn btn-primary" href="/api/export">ดาวน์โหลด Excel</a>
+</div>
+
+<div class="table-wrap">
+    <table>
+        <thead><tr>
+            <th style="width:1%">#</th><th>เลขบัตรประชาชน</th><th>ชื่อ - นามสกุล</th>
+            <th>แผนก</th><th>วันที่ตรวจ</th><th>ผลที่มีในระบบ</th><th style="width:1%"></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+    </table>
+</div>
+
+<div id="empty" class="card center" hidden>
+    <div class="empty-mark">—</div>
+    <div>ยังไม่มีข้อมูลพนักงาน</div>
+    <div class="muted">นำเข้าไฟล์ผลตรวจก่อน แล้วข้อมูลจะมาแสดงที่นี่</div>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<div class="modal-back" id="personModal" hidden>
+    <div class="modal modal-wide">
+        <div class="modal-head"><span id="personName"></span><button class="menu-btn" onclick="closePerson()">✕</button></div>
+        <div class="modal-body" id="personBody"></div>
+        <div class="modal-foot"><button class="btn" onclick="closePerson()">ปิด</button></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /*
+     * The old page drew all 45 columns as one very wide table, with the headers
+     * hard-coded in the HTML: a change to template.py would have silently left the
+     * page showing the wrong labels. Here the row is short and the full result set
+     * opens per person, laid out from /api/template/columns?all=true, so template.py
+     * stays the single source of truth.
+     */
+    const GROUP_TH = {
+        person: 'ข้อมูลบุคคล', toxicology: 'สารพิษ', cbc: 'ความสมบูรณ์ของเม็ดเลือด (CBC)',
+        kidney: 'ไต', liver: 'ตับ', metabolic: 'เมตาบอลิก', xray: 'เอกซเรย์ทรวงอก',
+        cholinesterase: 'โคลีนเอสเทอเรส', ekg: 'คลื่นไฟฟ้าหัวใจ', vitals: 'สัญญาณชีพ',
+        spirometry: 'สมรรถภาพปอด', hearing: 'สมรรถภาพการได้ยิน', vision: 'สมรรถภาพการมองเห็น',
+    };
+    let FIELDS = null;
+    let page = 1, search = '', searchTimer = null;
+
+    function formatDate(d) {
+        if (!d) return '—';
+        try {
+            const dt = new Date(d);
+            return `${dt.getFullYear() + 543}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        } catch { return d; }
+    }
+    function fmtNum(v) { return v != null ? Number(v).toLocaleString() : '—'; }
+    function badge(v) {
+        if (v === 1) return '<span class="tag ok">ปกติ</span>';
+        if (v === 2) return '<span class="tag bad">ผิดปกติ</span>';
+        return '<span class="muted">—</span>';
+    }
+    function cell(f, v) {
+        if (v == null || v === '') return '<span class="muted">—</span>';
+        if (f.kind === 'categorical') return badge(v);
+        if (f.kind === 'date') return esc(formatDate(v));
+        if (f.kind === 'numeric') return `${fmtNum(v)}${f.unit ? ' <span class="muted">' + esc(f.unit) + '</span>' : ''}`;
+        return esc(v);
+    }
+    /** How many of this person's result columns actually hold a value. */
+    function filled(e) {
+        return FIELDS.filter(f => f.group !== 'person' && e[f.column] != null && e[f.column] !== '').length;
+    }
+
+    async function load() {
+        if (!FIELDS) FIELDS = await fetch('/api/template/columns?all=true').then(r => r.json());
+        const res = await fetch(`/api/employees?page=${page}&per_page=20&search=${encodeURIComponent(search)}`)
+            .then(r => r.json());
+        const rows = res.data || [];
+        document.getElementById('empty').hidden = rows.length > 0;
+        document.getElementById('totalNote').textContent =
+            res.total ? `${res.total.toLocaleString()} คน` : '';
+        const results = FIELDS.filter(f => f.group !== 'person').length;
+
+        document.getElementById('rows').innerHTML = rows.map((e, i) => `
+            <tr onclick="openPerson(${Number(e.id)})" class="clickable">
+                <td class="muted">${(res.page - 1) * res.per_page + i + 1}</td>
+                <td class="mono">${esc(e.cid) || '—'}</td>
+                <td><b>${esc([e.first_name, e.last_name].filter(Boolean).join(' ')) || '—'}</b></td>
+                <td>${esc(e.department_id) || '<span class="muted">—</span>'}</td>
+                <td>${esc(formatDate(e.visit_date))}</td>
+                <td>${filled(e)} จาก ${results} ช่อง</td>
+                <td class="row-actions"><button class="btn btn-sm" onclick="event.stopPropagation();openPerson(${Number(e.id)})">ดูผลตรวจ</button></td>
+            </tr>`).join('');
+
+        document.getElementById('pagination').innerHTML = res.total_pages > 1 ? `
+            <button class="btn btn-sm" ${res.page <= 1 ? 'disabled' : ''} onclick="goPage(${res.page - 1})">←</button>
+            <span class="muted">หน้า ${res.page} / ${res.total_pages}</span>
+            <button class="btn btn-sm" ${res.page >= res.total_pages ? 'disabled' : ''} onclick="goPage(${res.page + 1})">→</button>` : '';
+    }
+
+    function goPage(p) { page = p; load(); }
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { search = e.target.value; page = 1; load(); }, 400);
+    });
+
+    async function openPerson(id) {
+        const e = await fetch('/api/employees/' + id).then(r => r.json());
+        if (e.error) { alert(e.error); return; }
+        document.getElementById('personName').textContent =
+            [e.first_name, e.last_name].filter(Boolean).join(' ') || e.cid || 'ไม่ทราบชื่อ';
+
+        const groups = {};
+        FIELDS.forEach(f => (groups[f.group] = groups[f.group] || []).push(f));
+        document.getElementById('personBody').innerHTML = Object.entries(groups).map(([g, fs]) => {
+            const has = fs.filter(f => e[f.column] != null && e[f.column] !== '').length;
+            return `<div class="band">${esc(GROUP_TH[g] || g)}
+                        <span class="muted">${has} จาก ${fs.length} ช่อง</span></div>
+                <div class="kv">${fs.map(f => `
+                    <div class="k">${esc(f.header)}</div>
+                    <div class="v">${cell(f, e[f.column])}</div>`).join('')}</div>`;
+        }).join('');
+        document.getElementById('personModal').hidden = false;
+    }
+    function closePerson() { document.getElementById('personModal').hidden = true; }
+
+    load();
+</script>
+{% endblock %}
