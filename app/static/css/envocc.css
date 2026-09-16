@@ -310,3 +310,5 @@ tr.clickable { cursor: pointer; }
 .big { font-size: 34px; font-weight: 700; line-height: 1.2; }
 .row-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+/* a tall tile (a long department list) must not stretch its neighbours into empty boxes */
+.tile-grid { align-items: start; }

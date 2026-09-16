@@ -48,14 +48,21 @@
     const IS_SUPERADMIN = {{ 'true' if user.role == 'superadmin' else 'false' }};
     let OPT = null, DATA = null;
 
-    function donut(parts) {
+    /**
+     * `centre` is the number printed in the middle. It defaults to the total of every
+     * slice, which is only right when the ring has one slice: with two, the total is
+     * always 100% and the reader takes that as "all complete" — so a ring that splits
+     * a whole must say which part the headline number refers to.
+     */
+    function donut(parts, centre) {
         let acc = 0;
         const stops = parts.map(([, pct, color]) => {
             const from = acc; acc += pct;
             return `${color} ${from}% ${acc}%`;
         });
         if (acc < 100) stops.push(`#e9edf5 ${acc}% 100%`);
-        return `<div class="donut" style="background:conic-gradient(${stops.join(',')});"><span>${Math.round(acc)}%</span></div>`;
+        const label = centre === undefined ? acc : centre;
+        return `<div class="donut" style="background:conic-gradient(${stops.join(',')});"><span>${Math.round(label)}%</span></div>`;
     }
     const pct = (n, total) => total ? Math.round(n / total * 100) : 0;
 
@@ -118,7 +125,7 @@
             <div class="tile">
                 <div class="muted" style="margin-bottom:10px;">ความครบของผลตรวจ</div>
                 <div style="display:flex;align-items:center;gap:14px;">
-                    ${donut([['ครบ', done, '#2f6fed'], ['บางส่วน', part, '#e0a800']])}
+                    ${donut([['ครบ', done, '#2f6fed'], ['บางส่วน', part, '#e0a800']], done)}
                     <div class="legend-list">
                         <div><i style="background:#2f6fed"></i> ครบถ้วน ${c.complete} คน</div>
                         <div><i style="background:#e0a800"></i> มีบางส่วน ${c.partial} คน</div>
