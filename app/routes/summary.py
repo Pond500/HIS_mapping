@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
-from app.models import AppUser, Employee, Hospital, ReportSubmission
+from app.models import AppUser, Conflict, Employee, Hospital, PendingReview, ReportSubmission, SourceFile
 from app.template import TEMPLATE_FIELDS
 
 router = APIRouter(prefix="/api/summary", tags=["summary"])
@@ -135,6 +135,19 @@ def summary(hospital: str | None = None, year: int | None = None,
                          "normal": normal, "abnormal": abnormal,
                          "missing": total - normal - abnormal})
 
+    # What is still waiting for a human in this hospital. The page warns with it before
+    # a hand-over: an answer given here can still change what the exported file says,
+    # and a name column confirmed later fills into rows that are already stored.
+    review_rows = (db.query(PendingReview.kind, func.count(PendingReview.id))
+                   .join(SourceFile, SourceFile.id == PendingReview.source_file_id)
+                   .filter(SourceFile.hospital_id == h.id, PendingReview.status == "open")
+                   .group_by(PendingReview.kind).all())
+    open_reviews = {kind: n for kind, n in review_rows}
+    open_conflicts = (db.query(func.count(Conflict.id))
+                      .join(SourceFile, SourceFile.id == Conflict.source_file_id)
+                      .filter(SourceFile.hospital_id == h.id, Conflict.status == "open").scalar() or 0)
+    without_name = sum(1 for e in people if not (e.first_name or e.last_name))
+
     last_q = db.query(ReportSubmission).filter(ReportSubmission.hospital_id == h.id)
     if year:
         last_q = last_q.filter(ReportSubmission.year == year)
@@ -150,6 +163,8 @@ def summary(hospital: str | None = None, year: int | None = None,
         "completeness": {"complete": complete, "partial": partial, "none": none},
         "departments": sorted(by_department.values(), key=lambda r: r["department"]),
         "findings": findings,
+        "open_work": {"reviews": open_reviews, "reviews_total": sum(open_reviews.values()),
+                      "conflicts": open_conflicts, "people_without_name": without_name},
         "last_submission": None if last is None else {
             "id": last.id, "people": last.people, "submitted_by": last.submitted_by,
             "submitted_at": last.submitted_at.isoformat() if last.submitted_at else None,

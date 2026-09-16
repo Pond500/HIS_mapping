@@ -66,6 +66,33 @@
     }
     const pct = (n, total) => total ? Math.round(n / total * 100) : 0;
 
+    const KIND_TH = { mapping: 'ชื่อผลตรวจที่ยังไม่รู้จัก', identity: 'คอลัมน์ชื่อ/แผนก/วันที่ที่ยังไม่ยืนยัน',
+                      department: 'รหัสแผนกที่ยังไม่ตอบ', comment: 'ข้อความผลตรวจที่ยังไม่ตัดสิน',
+                      value: 'ค่าที่อ่านไม่ได้', cid: 'เลขบัตรประชาชนไม่ผ่าน', profile: 'ไฟล์ที่อ่านโครงสร้างไม่ได้' };
+
+    /**
+     * Says what is still waiting for a human before anything leaves the building. An
+     * answer given on the review screen can still change what the exported file says --
+     * a confirmed name column fills into rows that are already stored -- so sending
+     * first means sending a file that is about to be out of date.
+     */
+    function pendingWarning() {
+        const w = (DATA && DATA.open_work) || null;
+        if (!w || (!w.reviews_total && !w.conflicts && !w.people_without_name)) return '';
+        const bits = [];
+        if (w.people_without_name) bits.push(`<li><b>${w.people_without_name} คนยังไม่มีชื่อ</b> ในรอบนี้ — ไฟล์ที่ส่งจะมีช่องชื่อว่าง</li>`);
+        for (const [kind, n] of Object.entries(w.reviews || {})) {
+            bits.push(`<li>${esc(KIND_TH[kind] || kind)}: ${n} รายการ</li>`);
+        }
+        if (w.conflicts) bits.push(`<li>ข้อมูลขัดแย้งที่ยังไม่ตัดสิน: ${w.conflicts} รายการ</li>`);
+        return `<div class="review-warn" style="margin-top:14px;">
+            <b>ยังมีงานค้างอยู่ในหน้างานที่ต้องตรวจ</b>
+            <ul style="margin:8px 0 8px 18px;">${bits.join('')}</ul>
+            ส่งได้ถ้ายืนยัน แต่ถ้าเคลียร์ก่อน ไฟล์ที่ส่งจะครบกว่านี้ ·
+            <a href="/reviews">ไปเคลียร์งานค้าง</a>
+        </div>`;
+    }
+
     async function boot() {
         OPT = await api('/api/summary/options');
         const hs = document.getElementById('pickHospital');
@@ -175,6 +202,7 @@
                 ระบบนี้ยังไม่มีช่องทางยิงข้อมูลเข้าระบบกรมฯ โดยตรง การกดปุ่มนี้จะเตรียมไฟล์ผลตรวจมาตรฐาน
                 45 คอลัมน์ให้ดาวน์โหลด และบันทึกไว้ว่ารอบนี้ถูกส่งแล้วโดยใคร เมื่อไร
             </p>
+            ${pendingWarning()}
             ${d.last_submission ? `<div class="review-warn">รอบนี้เคยบันทึกการส่งแล้วเมื่อ
                 ${esc(new Date(d.last_submission.submitted_at).toLocaleString('th-TH'))}
                 โดย ${esc(d.last_submission.submitted_by)} · ${d.last_submission.people} คน</div>` : ''}
@@ -214,6 +242,7 @@
             </div>
             ${c.none ? `<div class="review-warn" style="margin-top:14px;">
                 ยังมี ${c.none} คนที่ไม่มีผลตรวจสักช่องในรอบนี้ ส่งได้ แต่ข้อมูลจะไม่ครบ</div>` : ''}
+            ${pendingWarning()}
             <label class="field" style="margin-top:14px;"><span>หมายเหตุ (ถ้ามี)</span>
                 <input id="sendNote" placeholder="เช่น ส่งรอบแรกของปี"></label>`;
         document.getElementById('sendModal').hidden = false;

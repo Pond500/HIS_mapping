@@ -62,11 +62,21 @@ def get_employees(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     search: str = Query("", max_length=100),
+    missing_name: bool = False,
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
-    """ดึงข้อมูลพนักงานแบบ paginated + search."""
+    """
+    ดึงข้อมูลพนักงานแบบ paginated + search.
+
+    `missing_name` lists the people whose results are stored but whose name column
+    the profiler could not find: the answer is waiting as an `identity` review, and
+    re-running the file fills the names into these same rows (store.py fills blanks
+    only). They are a queue, not damaged records.
+    """
     query = db.query(Employee)
+    if missing_name:
+        query = query.filter(Employee.first_name.is_(None), Employee.last_name.is_(None))
 
     if search:
         query = query.filter(
