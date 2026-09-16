@@ -17,8 +17,9 @@
 html, body { height: 100%; background: #e9e9e5; overflow: hidden; }
 body { font-family: 'Noto Sans Thai', -apple-system, 'Segoe UI', sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
 
-#viewport { position: fixed; inset: 0; display: grid; place-items: center; }
-#stage { width: 1920px; height: 1080px; position: relative; flex: none; transform-origin: center center; }
+#viewport { position: fixed; inset: 0; overflow: hidden; }
+/* fixed 1920x1080 slide; fit() scales it and centres it with one transform from the top-left */
+#stage { width: 1920px; height: 1080px; position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .slide { position: absolute; inset: 0; background: var(--bg); padding: 96px 120px 120px; display: none; flex-direction: column; }
 .slide.active { display: flex; }
 
@@ -371,7 +372,11 @@ const DECK = {
     slides.forEach((el, k) => el.classList.toggle('active', k === cur));
     history.replaceState(null, '', '#' + (cur + 1));
   }
-  function fit() { stage.style.transform = `scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`; }
+  function fit() {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    const x = (innerWidth - 1920 * s) / 2, y = (innerHeight - 1080 * s) / 2;
+    stage.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+  }
   addEventListener('resize', fit);
   addEventListener('keydown', e => {
     if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); show(cur + 1); }
