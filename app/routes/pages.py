@@ -33,6 +33,7 @@ MENU = [
     {"key": "import", "label": "นำเข้าผลตรวจ (AI)", "href": "/import", "roles": ("superadmin", "admin", "staff")},
     {"key": "reviews", "label": "งานที่ต้องตรวจ", "href": "/reviews", "roles": ("superadmin", "admin", "staff")},
     {"key": "people", "label": "ข้อมูลพนักงาน", "href": "/people", "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "summary", "label": "ภาพรวมและส่งรายงาน", "href": "/summary", "roles": ("superadmin", "admin", "staff", "doctor")},
 ]
 STAFF_MENU = [
     {"key": "users", "label": "จัดการผู้ใช้งาน", "href": "/users", "roles": ("superadmin", "admin")},
@@ -160,6 +161,18 @@ def people_page(request: Request, response: Response, db: Session = Depends(get_
         return redirect
     page = templates.TemplateResponse(request, "import_people.html",
                                       _ctx(request, user, db, active="people"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/summary", response_class=HTMLResponse)
+def summary_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """ภาพรวมและส่งรายงาน: the reporting layer over the results already stored (D21)."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "import_summary.html",
+                                      _ctx(request, user, db, active="summary"))
     page.headers.update(response.headers)
     return page
 

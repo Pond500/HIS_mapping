@@ -305,3 +305,8 @@ tr.clickable { cursor: pointer; }
 .kv .v { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--border); }
 .kv .k:nth-last-child(2), .kv .v:last-child { border-bottom: 0; }
 .pagination { margin-top: 14px; }
+
+/* ── ภาพรวมและส่งรายงาน ── */
+.big { font-size: 34px; font-weight: 700; line-height: 1.2; }
+.row-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }

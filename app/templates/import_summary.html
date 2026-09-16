@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}ภาพรวมและส่งรายงาน — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<div class="page-head-row">
+    <div>
+        <h1 class="page-title">ภาพรวมและส่งรายงาน</h1>
+        <p class="page-sub">สรุปผลตรวจที่ผ่านการตรวจสอบแล้ว แยกตามหน่วยบริการ รอบปี และแผนก
+            เมื่อครบถ้วนแล้วเตรียมชุดเอกสารเพื่อส่งกรมควบคุมโรค</p>
+    </div>
+    <div class="head-actions">
+        <a class="btn" href="/people">ข้อมูลพนักงาน</a>
+        <a class="btn" href="/">เมนูหลัก</a>
+    </div>
+</div>
+
+<div class="filter-row">
+    <select id="pickHospital" hidden></select>
+    <select id="pickYear"></select>
+    <select id="pickDept"><option value="">ทุกแผนก</option></select>
+    <span class="grow"></span>
+    <span class="muted" id="scopeNote"></span>
+</div>
+
+<div id="content"></div>
+
+<div class="modal-back" id="sendModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>ยืนยันการส่งรายงานผลตรวจ</span><button class="menu-btn" onclick="closeSend()">✕</button></div>
+        <div class="modal-body" id="sendBody"></div>
+        <div class="modal-foot">
+            <button class="btn" onclick="closeSend()">ยกเลิก</button>
+            <button class="btn btn-primary" id="confirmSend">ยืนยันและบันทึกการส่ง</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /*
+     * A reporting layer over data the pipeline already produced. It groups by the three
+     * dimensions a file from an HIS actually carries — หน่วยบริการ, รอบปี, แผนก — and
+     * draws nothing it cannot count. The department's own dashboard also charts risk
+     * factor and risk level; those do not come with an HIS file, so they are absent here
+     * rather than invented.
+     */
+    const IS_SUPERADMIN = {{ 'true' if user.role == 'superadmin' else 'false' }};
+    let OPT = null, DATA = null;
+
+    function donut(parts) {
+        let acc = 0;
+        const stops = parts.map(([, pct, color]) => {
+            const from = acc; acc += pct;
+            return `${color} ${from}% ${acc}%`;
+        });
+        if (acc < 100) stops.push(`#e9edf5 ${acc}% 100%`);
+        return `<div class="donut" style="background:conic-gradient(${stops.join(',')});"><span>${Math.round(acc)}%</span></div>`;
+    }
+    const pct = (n, total) => total ? Math.round(n / total * 100) : 0;
+
+    async function boot() {
+        OPT = await api('/api/summary/options');
+        const hs = document.getElementById('pickHospital');
+        hs.hidden = !IS_SUPERADMIN;
+        hs.innerHTML = OPT.hospitals.map(h =>
+            `<option value="${esc(h.code)}">${esc(h.code)} — ${esc(h.name)} (${h.people} คน)</option>`).join('')
+            || '<option value="">ยังไม่มีหน่วยบริการที่มีข้อมูล</option>';
+        const ys = document.getElementById('pickYear');
+        ys.innerHTML = OPT.years.map(y =>
+            `<option value="${y.year}">รอบปี ${y.year + 543} (${y.people} คน)</option>`).join('')
+            || '<option value="">ยังไม่มีข้อมูล</option>';
+        [hs, ys, document.getElementById('pickDept')].forEach(el =>
+            el.addEventListener('change', (e) => load(e.target.id === 'pickDept')));
+        load(false);
+    }
+
+    async function load(keepDept) {
+        const hospital = document.getElementById('pickHospital').value;
+        const year = document.getElementById('pickYear').value;
+        const dept = keepDept ? document.getElementById('pickDept').value : '';
+        if (!year) { document.getElementById('content').innerHTML = empty(); return; }
+        const q = new URLSearchParams({ year });
+        if (hospital) q.set('hospital', hospital);
+        if (dept) q.set('department', dept);
+        DATA = await api('/api/summary?' + q);
+
+        if (!keepDept) {
+            const sel = document.getElementById('pickDept');
+            sel.innerHTML = '<option value="">ทุกแผนก</option>' + DATA.departments.map(d =>
+                `<option value="${esc(d.department)}">${esc(d.department)} (${d.people} คน)</option>`).join('');
+        }
+        document.getElementById('scopeNote').textContent =
+            `${esc(DATA.hospital.code)} · ${DATA.people.toLocaleString()} คนในรอบนี้`;
+        render();
+    }
+
+    function empty() {
+        return `<div class="card center"><div class="empty-mark">—</div>
+            <div>ยังไม่มีผลตรวจในระบบ</div>
+            <div class="muted">นำเข้าไฟล์จาก HIS ก่อน แล้วภาพรวมจะมาแสดงที่นี่</div></div>`;
+    }
+
+    function render() {
+        const d = DATA, c = d.completeness;
+        if (!d.people) { document.getElementById('content').innerHTML = empty(); return; }
+        const done = pct(c.complete, d.people), part = pct(c.partial, d.people);
+        const fill = pct(d.cells.filled, d.cells.possible);
+
+        document.getElementById('content').innerHTML = `
+        <div class="tile-grid">
+            <div class="tile">
+                <div class="muted">จำนวนคนในรอบนี้</div>
+                <div class="big">${d.people.toLocaleString()}</div>
+                <div class="muted">${d.departments.length} แผนก</div>
+            </div>
+
+            <div class="tile">
+                <div class="muted" style="margin-bottom:10px;">ความครบของผลตรวจ</div>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    ${donut([['ครบ', done, '#2f6fed'], ['บางส่วน', part, '#e0a800']])}
+                    <div class="legend-list">
+                        <div><i style="background:#2f6fed"></i> ครบถ้วน ${c.complete} คน</div>
+                        <div><i style="background:#e0a800"></i> มีบางส่วน ${c.partial} คน</div>
+                        <div><i style="background:#e9edf5"></i> ไม่พบผลตรวจ ${c.none} คน</div>
+                    </div>
+                </div>
+                ${c.none ? `<div class="no-data" style="margin-top:8px;">${c.none} คนยังไม่มีผลตรวจสักช่อง</div>` : ''}
+            </div>
+
+            <div class="tile">
+                <div class="muted" style="margin-bottom:10px;">ช่องข้อมูลที่กรอกได้</div>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    ${donut([['กรอกแล้ว', fill, '#0f7b3f']])}
+                    <div class="legend-list">
+                        <div><i style="background:#0f7b3f"></i> มีค่า ${d.cells.filled.toLocaleString()} ช่อง</div>
+                        <div><i style="background:#e9edf5"></i> ว่าง ${(d.cells.possible - d.cells.filled).toLocaleString()} ช่อง</div>
+                    </div>
+                </div>
+                <div class="muted" style="margin-top:8px;">${d.cells.per_person} ช่องต่อคน</div>
+            </div>
+
+            <div class="tile">
+                <div class="muted" style="margin-bottom:10px;">จำนวนคนแต่ละแผนก (มีผล/ทั้งหมด)</div>
+                ${d.departments.map(x => `<div class="summary-row" style="border:0;padding:6px 0;">
+                    <span>${esc(x.department)}</span><b>${x.with_results}/${x.people}</b></div>`).join('')
+                    || '<div class="muted">ไม่มีข้อมูลแผนก</div>'}
+            </div>
+
+            <div class="tile wide">
+                <div class="muted" style="margin-bottom:10px;">ผลตรวจที่บันทึกเป็น ปกติ / ผิดปกติ</div>
+                ${d.findings.map(f => {
+                    const known = f.normal + f.abnormal;
+                    const bad = pct(f.abnormal, known || 1);
+                    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <span style="min-width:170px;">${esc(f.label)}</span>
+                        <div class="bar" style="flex:1;"><i style="width:${known ? bad : 0}%;background:var(--red);"></i></div>
+                        <b style="width:150px;text-align:right;">${known ? `ผิดปกติ ${f.abnormal} / ${known}` : 'ยังไม่มีผล'}</b>
+                    </div>`;
+                }).join('')}
+                <div class="muted">นับเฉพาะช่องที่เก็บเป็น ปกติ/ผิดปกติ ส่วนค่าตัวเลขอื่นดูรายคนได้ที่หน้าข้อมูลพนักงาน</div>
+            </div>
+        </div>
+
+        <div class="band">ส่งรายงานให้กรมควบคุมโรค</div>
+        <div class="card">
+            <p class="muted" style="margin-bottom:14px;">
+                ระบบนี้ยังไม่มีช่องทางยิงข้อมูลเข้าระบบกรมฯ โดยตรง การกดปุ่มนี้จะเตรียมไฟล์ผลตรวจมาตรฐาน
+                45 คอลัมน์ให้ดาวน์โหลด และบันทึกไว้ว่ารอบนี้ถูกส่งแล้วโดยใคร เมื่อไร
+            </p>
+            ${d.last_submission ? `<div class="review-warn">รอบนี้เคยบันทึกการส่งแล้วเมื่อ
+                ${esc(new Date(d.last_submission.submitted_at).toLocaleString('th-TH'))}
+                โดย ${esc(d.last_submission.submitted_by)} · ${d.last_submission.people} คน</div>` : ''}
+            <div class="row-buttons">
+                <a class="btn" href="/api/export">ดาวน์โหลดไฟล์ 45 คอลัมน์</a>
+                <button class="btn btn-primary" onclick="openSend()">ส่งรายงานผลตรวจ →</button>
+            </div>
+        </div>
+
+        <div class="band">ประวัติการส่ง</div>
+        <div class="table-wrap"><table>
+            <thead><tr><th>รอบปี</th><th>จำนวนคน</th><th>ผู้ส่ง</th><th>เมื่อ</th><th>หมายเหตุ</th></tr></thead>
+            <tbody id="historyRows"><tr><td colspan="5" class="muted">กำลังโหลด…</td></tr></tbody>
+        </table></div>`;
+        loadHistory();
+    }
+
+    async function loadHistory() {
+        const hospital = document.getElementById('pickHospital').value;
+        const rows = await api('/api/summary/submissions' + (hospital ? '?hospital=' + encodeURIComponent(hospital) : ''));
+        document.getElementById('historyRows').innerHTML = rows.length ? rows.map(r => `<tr>
+            <td>${r.year + 543}</td><td>${r.people.toLocaleString()}</td>
+            <td>${esc(r.submitted_by)}</td>
+            <td>${esc(new Date(r.submitted_at).toLocaleString('th-TH'))}</td>
+            <td>${esc(r.note || '—')}</td></tr>`).join('')
+            : '<tr><td colspan="5" class="muted">ยังไม่เคยส่งรายงานรอบไหน</td></tr>';
+    }
+
+    function openSend() {
+        const d = DATA, c = d.completeness;
+        document.getElementById('sendBody').innerHTML = `
+            <div class="kv">
+                <div class="k">หน่วยบริการ</div><div class="v">${esc(d.hospital.code)} — ${esc(d.hospital.name)}</div>
+                <div class="k">รอบปี</div><div class="v">${d.year + 543}</div>
+                <div class="k">จำนวนคน</div><div class="v">${d.people.toLocaleString()} คน</div>
+                <div class="k">ผู้ส่ง</div><div class="v">{{ user.username }}</div>
+            </div>
+            ${c.none ? `<div class="review-warn" style="margin-top:14px;">
+                ยังมี ${c.none} คนที่ไม่มีผลตรวจสักช่องในรอบนี้ ส่งได้ แต่ข้อมูลจะไม่ครบ</div>` : ''}
+            <label class="field" style="margin-top:14px;"><span>หมายเหตุ (ถ้ามี)</span>
+                <input id="sendNote" placeholder="เช่น ส่งรอบแรกของปี"></label>`;
+        document.getElementById('sendModal').hidden = false;
+        document.getElementById('confirmSend').onclick = doSend;
+    }
+    function closeSend() { document.getElementById('sendModal').hidden = true; }
+
+    async function doSend() {
+        const btn = document.getElementById('confirmSend');
+        btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
+        try {
+            await api('/api/summary/submit', {
+                method: 'POST',
+                body: JSON.stringify({
+                    hospital: document.getElementById('pickHospital').value || DATA.hospital.code,
+                    year: Number(document.getElementById('pickYear').value),
+                    note: (document.getElementById('sendNote').value || '').trim() || null,
+                }),
+            });
+            closeSend();
+            load(true);
+        } catch (e) {
+            alert(e.message);
+        }
+        btn.disabled = false; btn.textContent = 'ยืนยันและบันทึกการส่ง';
+    }
+
+    boot();
+</script>
+{% endblock %}

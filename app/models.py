@@ -385,3 +385,30 @@ class AgentDecision(Base):
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Reporting to the department (D21)
+# ---------------------------------------------------------------------------
+
+
+class ReportSubmission(Base):
+    """
+    One round of results handed to the department, the way the Env-Occ manual ends
+    its health-report flow (ส่งรายงานผลตรวจ).
+
+    `summary` is a snapshot of the numbers as they were when the button was pressed,
+    not a live query: a file that arrives later must not quietly change what a past
+    submission says it contained, or the record and the document sent will disagree.
+    """
+    __tablename__ = "report_submissions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hospital_id: Mapped[int] = mapped_column(ForeignKey("hospitals.id"), index=True)
+    year: Mapped[int] = mapped_column(Integer, index=True)       # CE year of visit_date
+    people: Mapped[int] = mapped_column(Integer, default=0)
+    summary: Mapped[dict] = mapped_column(JSON, default=dict)
+    file_sha256: Mapped[str | None] = mapped_column(String(64))  # the export handed over
+    note: Mapped[str | None] = mapped_column(Text)
+    submitted_by: Mapped[str] = mapped_column(String(100))
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
