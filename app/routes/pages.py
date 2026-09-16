@@ -30,7 +30,8 @@ MENU = [
     {"key": "registration", "label": "ขึ้นทะเบียนหน่วยบริการ", "href": "/registration", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "walkthrough", "label": "รายงานผล WalkThroughSurvey", "href": "/walkthrough", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "health", "label": "รายงานผลตรวจสุขภาพกลุ่มเสี่ยง", "href": "/health-report", "roles": ("superadmin", "admin", "staff", "doctor")},
-    {"key": "import", "label": "นำเข้าผลตรวจจากไฟล์ (HIS Mapping)", "href": "/import", "roles": ("superadmin", "admin", "staff")},
+    {"key": "import", "label": "นำเข้าผลตรวจ (AI)", "href": "/import", "roles": ("superadmin", "admin", "staff")},
+    {"key": "reviews", "label": "งานที่ต้องตรวจ", "href": "/reviews", "roles": ("superadmin", "admin", "staff")},
 ]
 STAFF_MENU = [
     {"key": "users", "label": "จัดการผู้ใช้งาน", "href": "/users", "roles": ("superadmin", "admin")},
@@ -134,6 +135,18 @@ def import_page(request: Request, response: Response, db: Session = Depends(get_
         return redirect
     page = templates.TemplateResponse(request, "import_upload.html",
                                       _ctx(request, user, db, active="import"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/reviews", response_class=HTMLResponse)
+def reviews_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """งานที่ต้องตรวจ: the mapping/identity/department/comment reviews and the conflicts."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "import_reviews.html",
+                                      _ctx(request, user, db, active="reviews"))
     page.headers.update(response.headers)
     return page
 

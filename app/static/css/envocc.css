@@ -242,3 +242,30 @@ td.row-actions .btn + .btn { margin-left: 6px; }
 .result-stat strong { color: var(--text); font-size: 15px; }
 .steps { margin: 0; padding-left: 20px; color: var(--text-2); line-height: 1.9; }
 .steps li { padding-left: 4px; }
+
+/* ── งานที่ต้องตรวจ: the review cards, moved from the old page (D20) ── */
+.head-actions { display: flex; gap: 8px; }
+.pill { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--red); color: #fff; font-size: 12px; font-weight: 600; text-align: center; }
+.empty-mark { width: 46px; height: 46px; border-radius: 50%; background: #e7f4ec; color: var(--green); display: grid; place-items: center; font-size: 22px; margin: 0 auto 10px; }
+.review-file { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; }
+.review-file-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; background: var(--band); color: var(--navy-dark); font-weight: 600; }
+.review-file-body { padding: 18px; display: grid; gap: 14px; }
+.review-foot { padding: 14px 18px; border-top: 1px solid var(--border); background: #fafbfe; display: flex; justify-content: flex-end; }
+.review-card { border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; }
+.review-kind { font-size: 12.5px; color: var(--text-3); margin-bottom: 4px; }
+.review-label { font-weight: 600; font-size: 15.5px; }
+.review-label .unit { font-weight: 400; font-size: 13px; color: var(--text-3); margin-left: 6px; }
+.review-warn { margin-top: 8px; padding: 8px 12px; border-radius: 6px; background: #fff7e6; color: var(--amber); font-size: 13px; }
+.review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px 18px; margin: 12px 0; font-size: 13.5px; color: var(--text-2); }
+.review-grid b { color: var(--text); font-weight: 600; }
+.review-grid code { display: inline-block; background: var(--band-soft); border-radius: 4px; padding: 1px 6px; margin: 2px 4px 0 0; font-size: 12.5px; color: var(--navy-dark); }
+.review-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.review-actions label { font-size: 13px; color: var(--text-2); min-width: 72px; }
+.review-actions select, .review-actions input { width: auto; min-width: 220px; flex: 1; }
+.review-card .set-only { display: none; }          /* a column picker appears only when asked for */
+.review-card.show-set .set-only { display: block; }
+.review-other { font-size: 13px; color: var(--text-2); padding: 8px 12px; background: var(--band-soft); border-radius: 6px; }
+.tag.ok { background: #e7f4ec; color: var(--green); }
+.tag.bad { background: #fdeceb; color: var(--red); }
+.tag.warn { background: #fff7e6; color: var(--amber); }
+#pane-reviews, #pane-conflicts { margin-top: 18px; }

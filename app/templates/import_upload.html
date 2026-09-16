@@ -138,10 +138,9 @@
             <div class="result-stat">ทั้งหมด <strong>${Number(data.total_rows) || 0}</strong> แถว</div>
             <div class="result-stat">บันทึกแล้ว <strong>${Number(data.success_rows) || 0}</strong></div>
             <div class="result-stat">มีปัญหา <strong>${Number(data.error_rows) || 0}</strong></div>`;
-        // the review screen has not moved into the new pages yet (D20), so send them to the old one
         next.innerHTML = state === 'waiting'
-            ? `<a class="btn btn-primary" href="/import-legacy">ไปตรวจรายการ (หน้าเดิม) →</a>`
-            : `<a class="btn" href="/import-legacy">ดูข้อมูลที่บันทึก (หน้าเดิม) →</a>`;
+            ? `<a class="btn btn-primary" href="/reviews">ไปตรวจรายการ →</a>`
+            : `<a class="btn" href="/reviews">ดูงานที่ต้องตรวจ →</a>`;
     }
 </script>
 {% endblock %}

@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% block title %}งานที่ต้องตรวจ — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<div class="page-head-row">
+    <div>
+        <h1 class="page-title">งานที่ต้องตรวจ</h1>
+        <p class="page-sub">ระบบบันทึกเฉพาะค่าที่แน่ใจแล้ว รายการในหน้านี้ยังไม่เข้าระบบจนกว่าคุณจะยืนยัน
+            ถ้าไม่แน่ใจ เลือก “ไม่แน่ใจ ข้ามไว้ก่อน” ได้เสมอ รายการจะรออยู่ที่นี่</p>
+    </div>
+    <div class="head-actions">
+        <a class="btn" href="/import">← นำเข้าผลตรวจ</a>
+        <a class="btn" href="/">เมนูหลัก</a>
+    </div>
+</div>
+
+<div class="tabs" id="tabs">
+    <button class="tab on" data-pane="reviews">รอตรวจ <span class="pill" id="reviewCount" hidden></span></button>
+    <button class="tab" data-pane="conflicts">ข้อมูลขัดแย้ง <span class="pill" id="conflictCount" hidden></span></button>
+</div>
+
+<section id="pane-reviews">
+    <div id="reviewList"></div>
+    <div id="reviewEmpty" class="card center" hidden>
+        <div class="empty-mark">✓</div>
+        <div>ไม่มีรายการรอตรวจ</div>
+        <div class="muted">ทุกค่าที่นำเข้ามาแล้วถูกบันทึกหรือถูกตัดสินไปหมดแล้ว</div>
+    </div>
+</section>
+
+<section id="pane-conflicts" hidden>
+    <div id="conflictList"></div>
+    <div id="conflictEmpty" class="card center" hidden>
+        <div class="empty-mark">✓</div>
+        <div>ไม่มีข้อมูลขัดแย้ง</div>
+        <div class="muted">ค่าที่ส่งมาซ้ำตรงกับค่าที่เก็บไว้ทั้งหมด</div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ══════════════════════════════════════════════════════════════════
+    // Moved from the old single page (D20). The decision logic is copied
+    // unchanged on purpose: the measured precision depends on it.
+    // ══════════════════════════════════════════════════════════════════
+
+    let templateColumns = null;
+    const ACTIONS = [
+        ['approve', 'ยอมรับตามที่ AI เสนอ'],
+        ['set', 'เลือกคอลัมน์เอง'],
+        ['extra', 'ผลตรวจนอก template (เก็บแยก)'],
+        ['ignore', 'ไม่ใช่ผลตรวจ (ไม่ต้องเก็บ)'],
+        ['skip', 'ไม่แน่ใจ ข้ามไว้ก่อน'],
+    ];
+    const KIND_LABEL = { value: 'ค่าที่อ่านไม่ได้หรือผิดปกติ', cid: 'เลขบัตรประชาชนไม่ถูกต้อง',
+                         comment: 'มีแต่ข้อความผลตรวจ', profile: 'อ่านโครงสร้างไฟล์ไม่ได้' };
+    const ROLE_TH = { first_name: 'ชื่อ', last_name: 'นามสกุล', full_name: 'ชื่อ-สกุล',
+                      department_id: 'แผนก', visit_date: 'วันที่ตรวจ' };
+    const TITLE_DATE = '__report_title_date__';
+
+    document.querySelectorAll('#tabs .tab').forEach(t => t.addEventListener('click', () => {
+        document.querySelectorAll('#tabs .tab').forEach(x => x.classList.toggle('on', x === t));
+        document.getElementById('pane-reviews').hidden = t.dataset.pane !== 'reviews';
+        document.getElementById('pane-conflicts').hidden = t.dataset.pane !== 'conflicts';
+    }));
+
+    function formatDate(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        return isNaN(d) ? esc(iso) : d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    // ── รอตรวจ ──────────────────────────────────────────────────────
+
+    /*
+     * Counts the questions the page actually asks, not the rows behind them. One answer
+     * settles every row with the same label or the same finding text, so the raw row count
+     * (435 for one file here) reads as a backlog where the page asks 46 questions.
+     */
+    function setReviewCount(n) {
+        const pill = document.getElementById('reviewCount');
+        pill.textContent = n;
+        pill.hidden = n === 0;
+    }
+
+    async function loadReviews() {
+        if (!templateColumns) templateColumns = await fetch('/api/template/columns').then(r => r.json());
+        const items = await fetch('/api/reviews?status=open').then(r => r.json());
+        document.getElementById('reviewEmpty').hidden = items.length > 0;
+        const byFile = {};
+        items.forEach(r => (byFile[r.source_file_id] = byFile[r.source_file_id] || []).push(r));
+        document.getElementById('reviewList').innerHTML =
+            Object.entries(byFile).map(([fid, rs]) => fileBlock(fid, rs)).join('');
+        setReviewCount(document.querySelectorAll('#reviewList .review-card').length);
+    }
+
+    function fileBlock(fid, rs) {
+        const maps = rs.filter(r => r.kind === 'mapping');
+        const ids = rs.filter(r => r.kind === 'identity');
+        const depts = rs.filter(r => r.kind === 'department');
+        // one card per distinct finding text: the answer applies to every row with that text
+        const cmtGroups = {};
+        rs.filter(r => r.kind === 'comment').forEach(r => {
+            const k = r.payload.column + '|' + String(r.payload.text || '').trim().toLowerCase();
+            (cmtGroups[k] = cmtGroups[k] || []).push(r);
+        });
+        const cmts = Object.values(cmtGroups);
+        const others = rs.filter(r => !['mapping', 'identity', 'comment', 'department'].includes(r.kind));
+        const counts = {};
+        others.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
+        const decisions = maps.length + ids.length + cmts.length + depts.length;
+        return `<div class="review-file" data-file="${Number(fid)}">
+            <div class="review-file-head">ไฟล์ #${esc(fid)}<span class="muted">${decisions} เรื่องที่ต้องตัดสินใจ</span></div>
+            <div class="review-file-body">
+                ${ids.map(identityCard).join('')}
+                ${depts.map(deptCard).join('')}
+                ${maps.map(mappingCard).join('')}
+                ${cmts.map(commentCard).join('')}
+                ${Object.entries(counts).map(([k, n]) => `<div class="review-other">${esc(KIND_LABEL[k] || k)}: ${n} รายการ</div>`).join('')}
+            </div>
+            ${decisions ? `<div class="review-foot"><button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจ</button></div>` : ''}
+        </div>`;
+    }
+
+    function identityCard(r) {
+        const p = r.payload;
+        const opts = (p.candidates || []).map(c => c.header === TITLE_DATE
+            ? `<option value="${esc(c.header)}">วันที่ในหัวรายงาน (${esc(c.date)}): “${esc((c.samples || [])[0] || '')}”</option>`
+            : `<option value="${esc(c.header)}">${esc(c.header)} — เช่น ${esc((c.samples || []).join(', '))}</option>`).join('');
+        return `<div class="review-card identity-card" data-review="${Number(r.id)}">
+            <div class="review-kind">หาคอลัมน์ข้อมูลคนไม่พบ</div>
+            <div class="review-label">${esc(p.reason)} <span class="unit">sheet ${esc(p.sheet)}</span></div>
+            ${(p.missing || []).map(role => `<div class="review-actions"><label>${esc(ROLE_TH[role] || role)}</label>
+                <select class="id-pick" data-role="${esc(role)}"><option value="">ไม่แน่ใจ ข้ามไว้ก่อน</option>${opts}</select></div>`).join('')}
+        </div>`;
+    }
+
+    function deptCard(r) {
+        const p = r.payload;
+        return `<div class="review-card dept-card" data-review="${Number(r.id)}">
+            <div class="review-kind">รหัสแผนก · ตอบครั้งเดียว ระบบจำไว้สำหรับหน่วยบริการนี้</div>
+            <div class="review-label">“${esc(p.name)}” <span class="unit">${Number(p.count || 0)} คน</span></div>
+            <div class="review-actions"><input class="dept-code" placeholder="รหัสแผนก เช่น QC (เว้นว่าง = ข้ามไว้ก่อน)"></div>
+        </div>`;
+    }
+
+    function commentCard(group) {
+        const r = group[0], p = r.payload, a = p.proposal || {}, b = p.check || {};
+        const v = x => x.value === 1 ? '<span class="tag ok">ปกติ</span>'
+            : x.value === 2 ? '<span class="tag bad">ผิดปกติ</span>' : '<span class="tag warn">ไม่แน่ใจ</span>';
+        return `<div class="review-card comment-card" data-review="${Number(r.id)}">
+            <div class="review-kind">ข้อความผลตรวจ · ${esc(p.column)} · ${group.length} คน</div>
+            <div class="review-label">“${esc(p.text)}”</div>
+            <div class="review-grid">
+                <div><b>AI ตัวที่ 1</b> ${a.value !== undefined ? v(a) + ' <span class="muted">' + esc(a.confidence) + '</span>' : '—'}<br><span class="muted">${esc(a.reason || '')}</span></div>
+                <div><b>AI ตัวที่ 2</b> ${b.value !== undefined ? v(b) + ' <span class="muted">' + esc(b.confidence) + '</span>' : '—'}<br><span class="muted">${esc(b.reason || '')}</span></div>
+            </div>
+            <div class="review-actions"><select class="cmt-val">
+                <option value="">ไม่แน่ใจ ข้ามไว้ก่อน</option>
+                <option value="1" ${a.value === 1 && b.value === 1 ? 'selected' : ''}>1 — ปกติ</option>
+                <option value="2" ${a.value === 2 && b.value === 2 ? 'selected' : ''}>2 — ผิดปกติ</option>
+            </select></div>
+        </div>`;
+    }
+
+    function mappingCard(r) {
+        const p = r.payload, prop = p.proposal || {}, ver = p.verification || {};
+        const colOptions = templateColumns.map(c =>
+            `<option value="${esc(c.column)}" ${c.column === (prop.target || p.suggestion) ? 'selected' : ''}>${esc(c.column)} — ${esc(c.desc)}</option>`).join('');
+        const verdict = ver.verdict
+            ? (ver.agrees ? '<span class="tag ok">เห็นด้วย</span>' : ver.verdict === 'wrong' ? '<span class="tag bad">ไม่เห็นด้วย</span>' : '<span class="tag warn">ไม่แน่ใจ</span>')
+              + (ver.agrees ? '' : ` → ${esc(ver.target)} ${ver.unit ? '(' + esc(ver.unit) + ')' : ''}`)
+            : '—';
+        const hasProp = prop.target && prop.target !== '__unknown__';
+        const actions = ACTIONS.filter(([a]) => a !== 'approve' || hasProp);
+        const first = hasProp ? 'approve' : 'skip';   // never preselect a column nobody proposed
+        return `<div class="review-card" data-review="${Number(r.id)}">
+            <div class="review-kind">ชื่อ lab หรือหัวคอลัมน์ที่ไม่รู้จัก</div>
+            <div class="review-label">“${esc(p.label)}” ${p.unit ? `<span class="unit">หน่วยในไฟล์ ${esc(p.unit)}</span>` : ''}</div>
+            ${p.maybe_identity ? '<div class="review-warn">คอลัมน์นี้อาจเป็นชื่อหรือแผนก ถ้าใช่ ให้เลือกในการ์ด “หาคอลัมน์ข้อมูลคนไม่พบ” และที่นี่เลือก “ไม่แน่ใจ”</div>' : ''}
+            <div class="review-grid">
+                <div><b>ค่าตัวอย่าง</b> <span class="muted">${Number(p.count || 0)} ค่า</span><br>${(p.samples || []).map(s => `<code>${esc(s)}</code>`).join('')}</div>
+                <div><b>AI เสนอ</b> ${prop.target ? `${esc(prop.target)} ${prop.unit ? '(' + esc(prop.unit) + ')' : ''} <span class="muted">มั่นใจ ${esc(prop.confidence)}</span>` : 'ไม่มี'}
+                     <br><span class="muted">${esc(prop.reason || p.reason || '')}</span></div>
+                <div><b>AI ตรวจทาน</b> ${verdict}<br><span class="muted">${esc(ver.reason || '')}</span></div>
+                <div><b>ช่วงค่า</b> ${prop.range_ok === true ? '<span class="tag ok">ทุกค่าอยู่ในช่วง</span>' : prop.range_note ? '<span class="tag warn">' + esc(prop.range_note) + '</span>' : '—'}</div>
+            </div>
+            <div class="review-actions">
+                <select class="act" onchange="this.closest('.review-card').classList.toggle('show-set', this.value === 'set')">
+                    ${actions.map(([a, t]) => `<option value="${a}" ${a === first ? 'selected' : ''}>${t}</option>`).join('')}</select>
+                <select class="target set-only">${prop.target || p.suggestion ? '' : '<option value="" selected>— เลือกคอลัมน์ —</option>'}${colOptions}</select>
+                <input class="unit-in set-only" placeholder="หน่วยของค่าในไฟล์ เช่น g/L" value="${esc(p.unit || prop.unit || '')}">
+            </div>
+        </div>`;
+    }
+
+    async function submitDecisions(fid) {
+        const block = document.querySelector(`.review-file[data-file="${fid}"]`);
+        const cards = block.querySelectorAll('.review-card:not(.identity-card):not(.comment-card):not(.dept-card)');
+        const decisions = [];
+        let noTarget = false;
+        block.querySelectorAll('.dept-card').forEach(c => {
+            const code = c.querySelector('.dept-code').value.trim();
+            if (code) decisions.push({ review_id: Number(c.dataset.review), action: 'department', code });
+        });
+        block.querySelectorAll('.comment-card').forEach(c => {
+            const val = c.querySelector('.cmt-val').value;
+            if (val) decisions.push({ review_id: Number(c.dataset.review), action: 'comment', value: Number(val) });
+        });
+        block.querySelectorAll('.identity-card').forEach(c => {
+            c.querySelectorAll('.id-pick').forEach(sel => {
+                if (sel.value) decisions.push({ review_id: Number(c.dataset.review), action: 'identity', role: sel.dataset.role, header: sel.value });
+            });
+        });
+        cards.forEach(c => {
+            const action = c.querySelector('.act').value;
+            const d = { review_id: Number(c.dataset.review), action };
+            if (action === 'set') {
+                d.target = c.querySelector('.target').value;
+                d.unit = c.querySelector('.unit-in').value || null;
+                if (!d.target) noTarget = true;
+            }
+            decisions.push(d);
+        });
+        if (noTarget) { alert('มีรายการที่เลือก “เลือกคอลัมน์เอง” แต่ยังไม่ได้เลือกคอลัมน์'); return; }
+        const btn = block.querySelector('.review-foot .btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
+        const res = await fetch(`/api/files/${fid}/decisions`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ decisions }),
+        });
+        if (!res.ok) {
+            alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
+            if (btn) { btn.disabled = false; btn.textContent = 'บันทึกการตัดสินใจ'; }
+            return;
+        }
+        loadReviews();
+        loadConflicts();
+    }
+
+    // ── ข้อมูลขัดแย้ง ────────────────────────────────────────────────
+
+    async function refreshConflictCount() {
+        try {
+            const items = await fetch('/api/conflicts?status=open').then(r => r.json());
+            const pill = document.getElementById('conflictCount');
+            pill.textContent = items.length;
+            pill.hidden = items.length === 0;
+        } catch (e) { /* the count is a convenience */ }
+    }
+
+    async function loadConflicts() {
+        const items = await fetch('/api/conflicts?status=open').then(r => r.json());
+        document.getElementById('conflictEmpty').hidden = items.length > 0;
+        const byFile = {};
+        items.forEach(c => (byFile[c.source_file_id] = byFile[c.source_file_id] || []).push(c));
+        document.getElementById('conflictList').innerHTML = Object.entries(byFile).map(([fid, cs]) => `
+            <div class="review-file">
+                <div class="review-file-head">
+                    <span>ไฟล์ #${esc(fid)} ${esc(cs[0].incoming_from.file || '')} <span class="muted">${cs.length} ค่าไม่ตรงกับที่มีอยู่</span></span>
+                    <button class="btn btn-sm" onclick="acceptAllConflicts(${Number(fid)})">ใช้ค่าใหม่ทั้งไฟล์</button>
+                </div>
+                <div class="table-wrap" style="border:0;border-radius:0;"><table>
+                    <thead><tr><th>คน</th><th>วันที่ตรวจ</th><th>ช่อง</th><th>ค่าในระบบ</th><th>ค่าใหม่</th><th></th></tr></thead>
+                    <tbody>${cs.map(conflictRow).join('')}</tbody>
+                </table></div>
+            </div>`).join('');
+        refreshConflictCount();
+    }
+
+    function conflictRow(c) {
+        const from = f => f.file ? `<div class="muted">${esc(f.file)}${f.cell ? ' · ' + esc(f.sheet || '') + '!' + esc(f.cell) : ''}</div>` : '';
+        return `<tr>
+            <td>${esc(c.name || '—')}<div class="muted">${esc(c.cid)}</div></td>
+            <td>${formatDate(c.visit_date)}</td>
+            <td>${esc(c.column)}</td>
+            <td><b>${esc(c.current_value)}</b>${from(c.current_from)}</td>
+            <td><b>${esc(c.incoming_value)}</b>${from(c.incoming_from)}</td>
+            <td class="row-actions">
+                <button class="btn btn-sm" onclick="resolveConflict(${Number(c.id)}, 'keep')">เก็บค่าเดิม</button>
+                <button class="btn btn-primary btn-sm" onclick="resolveConflict(${Number(c.id)}, 'replace')">ใช้ค่าใหม่</button>
+            </td></tr>`;
+    }
+
+    async function resolveConflict(id, action) {
+        const res = await fetch(`/api/conflicts/${id}/resolve`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
+        if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
+        loadConflicts();
+    }
+
+    async function acceptAllConflicts(fid) {
+        if (!confirm('ใช้ค่าใหม่จากไฟล์นี้ทั้งหมด? ค่าเดิมจะถูกเก็บไว้ในประวัติ')) return;
+        const res = await fetch(`/api/files/${fid}/conflicts/accept-all`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
+        loadConflicts();
+    }
+
+    loadReviews();
+    loadConflicts();
+</script>
+{% endblock %}
