@@ -52,7 +52,7 @@ docker compose up -d postgres              # DB only, then run the app locally f
 
 ## Architecture
 
-**Upload flow:** `POST /api/upload` (`app/routes/upload.py`, form fields `file` and `hospital` code) calls `register_file`, which stores the original bytes in `storage/uploads/<sha256>.<ext>` and registers a `SourceFile`. It then runs the agent graph through `app/graph/service.py::run_upload`. Every store step is one transaction per file: it lands completely or is rolled back and marked `failed`. The app port defaults to 8000 (`APP_PORT` in `.env`; this machine uses 8100 because 8000 is taken).
+**Upload flow:** `POST /api/upload` (`app/routes/upload.py`, form field `file`) needs a staff session and takes the hospital from the signed-in account, never from the request (D20): only a superadmin may send a `hospital` form field, and only a code that already exists, so a typo can no longer create a hospital and scatter the learned mappings. It calls `register_file`, which stores the original bytes in `storage/uploads/<sha256>.<ext>` and registers a `SourceFile`. It then runs the agent graph through `app/graph/service.py::run_upload`. Every store step is one transaction per file: it lands completely or is rolled back and marked `failed`. The app port defaults to 8000 (`APP_PORT` in `.env`; this machine uses 8100 because 8000 is taken).
 
 **Agent graph** (`app/graph/flow.py`, one LangGraph thread `file-<id>` per file, checkpointed in Postgres through a `psycopg_pool` pool so it survives DB restarts). The flow is `analyze → mapper → check → verifier ⇄ (one revision) → decide → store → human [interrupt] → store`.
 - `analyze` collects the labels the rules can't resolve, with their sample and numeric values. Graph state holds **no names or CIDs**.

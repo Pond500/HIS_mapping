@@ -128,7 +128,22 @@ def health_report_page(request: Request, response: Response, db: Session = Depen
 
 @router.get("/import", response_class=HTMLResponse)
 def import_page(request: Request, response: Response, db: Session = Depends(get_db)):
-    """This project's own converter screen (upload, reviews, conflicts, dashboard)."""
+    """นำเข้าผลตรวจ (AI): send a file, the graph converts it, unsure items go to a human."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "import_upload.html",
+                                      _ctx(request, user, db, active="import"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/import-legacy", response_class=HTMLResponse)
+def import_legacy_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """
+    The old single-page converter screen, kept reachable while its tabs are moved into
+    the Env-Occ pages one by one (D20). Delete it once the new cards cover everything.
+    """
     user, redirect = _guard(request, response)
     if redirect:
         return redirect

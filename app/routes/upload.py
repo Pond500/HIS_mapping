@@ -9,12 +9,13 @@ POST /api/upload — keep the original file, then run the agent graph
 import hashlib
 import os
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
+from app.auth import require_user
 from app.database import SessionLocal
 from app.graph import service
-from app.models import SourceFile
+from app.models import AppUser, Hospital, SourceFile
 from app.pipeline.run import get_or_create_hospital
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -45,8 +46,40 @@ def register_file(db: Session, filename: str, content: bytes, hospital: str | No
     return sf
 
 
+def hospital_code_for(db: Session, user: AppUser, requested: str) -> str:
+    """
+    The hospital a file is filed under comes from the signed-in account, never from
+    what the browser sends (D20). Only a superadmin may name one, and only one that
+    already exists: a typo must not quietly create a hospital and scatter the learned
+    mappings across it.
+    """
+    if user.role == "superadmin":
+        code = (requested or "").strip()
+        if not code:
+            raise ValueError("กรุณาเลือกหน่วยบริการก่อนส่งไฟล์")
+        h = db.query(Hospital).filter(Hospital.code == code).one_or_none()
+        if h is None:
+            raise ValueError(f"ไม่พบหน่วยบริการรหัส {code} ในระบบ")
+        return h.code
+    if user.hospital_id is None:
+        raise ValueError("บัญชีนี้ยังไม่ได้ผูกกับหน่วยบริการ กรุณาติดต่อผู้ดูแลระบบ")
+    h = db.get(Hospital, user.hospital_id)
+    if h is None:
+        raise ValueError("ไม่พบหน่วยบริการของบัญชีนี้ กรุณาติดต่อผู้ดูแลระบบ")
+    return h.code
+
+
+@router.get("/hospitals")
+def list_hospitals(user: AppUser = Depends(require_user)):
+    """The picker a superadmin uses on the import page. Everyone else uses their own."""
+    with SessionLocal() as db:
+        rows = db.query(Hospital).order_by(Hospital.code).all()
+        return {"hospitals": [{"code": h.code, "name": h.name} for h in rows]}
+
+
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...), hospital: str = Form("UNSPECIFIED")):
+async def upload_file(file: UploadFile = File(...), hospital: str = Form(""),
+                      user: AppUser = Depends(require_user)):
     filename = file.filename or "unknown"
     if filename.rsplit(".", 1)[-1].lower() not in ALLOWED:
         return {"success": False, "error": "รองรับเฉพาะไฟล์ .csv .xlsx และ .xls"}
@@ -55,7 +88,11 @@ async def upload_file(file: UploadFile = File(...), hospital: str = Form("UNSPEC
     # works (LLM calls take tens of seconds, and Postgres DDL such as the checkpointer's
     # CREATE INDEX CONCURRENTLY waits for every open transaction — that deadlocked once).
     with SessionLocal() as db:
-        file_id = register_file(db, filename, content, hospital).id
+        try:
+            code = hospital_code_for(db, user, hospital)
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
+        file_id = register_file(db, filename, content, code).id
     try:
         st = service.run_upload(file_id)
     except Exception as e:  # process_file already rolled back and marked the file failed

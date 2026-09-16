@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}นำเข้าผลตรวจ (AI) — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<div class="page-head-row">
+    <div>
+        <h1 class="page-title">นำเข้าผลตรวจ (AI)</h1>
+        <p class="page-sub">ส่งไฟล์ผลตรวจจากระบบ HIS หน้าตาแบบไหนก็ได้ ระบบจะอ่านและแปลงให้เอง
+            ส่วนที่ไม่แน่ใจจะส่งให้เจ้าหน้าที่ตรวจก่อนบันทึก</p>
+    </div>
+    <a class="btn" href="/">← กลับเมนูหลัก</a>
+</div>
+
+<div class="card">
+    <label class="field" for="hospitalPick">
+        <span>หน่วยบริการที่ไฟล์นี้จะถูกบันทึกเข้า</span>
+        {% if user.role == 'superadmin' %}
+        <select id="hospitalPick"><option value="">— เลือกหน่วยบริการ —</option></select>
+        <small class="field-hint">คุณเป็นผู้ดูแลส่วนกลาง จึงเลือกหน่วยบริการได้ เลือกได้เฉพาะหน่วยที่มีอยู่จริงในระบบ</small>
+        {% else %}
+        <input id="hospitalPick" value="{{ hospital }}" readonly>
+        <small class="field-hint">มาจากบัญชีของคุณ ระบบจำสิ่งที่ยืนยันแล้วแยกตามหน่วยบริการ ไฟล์ถัดไปจากที่เดิมจะไม่ถามซ้ำ</small>
+        {% endif %}
+    </label>
+
+    <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
+            </svg>
+        </div>
+        <div class="upload-title">ลากไฟล์มาวาง หรือ <span class="link" id="uploadBtn">เลือกไฟล์</span></div>
+        <div class="upload-subtitle">CSV · XLSX · XLS — ไม่ต้องจัดให้ตรงแบบฟอร์มก่อน</div>
+        <input type="file" class="file-input" id="fileInput" accept=".csv,.xlsx,.xls">
+    </div>
+
+    <div class="progress-section" id="progressSection">
+        <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        <div class="progress-text" id="progressText"></div>
+    </div>
+
+    <div class="result-card" id="resultCard">
+        <div class="result-title" id="resultTitle"></div>
+        <div id="resultBody"></div>
+        <div class="result-stats" id="resultStats"></div>
+        <div id="resultNext"></div>
+    </div>
+</div>
+
+<div class="band">ระบบทำอะไรกับไฟล์ของคุณ</div>
+<div class="card">
+    <ol class="steps">
+        <li>อ่านไฟล์ หาคอลัมน์เลขบัตรประชาชน ชื่อ และวันที่ตรวจ จากเนื้อข้อมูลจริง ไม่ใช่เดาจากหัวคอลัมน์</li>
+        <li>จับคู่ชื่อผลตรวจที่ระบบรู้จักอยู่แล้วด้วยกฎ ไม่ใช้ AI</li>
+        <li>ชื่อที่ไม่รู้จัก ให้ AI ตัวที่หนึ่งเสนอ แล้ว AI ตัวที่สองตรวจคำตอบโดยไม่เห็นเหตุผลของตัวแรก</li>
+        <li>ตรวจด้วยโค้ดว่าทุกค่าอยู่ในช่วงที่เป็นไปได้ ผ่านครบสามข้อจึงบันทึกเอง ไม่ครบส่งให้คนตัดสิน</li>
+    </ol>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const IS_SUPERADMIN = {{ 'true' if user.role == 'superadmin' else 'false' }};
+    const zone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const pick = document.getElementById('hospitalPick');
+
+    if (IS_SUPERADMIN) {
+        api('/api/hospitals').then(d => {
+            for (const h of (d.hospitals || [])) {
+                const o = document.createElement('option');
+                o.value = h.code;
+                o.textContent = h.code === h.name ? h.code : `${h.code} — ${h.name}`;
+                pick.appendChild(o);
+            }
+        }).catch(() => { /* the upload itself still reports a missing hospital */ });
+    }
+
+    document.getElementById('uploadBtn').addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+    zone.addEventListener('click', () => fileInput.click());
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) uploadFile(fileInput.files[0]);
+    });
+
+    async function uploadFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['csv', 'xlsx', 'xls'].includes(ext)) {
+            showResult('error', 'รองรับเฉพาะไฟล์ .csv, .xlsx และ .xls');
+            return;
+        }
+        const progress = document.getElementById('progressSection');
+        document.getElementById('resultCard').className = 'result-card';
+        progress.className = 'progress-section visible';
+        document.getElementById('progressText').textContent =
+            `กำลังอ่าน ${file.name} และให้ AI ช่วยจับคู่ชื่อที่ไม่รู้จัก (อาจใช้เวลาครึ่งนาที)`;
+
+        const form = new FormData();
+        form.append('file', file);
+        if (IS_SUPERADMIN) form.append('hospital', pick.value);
+
+        try {
+            const res = await fetch('/api/upload', { method: 'POST', body: form });
+            if (res.status === 401) { location.href = '/login'; return; }
+            const data = await res.json();
+            if (data.success) {
+                const waiting = data.status === 'awaiting_review';
+                showResult(waiting ? 'waiting' : 'success',
+                    waiting ? 'บันทึกส่วนที่แน่ใจแล้ว มีรายการรอคุณตรวจ' : 'นำเข้าสำเร็จ', data, file.name);
+            } else {
+                showResult('error', data.error || 'เกิดข้อผิดพลาด');
+            }
+        } catch (err) {
+            showResult('error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: ' + err.message);
+        }
+        fileInput.value = '';
+        progress.className = 'progress-section';
+    }
+
+    function showResult(state, title, data = null, filename = '') {
+        const card = document.getElementById('resultCard');
+        card.className = 'result-card visible ' + state;
+        document.getElementById('resultTitle').textContent = title;
+        const body = document.getElementById('resultBody');
+        const stats = document.getElementById('resultStats');
+        const next = document.getElementById('resultNext');
+        if (!data) { body.innerHTML = ''; stats.innerHTML = ''; next.innerHTML = ''; return; }
+        body.innerHTML = `<div class="muted">${esc(filename)}` +
+            `${data.format_detected ? ' · รูปแบบ ' + esc(data.format_detected) : ''}</div>`;
+        stats.innerHTML = `
+            <div class="result-stat">ทั้งหมด <strong>${Number(data.total_rows) || 0}</strong> แถว</div>
+            <div class="result-stat">บันทึกแล้ว <strong>${Number(data.success_rows) || 0}</strong></div>
+            <div class="result-stat">มีปัญหา <strong>${Number(data.error_rows) || 0}</strong></div>`;
+        // the review screen has not moved into the new pages yet (D20), so send them to the old one
+        next.innerHTML = state === 'waiting'
+            ? `<a class="btn btn-primary" href="/import-legacy">ไปตรวจรายการ (หน้าเดิม) →</a>`
+            : `<a class="btn" href="/import-legacy">ดูข้อมูลที่บันทึก (หน้าเดิม) →</a>`;
+    }
+</script>
+{% endblock %}
