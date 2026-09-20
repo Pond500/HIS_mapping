@@ -12,13 +12,13 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    JSON, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger,
-    String, Text, UniqueConstraint, func,
+    JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric,
+    SmallInteger, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
-from app.template import TEMPLATE_FIELDS
+from app.template import REGISTRY_FIELDS, TEMPLATE_FIELDS
 
 # ---------------------------------------------------------------------------
 # Hospitals & source files
@@ -229,8 +229,141 @@ class CommentLabel(Base):
 
 
 # ---------------------------------------------------------------------------
-# Results (one row per person + visit date, columns from the template)
+# The department's schema (D23) — workplaces, people, checkup rounds, results
 # ---------------------------------------------------------------------------
+# Shapes and keys follow docs/DATA_DICTIONARY.md so a submission lands on the
+# department's tables without a second translation. Two deliberate departures,
+# both recorded in D23:
+#   * `employees` columns the department marks NOT NULL but a lab file cannot
+#     know (gender, birth_year, nationality, work_experience, position) are
+#     nullable here. The only alternative is inventing them, which breaks the
+#     core rule. A row missing them is shown as "ทะเบียนไม่ครบ".
+#   * `employee_checkup_batches.survey_id` stays NOT NULL, which is why the
+#     Walkthrough survey header is real rather than a mockup.
+
+
+class Company(Base):
+    """สถานประกอบการ. A shared national register (D23): not scoped per hospital,
+    because the department keys it by juristic id, and one workplace may be
+    served by several hospitals."""
+    __tablename__ = "companies"
+    __table_args__ = (UniqueConstraint("juristic_id", "branch_name", name="uk_juristic_branch"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    juristic_id: Mapped[str] = mapped_column(String(13), index=True)
+    fid: Mapped[str | None] = mapped_column(String(14))
+    name: Mapped[str] = mapped_column(String(300))
+    branch_name: Mapped[str] = mapped_column(String(200), default="")
+    address: Mapped[str | None] = mapped_column(Text)
+    industry_group: Mapped[str | None] = mapped_column(String(200))
+    industry_group_code: Mapped[str | None] = mapped_column(String(20))
+    employee_numbers: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class Department(Base):
+    """แผนกงานในสถานประกอบการ. This is what D18's department code becomes: a real
+    row owned by one company, not free text."""
+    __tablename__ = "departments"
+    __table_args__ = (UniqueConstraint("name", "company_id", name="uk_name_company_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+
+
+class WalkthroughSurvey(Base):
+    """The survey header only (D23). The full risk questionnaire stays a mockup,
+    but the header must be real because a checkup round cannot exist without it."""
+    __tablename__ = "walkthrough_surveys"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    survey_date: Mapped[date] = mapped_column(Date)
+    surveyed_by: Mapped[str | None] = mapped_column(String(200))
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class CheckupType(Base):
+    """ประเภทการตรวจ. Seeded with the department's three (D23-ก)."""
+    __tablename__ = "employee_checkup_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+
+
+class CheckupBatch(Base):
+    """รอบตรวจ. The round carries the date, not the file: appoint_date is NOT NULL
+    here while a person's own checkup_date may be missing. This is why the upload
+    dialog asks for a round first (D23)."""
+    __tablename__ = "employee_checkup_batches"
+    __table_args__ = (UniqueConstraint("checkup_type", "appoint_date", "survey_id",
+                                       name="uk_date_survey_checkup_type"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    checkup_type: Mapped[int] = mapped_column(ForeignKey("employee_checkup_types.id"))
+    appoint_date: Mapped[date] = mapped_column(Date)
+    survey_id: Mapped[int] = mapped_column(ForeignKey("walkthrough_surveys.id"), index=True)
+    is_approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    approved_by: Mapped[str | None] = mapped_column(String(100))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # ours, not the department's: which hospital entered this round
+    hospital_id: Mapped[int] = mapped_column(ForeignKey("hospitals.id"), index=True)
+    created_by: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+def _registry_column(field):
+    """Registry fields are nullable here even where the department says NOT NULL.
+    See the note at the top of this section."""
+    if field.kind == "numeric":
+        return mapped_column(Numeric(*field.precision), nullable=True)
+    if field.kind == "id":
+        return mapped_column(String(field.size), nullable=False)
+    return mapped_column(String(field.size) if field.size else Text, nullable=True)
+
+
+class Employee(Base):
+    """ทะเบียนพนักงาน — who a person is. Holds no results.
+
+    Note for anyone who knew the old schema: before D23 this table name meant
+    "one person on one visit, with 40 result columns". It does not any more.
+    Results live in EmployeeCheckup.
+
+    The department's key is (citizen_id, department_id), so one person working
+    in two departments is two rows, and their histories are separate.
+    """
+    __tablename__ = "employees"
+    __table_args__ = (UniqueConstraint("cid", "department_pk", name="unique_citizen_dept"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    department_pk: Mapped[int] = mapped_column(ForeignKey("departments.id"), index=True)
+    source_file_id: Mapped[int | None] = mapped_column(ForeignKey("source_files.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    for _f in REGISTRY_FIELDS:
+        if _f.column != "department_id":      # replaced by the department_pk FK
+            locals()[_f.column] = _registry_column(_f)
+    del _f
+
+    #: department columns the department requires but a lab file cannot supply
+    REQUIRED_BY_DDC = ("gender", "birth_year", "nationality", "work_experience", "position")
+
+    @property
+    def registry_complete(self) -> bool:
+        return all(getattr(self, c) is not None for c in self.REQUIRED_BY_DDC)
+
+    def to_dict(self):
+        d = {"id": self.id, "department_pk": self.department_pk,
+             "registry_complete": self.registry_complete,
+             "created_at": self.created_at.isoformat() if self.created_at else None}
+        for f in REGISTRY_FIELDS:
+            if f.column == "department_id":
+                continue
+            v = getattr(self, f.column)
+            d[f.column] = float(v) if isinstance(v, Decimal) else v
+        return d
 
 
 def _result_column(field):
@@ -238,47 +371,90 @@ def _result_column(field):
         return mapped_column(Numeric(*field.precision), nullable=True)
     if field.kind == "categorical":
         return mapped_column(SmallInteger, nullable=True)
-    if field.kind == "date":
-        return mapped_column(Date, nullable=False)
-    if field.kind == "id":
-        return mapped_column(String(field.size), nullable=False)
     return mapped_column(String(field.size) if field.size else Text, nullable=True)
 
 
-class Employee(Base):
-    __tablename__ = "employees"
-    __table_args__ = (UniqueConstraint("cid", "visit_date"),)
+class EmployeeCheckup(Base):
+    """ผลตรวจของหนึ่งคนในหนึ่งรอบ. All 40 of our result columns exist in the
+    department's 54, so nothing is dropped and nothing is invented.
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    hospital_id: Mapped[int] = mapped_column(ForeignKey("hospitals.id"), index=True)
-    source_file_id: Mapped[int] = mapped_column(ForeignKey("source_files.id"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-    # one column per template field (class namespace must hold them before mapping)
-    for _f in TEMPLATE_FIELDS:
-        locals()[_f.column] = _result_column(_f)
-    del _f
-
-    def to_dict(self):
-        d = {"id": self.id, "hospital_id": self.hospital_id,
-             "source_file_id": self.source_file_id,
-             "created_at": self.created_at.isoformat() if self.created_at else None}
-        for f in TEMPLATE_FIELDS:
-            v = getattr(self, f.column)
-            if isinstance(v, Decimal):
-                v = float(v)
-            elif isinstance(v, date):
-                v = v.isoformat()
-            d[f.column] = v  # 0 stays 0 — only None means missing
-        return d
-
-
-class ValueProvenance(Base):
-    """Where each stored value came from (file / sheet / cell)."""
-    __tablename__ = "value_provenance"
+    Values are stored in the department's units and codes (D23): wbc and plt in
+    10^3/uL, rbc_che in U/g Hb, and 0=ปกติ / 1=ผิดปกติ for the categorical ones.
+    The raw value as written in the file is kept in ValueProvenance, so a wrong
+    reading of the dictionary is reversible (D23-ถาม).
+    """
+    __tablename__ = "employee_checkups"
+    __table_args__ = (UniqueConstraint("employee_id", "checkup_batch_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id", ondelete="CASCADE"), index=True)
+    checkup_batch_id: Mapped[int] = mapped_column(ForeignKey("employee_checkup_batches.id"), index=True)
+    checkup_date: Mapped[date | None] = mapped_column(Date)   # nullable: the round holds the date
+    source_file_id: Mapped[int | None] = mapped_column(ForeignKey("source_files.id"), index=True)
+    comment: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[str | None] = mapped_column(String(200))        # as at the time of this checkup
+    work_experience: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, onupdate=func.now())
+
+    for _f in TEMPLATE_FIELDS:
+        if _f.group != "person":
+            locals()[_f.column] = _result_column(_f)
+    del _f
+
+    def to_dict(self):
+        d = {"id": self.id, "employee_id": self.employee_id,
+             "checkup_batch_id": self.checkup_batch_id,
+             "checkup_date": self.checkup_date.isoformat() if self.checkup_date else None,
+             "source_file_id": self.source_file_id, "comment": self.comment}
+        for f in TEMPLATE_FIELDS:
+            if f.group == "person":
+                continue
+            v = getattr(self, f.column)
+            d[f.column] = float(v) if isinstance(v, Decimal) else v   # 0 stays 0
+        return d
+
+
+class CheckupCategory(Base):
+    """หมวดหมู่การตรวจ — built from Field.group."""
+    __tablename__ = "checkup_categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+
+
+class CheckupList(Base):
+    """รายการตรวจ หน่วยวัด และเกณฑ์ปกติ.
+
+    Generated from app/template.py, which stays the single source of truth
+    (D23-ก). lower_limit/upper_limit are left NULL on purpose: our template
+    carries a *plausible* range used to catch unit errors, which is a different
+    number from a clinical *normal* range. Filling these in needs the
+    department's own figures (D23-ถาม).
+    """
+    __tablename__ = "checkup_lists"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    category_id: Mapped[int] = mapped_column(ForeignKey("checkup_categories.id"), index=True)
+    unit: Mapped[str | None] = mapped_column(String(50))
+    description: Mapped[str] = mapped_column(Text, default="")
+    lower_limit: Mapped[float | None] = mapped_column(Float)
+    upper_limit: Mapped[float | None] = mapped_column(Float)
+    column_name: Mapped[str | None] = mapped_column(String(100))
+
+
+class ValueProvenance(Base):
+    """Where each stored value came from (file / sheet / cell).
+
+    Since D23 this points at one cell of one checkup row, not at a person, and
+    raw_value holds the number exactly as the file wrote it — before the unit
+    and code conversion into the department's form.
+    """
+    __tablename__ = "value_provenance"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    checkup_id: Mapped[int] = mapped_column(ForeignKey("employee_checkups.id", ondelete="CASCADE"), index=True)
     column: Mapped[str] = mapped_column(String(100))
     source_file_id: Mapped[int] = mapped_column(ForeignKey("source_files.id"))
     sheet: Mapped[str | None] = mapped_column(String(200))
@@ -291,14 +467,13 @@ class ValueProvenance(Base):
 
 
 class ExtraResult(Base):
-    """Real results with no template column (FBS, cholesterol, …). Kept, not dropped."""
+    """Real results with no column in the department's table (FBS, cholesterol,
+    …). Kept, not dropped (D12)."""
     __tablename__ = "extra_results"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    hospital_id: Mapped[int] = mapped_column(ForeignKey("hospitals.id"))
+    checkup_id: Mapped[int] = mapped_column(ForeignKey("employee_checkups.id", ondelete="CASCADE"), index=True)
     source_file_id: Mapped[int] = mapped_column(ForeignKey("source_files.id"), index=True)
-    cid: Mapped[str] = mapped_column(String(13), index=True)
-    visit_date: Mapped[date] = mapped_column(Date)
     source_name: Mapped[str] = mapped_column(String(200))
     value_text: Mapped[str | None] = mapped_column(Text)
     value_num: Mapped[Decimal | None] = mapped_column(Numeric(14, 4))
@@ -314,11 +489,17 @@ class ExtraResult(Base):
 
 
 class Conflict(Base):
-    """Incoming value differs from the stored one. Stored value stays until a human decides."""
+    """Incoming value differs from the stored one. Stored value stays until a
+    human decides.
+
+    Since D23 a conflict can only happen inside one checkup round. The same
+    person measured again in a later round is a separate row, not a
+    disagreement — which is what the word was always supposed to mean.
+    """
     __tablename__ = "conflicts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id", ondelete="CASCADE"), index=True)
+    checkup_id: Mapped[int] = mapped_column(ForeignKey("employee_checkups.id", ondelete="CASCADE"), index=True)
     column: Mapped[str] = mapped_column(String(100))
     current_value: Mapped[str | None] = mapped_column(Text)
     incoming_value: Mapped[str | None] = mapped_column(Text)
@@ -334,7 +515,7 @@ class ValueHistory(Base):
     __tablename__ = "value_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    employee_id: Mapped[int] = mapped_column(ForeignKey("employees.id", ondelete="CASCADE"), index=True)
+    checkup_id: Mapped[int] = mapped_column(ForeignKey("employee_checkups.id", ondelete="CASCADE"), index=True)
     column: Mapped[str] = mapped_column(String(100))
     old_value: Mapped[str | None] = mapped_column(Text)
     new_value: Mapped[str | None] = mapped_column(Text)
@@ -359,7 +540,12 @@ class PendingReview(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     source_file_id: Mapped[int] = mapped_column(ForeignKey("source_files.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(30))      # mapping / profile / cid / value / comment
+    # mapping / profile / cid / value / comment / identity / department_change /
+    # unregistered_person
+    kind: Mapped[str] = mapped_column(String(30))
+    # which field set the file is being read against: "result" or "registry"
+    # (D23-ก). The review screen offers columns from that set only.
+    field_set: Mapped[str] = mapped_column(String(20), default="result")
     payload: Mapped[dict] = mapped_column(JSON)
     # open / approved / rejected / skipped
     status: Mapped[str] = mapped_column(String(20), default="open", index=True)

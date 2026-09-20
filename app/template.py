@@ -8,6 +8,7 @@ reads TEMPLATE_FIELDS. Order matches result_template_v1.1.xlsx.
 """
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Literal
 
 Kind = Literal["id", "text", "date", "numeric", "categorical"]
@@ -88,6 +89,88 @@ TEMPLATE_FIELDS: list[Field] = [
     _c("far_vision_test", "vision"),
     _t("far_vision_comment", "vision"),
 ]
+
+# ---------------------------------------------------------------------------
+# Storing in the department's form (D23)
+# ---------------------------------------------------------------------------
+# The pipeline keeps working in the canonical units above — every locked test
+# set and every measured number depends on them. The conversion happens once, on
+# the way into employee_checkups, and the value as the file wrote it stays in
+# ValueProvenance.raw_value, so a wrong reading of the dictionary is reversible.
+
+#: column -> (unit as the department stores it, factor from our canonical unit)
+DDC_UNITS: dict[str, tuple[str, float]] = {
+    "wbc": ("10^3/uL", 0.001),
+    "plt": ("10^3/uL", 0.001),
+}
+
+#: categorical columns the dictionary documents as 0=ปกติ / 1=ผิดปกติ, while we
+#: store 1=ปกติ / 2=ผิดปกติ. Note the department's own sample file uses 1/2 like
+#: us — D23 chose to follow the written dictionary, and D23-ถาม has this as a
+#: question to confirm before real data is sent.
+DDC_ZERO_BASED = ("chest_xray", "ekg", "hearing_ability", "far_vision_test")
+
+#: Columns the dictionary gives in a unit we cannot reach from ours by
+#: arithmetic alone. rbc_che is U/g Hb there and U/L here, and going between
+#: them needs that person's haemoglobin — a second measurement, which may be
+#: missing, and whose own unit would have to be right too. Deriving it silently
+#: would be exactly the kind of invented number this system exists to prevent,
+#: so these are stored unconverted and listed for the department to confirm.
+DDC_UNCONVERTIBLE = {"rbc_che": "U/g Hb ต้องใช้ค่า Hb ของคนคนนั้นมาหาร คำนวณเองไม่ได้"}
+
+
+def ddc_value(column: str, value):
+    """Our canonical value -> the form the department's table stores."""
+    if value is None:
+        return None
+    if column in DDC_ZERO_BASED:
+        return int(value) - 1          # 1/2 -> 0/1
+    if column in DDC_UNITS:
+        # Decimal, not float: 8383 * 0.001 in binary floating point is
+        # 8.383000000000001, and that tail would travel all the way into the
+        # file handed to the department.
+        return (Decimal(str(value)) * Decimal(str(DDC_UNITS[column][1]))).normalize()
+    return value
+
+
+def ddc_unit(column: str) -> str | None:
+    field = FIELDS_BY_COLUMN.get(column)
+    if column in DDC_UNITS:
+        return DDC_UNITS[column][0]
+    return field.unit if field else None
+
+
+# ---------------------------------------------------------------------------
+# The employee registry (D23)
+# ---------------------------------------------------------------------------
+# A second, separate field set. The department keeps who a person is
+# (`employees`) apart from what their results were (`employee_checkups`), and a
+# HIS lab file never carries the registry fields. They arrive in their own file,
+# through the same AI pipeline, mapped against this list instead.
+#
+# `header` is the department's own column name, so an export lands on their
+# schema without a second translation.
+
+REGISTRY_FIELDS: list[Field] = [
+    Field("cid", "citizen_id", "id", "person", size=13),
+    Field("first_name", "firstname", "text", "person", size=100),
+    Field("last_name", "lastname", "text", "person", size=100),
+    Field("title", "title", "text", "person", size=50),
+    Field("department_id", "department_id", "text", "person", size=50),
+    Field("gender", "gender", "text", "person", size=10),        # male / female
+    Field("birth_year", "birth_year", "numeric", "person", precision=(4, 0), lo=2400, hi=2600),
+    Field("nationality", "nationality", "text", "person", size=50),
+    Field("position", "position", "text", "person", size=200),
+    Field("work_experience", "work_experience", "numeric", "person", precision=(5, 2), lo=0, hi=70),
+    Field("medical_condition", "medical_condition", "text", "person"),
+]
+
+REGISTRY_BY_COLUMN = {f.column: f for f in REGISTRY_FIELDS}
+
+# Which field set a file is being read against. `pending_reviews.field_set` and
+# the review screen both carry it, so a reviewer is never offered a lab column
+# for a registry file or the other way round.
+FIELD_SETS = {"result": TEMPLATE_FIELDS, "registry": REGISTRY_FIELDS}
 
 FIELDS_BY_COLUMN = {f.column: f for f in TEMPLATE_FIELDS}
 FIELDS_BY_HEADER = {f.header: f for f in TEMPLATE_FIELDS}
