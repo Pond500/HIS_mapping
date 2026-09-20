@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Walk Through Survey — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Walk Through Survey</h1>
+<p class="page-sub">
+    บันทึกหัวการสำรวจสถานประกอบการ — ว่าสำรวจที่ไหน เมื่อไหร่ โดยใคร
+    รอบตรวจสุขภาพทุกรอบต้องอ้างการสำรวจหนึ่งรายการเสมอ จึงต้องบันทึกที่นี่ก่อน
+</p>
+
+<div class="card" style="margin-top:20px;">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <select id="filterCompany" style="max-width:340px;"><option value="">ทุกสถานประกอบการ</option></select>
+        <button class="btn btn-primary" id="addBtn">บันทึกการสำรวจ +</button>
+    </div>
+    <div class="muted" id="count" style="margin-bottom:8px;"></div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>สถานประกอบการ</th><th>สาขา</th><th>วันที่สำรวจ</th><th>ผู้สำรวจ</th>
+                    <th>รอบตรวจที่ผูกอยู่</th><th>หมายเหตุ</th></tr>
+            </thead>
+            <tbody id="rows"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+    <h2 style="margin-top:0;font-size:16px;">แบบสอบถามความเสี่ยงรายแผนก</h2>
+    <p class="muted" style="margin-bottom:12px;">
+        ส่วนประเมินความเสี่ยงรายแผนกและการกำหนดชุดตรวจตามปัจจัยเสี่ยง
+        <b>ยังเป็นตัวอย่างหน้าจอ ไม่ได้ต่อฐานข้อมูล</b>
+        ดูได้ที่หน้าตัวอย่าง แต่สิ่งที่กดในนั้นยังไม่ถูกบันทึก
+    </p>
+    <a class="btn" href="/walkthrough-mock">เปิดตัวอย่างหน้าจอ</a>
+</div>
+
+<div class="modal-back" id="surveyModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>บันทึกการสำรวจ</span><button class="close" data-close="surveyModal">×</button></div>
+        <form id="surveyForm">
+            <div class="modal-body">
+                <label class="field" for="sCompany"><span>สถานประกอบการ <b class="req">*</b></span>
+                    <select id="sCompany" required></select></label>
+                <div class="form-row">
+                    <label class="field" for="sDate"><span>วันที่สำรวจ <b class="req">*</b></span>
+                        <input id="sDate" type="date" required></label>
+                    <label class="field" for="sBy"><span>ผู้สำรวจ</span>
+                        <input id="sBy" placeholder="ชื่อ - นามสกุล"></label>
+                </div>
+                <label class="field" for="sNote"><span>หมายเหตุ</span><input id="sNote"></label>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn" data-close="surveyModal">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary">บันทึก</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let companies = [];
+
+const show = id => document.getElementById(id).hidden = false;
+const hide = id => document.getElementById(id).hidden = true;
+document.querySelectorAll('[data-close]').forEach(b =>
+    b.addEventListener('click', () => hide(b.dataset.close)));
+
+async function api(url, opts) {
+    const r = await fetch(url, opts);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.detail?.[0]?.msg || body.detail || 'ทำรายการไม่สำเร็จ');
+    return body;
+}
+
+const thaiDate = iso => iso
+    ? new Date(iso + 'T00:00:00').toLocaleDateString('th-TH', {day: 'numeric', month: 'short', year: 'numeric'})
+    : '—';
+
+async function boot() {
+    companies = await api('/api/companies');
+    const opts = companies.map(c =>
+        `<option value="${c.id}">${esc(c.name)}${c.branch_name ? ' — ' + esc(c.branch_name) : ''}</option>`).join('');
+    document.getElementById('filterCompany').insertAdjacentHTML('beforeend', opts);
+    document.getElementById('sCompany').innerHTML = opts;
+    await load();
+}
+
+async function load() {
+    const cid = document.getElementById('filterCompany').value;
+    const surveys = await api('/api/surveys' + (cid ? '?company_id=' + cid : ''));
+    document.getElementById('count').textContent = surveys.length ? `ทั้งหมด ${surveys.length} รายการ` : '';
+    const rows = document.getElementById('rows');
+    if (!surveys.length) {
+        rows.innerHTML = `<tr><td colspan="6" class="muted" style="padding:28px;text-align:center;">
+            ${companies.length ? 'ยังไม่มีการสำรวจ — กด “บันทึกการสำรวจ” เพื่อเริ่ม'
+                               : 'ยังไม่มีสถานประกอบการ ต้องเพิ่มที่หน้า “ทะเบียนสถานประกอบการ” ก่อน'}
+        </td></tr>`;
+        return;
+    }
+    rows.innerHTML = surveys.map(s => `
+        <tr>
+            <td>${esc(s.company)}</td>
+            <td>${esc(s.branch_name) || '<span class="muted">สำนักงานใหญ่</span>'}</td>
+            <td>${thaiDate(s.survey_date)}</td>
+            <td>${esc(s.surveyed_by) || '<span class="muted">—</span>'}</td>
+            <td>${s.rounds}</td>
+            <td class="muted">${esc(s.note) || '—'}</td>
+        </tr>`).join('');
+}
+
+document.getElementById('filterCompany').addEventListener('change', load);
+document.getElementById('addBtn').addEventListener('click', () => {
+    if (!companies.length) { alert('ยังไม่มีสถานประกอบการ ต้องเพิ่มที่หน้า “ทะเบียนสถานประกอบการ” ก่อน'); return; }
+    document.getElementById('sDate').value = new Date().toISOString().slice(0, 10);
+    show('surveyModal');
+});
+
+document.getElementById('surveyForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+        await api('/api/surveys', {method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                company_id: Number(document.getElementById('sCompany').value),
+                survey_date: document.getElementById('sDate').value,
+                surveyed_by: document.getElementById('sBy').value || null,
+                note: document.getElementById('sNote').value || null})});
+        hide('surveyModal');
+        load();
+    } catch (err) { alert(err.message); }
+});
+
+boot();
+</script>
+{% endblock %}

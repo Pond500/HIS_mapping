@@ -246,6 +246,9 @@ td.row-actions .btn + .btn { margin-left: 6px; }
 /* ── งานที่ต้องตรวจ: the review cards, moved from the old page (D20) ── */
 .head-actions { display: flex; gap: 8px; }
 .pill { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--red); color: #fff; font-size: 12px; font-weight: 600; text-align: center; }
+/* .pill is the red count badge on the menu cards. A status that is good must not
+   wear the same colour as a warning, so it gets its own. */
+.pill-ok { background: var(--green); }
 .empty-mark { width: 46px; height: 46px; border-radius: 50%; background: #e7f4ec; color: var(--green); display: grid; place-items: center; font-size: 22px; margin: 0 auto 10px; }
 .review-file { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; }
 .review-file-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; background: var(--band); color: var(--navy-dark); font-weight: 600; }

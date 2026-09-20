@@ -29,7 +29,8 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(os.path.dirna
 MENU = [
     {"key": "registration", "label": "ขึ้นทะเบียนหน่วยบริการ", "href": "/registration", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "workplaces", "label": "ทะเบียนสถานประกอบการ", "href": "/workplaces", "roles": ("superadmin", "admin", "staff", "doctor")},
-    {"key": "walkthrough", "label": "รายงานผล WalkThroughSurvey", "href": "/walkthrough", "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "walkthrough", "label": "Walk Through Survey", "href": "/walkthrough", "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "rounds", "label": "รอบตรวจสุขภาพ", "href": "/rounds", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "health", "label": "รายงานผลตรวจสุขภาพกลุ่มเสี่ยง", "href": "/health-report", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "import", "label": "นำเข้าผลตรวจ (AI)", "href": "/import", "roles": ("superadmin", "admin", "staff")},
     {"key": "reviews", "label": "งานที่ต้องตรวจ", "href": "/reviews", "roles": ("superadmin", "admin", "staff")},
@@ -123,11 +124,35 @@ def workplaces_page(request: Request, response: Response, db: Session = Depends(
 
 @router.get("/walkthrough", response_class=HTMLResponse)
 def walkthrough_page(request: Request, response: Response, db: Session = Depends(get_db)):
-    """รายงานผล Walk Through Survey — mockup only, nothing is stored yet."""
+    """Walk Through Survey — the header is real (D23): a checkup round points at a
+    survey with a NOT NULL key, so results cannot exist without one. The risk
+    questionnaire itself is still the mockup, at /walkthrough-mock."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "walkthrough.html", _ctx(request, user, db, active="walkthrough"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/walkthrough-mock", response_class=HTMLResponse)
+def walkthrough_mock_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """The risk questionnaire from the manual — mockup only, nothing is stored."""
     user, redirect = _guard(request, response)
     if redirect:
         return redirect
     page = templates.TemplateResponse(request, "mock_walkthrough.html", _ctx(request, user, db, active="walkthrough"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/rounds", response_class=HTMLResponse)
+def rounds_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """รอบตรวจสุขภาพ: where the visit date comes from (D23)."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "rounds.html", _ctx(request, user, db, active="rounds"))
     page.headers.update(response.headers)
     return page
 

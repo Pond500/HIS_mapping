@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}รอบตรวจสุขภาพ — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<h1 class="page-title">รอบตรวจสุขภาพ</h1>
+<p class="page-sub">
+    รอบตรวจคือชุดการตรวจหนึ่งครั้งของสถานประกอบการหนึ่งแห่ง
+    <b>วันที่ตรวจของทุกคนมาจากวันนัดของรอบ</b> ไม่ได้มาจากคอลัมน์ในไฟล์
+    เพราะไฟล์ผลแล็บส่วนใหญ่ไม่มีวันที่มาด้วย ต้องมีรอบก่อนถึงจะนำเข้าผลตรวจได้
+</p>
+
+<div class="card" style="margin-top:20px;">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <select id="filterCompany" style="max-width:340px;"><option value="">ทุกสถานประกอบการ</option></select>
+        <button class="btn btn-primary" id="addBtn">สร้างรอบตรวจ +</button>
+    </div>
+    <div class="muted" id="count" style="margin-bottom:8px;"></div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>สถานประกอบการ</th><th>ประเภทการตรวจ</th><th>วันนัดตรวจ</th>
+                    <th>การสำรวจ</th><th>คนที่มีผล</th><th>ไฟล์</th><th>การรับรอง</th><th></th>
+                </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-back" id="roundModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>สร้างรอบตรวจ</span><button class="close" data-close="roundModal">×</button></div>
+        <form id="roundForm">
+            <div class="modal-body">
+                <label class="field" for="rCompany"><span>สถานประกอบการ <b class="req">*</b></span>
+                    <select id="rCompany" required></select></label>
+                <label class="field" for="rSurvey"><span>การสำรวจ Walk Through <b class="req">*</b></span>
+                    <select id="rSurvey" required></select>
+                    <span class="field-hint" id="surveyHint"></span></label>
+                <div class="form-row">
+                    <label class="field" for="rType"><span>ประเภทการตรวจ <b class="req">*</b></span>
+                        <select id="rType" required></select></label>
+                    <label class="field" for="rDate"><span>วันนัดตรวจ <b class="req">*</b></span>
+                        <input id="rDate" type="date" required></label>
+                </div>
+                <p class="muted" style="margin:4px 0 0;">
+                    วันนัดนี้จะกลายเป็นวันที่ตรวจของทุกคนในรอบ ถ้าไฟล์มีวันที่รายคนมาด้วย ระบบจะใช้วันที่ในไฟล์แทน
+                </p>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn" data-close="roundModal">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary">สร้างรอบ</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let companies = [], surveys = [], types = [];
+
+const show = id => document.getElementById(id).hidden = false;
+const hide = id => document.getElementById(id).hidden = true;
+document.querySelectorAll('[data-close]').forEach(b =>
+    b.addEventListener('click', () => hide(b.dataset.close)));
+
+async function api(url, opts) {
+    const r = await fetch(url, opts);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.detail?.[0]?.msg || body.detail || 'ทำรายการไม่สำเร็จ');
+    return body;
+}
+
+const thaiDate = iso => {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('th-TH', {day: 'numeric', month: 'short', year: 'numeric'});
+};
+
+async function boot() {
+    [companies, types] = await Promise.all([api('/api/companies'), api('/api/checkup-types')]);
+    const opts = companies.map(c =>
+        `<option value="${c.id}">${esc(c.name)}${c.branch_name ? ' — ' + esc(c.branch_name) : ''}</option>`).join('');
+    document.getElementById('filterCompany').insertAdjacentHTML('beforeend', opts);
+    document.getElementById('rCompany').innerHTML = opts;
+    document.getElementById('rType').innerHTML = types.map(t =>
+        `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+    await load();
+}
+
+async function load() {
+    const cid = document.getElementById('filterCompany').value;
+    const rounds = await api('/api/rounds' + (cid ? '?company_id=' + cid : ''));
+    document.getElementById('count').textContent = rounds.length ? `ทั้งหมด ${rounds.length} รอบ` : '';
+    const rows = document.getElementById('rows');
+    if (!rounds.length) {
+        rows.innerHTML = `<tr><td colspan="8" class="muted" style="padding:28px;text-align:center;">
+            ${companies.length ? 'ยังไม่มีรอบตรวจ — กด “สร้างรอบตรวจ” เพื่อเริ่ม'
+                               : 'ยังไม่มีสถานประกอบการ ต้องเพิ่มที่หน้า “ทะเบียนสถานประกอบการ” ก่อน'}
+        </td></tr>`;
+        return;
+    }
+    rows.innerHTML = rounds.map(r => `
+        <tr>
+            <td>${esc(r.company)}</td>
+            <td>${esc(r.checkup_type_name)}</td>
+            <td>${thaiDate(r.appoint_date)}</td>
+            <td class="muted">สำรวจ ${thaiDate(r.survey_date)}</td>
+            <td>${r.people}</td>
+            <td>${r.files}</td>
+            <td>${r.is_approved
+                    ? `<span class="pill pill-ok">รับรองแล้ว</span><div class="muted" style="font-size:12px;">โดย ${esc(r.approved_by)}</div>`
+                    : '<span class="muted">ยังไม่รับรอง</span>'}</td>
+            <td style="white-space:nowrap;">
+                <button class="btn btn-sm" data-approve="${r.id}" data-on="${r.is_approved ? 1 : 0}">
+                    ${r.is_approved ? 'ยกเลิกการรับรอง' : 'รับรองผลทั้งรอบ'}</button>
+            </td>
+        </tr>`).join('');
+    rows.querySelectorAll('[data-approve]').forEach(b => b.addEventListener('click', async () => {
+        try {
+            await api(`/api/rounds/${b.dataset.approve}/approve`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({approved: b.dataset.on !== '1'})});
+            load();
+        } catch (err) { alert(err.message); }
+    }));
+}
+
+async function loadSurveys() {
+    const cid = document.getElementById('rCompany').value;
+    surveys = cid ? await api('/api/surveys?company_id=' + cid) : [];
+    const sel = document.getElementById('rSurvey');
+    sel.innerHTML = surveys.map(s =>
+        `<option value="${s.id}">สำรวจเมื่อ ${thaiDate(s.survey_date)}${s.surveyed_by ? ' — ' + esc(s.surveyed_by) : ''}</option>`).join('');
+    // A round cannot exist without a survey; say so here rather than after a failed save.
+    document.getElementById('surveyHint').textContent = surveys.length
+        ? '' : 'สถานประกอบการนี้ยังไม่มีการสำรวจ Walk Through — ต้องบันทึกการสำรวจก่อนจึงจะสร้างรอบตรวจได้';
+    sel.disabled = !surveys.length;
+    document.querySelector('#roundForm button[type=submit]').disabled = !surveys.length;
+}
+
+document.getElementById('filterCompany').addEventListener('change', load);
+document.getElementById('rCompany').addEventListener('change', loadSurveys);
+document.getElementById('addBtn').addEventListener('click', async () => {
+    if (!companies.length) { alert('ยังไม่มีสถานประกอบการ ต้องเพิ่มที่หน้า “ทะเบียนสถานประกอบการ” ก่อน'); return; }
+    document.getElementById('rDate').value = new Date().toISOString().slice(0, 10);
+    await loadSurveys();
+    show('roundModal');
+});
+
+document.getElementById('roundForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+        await api('/api/rounds', {method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                survey_id: Number(document.getElementById('rSurvey').value),
+                checkup_type: Number(document.getElementById('rType').value),
+                appoint_date: document.getElementById('rDate').value})});
+        hide('roundModal');
+        load();
+    } catch (err) { alert(err.message); }
+});
+
+boot();
+</script>
+{% endblock %}
