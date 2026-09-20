@@ -601,7 +601,11 @@ class ReportSubmission(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     hospital_id: Mapped[int] = mapped_column(ForeignKey("hospitals.id"), index=True)
-    year: Mapped[int] = mapped_column(Integer, index=True)       # CE year of visit_date
+    # Since D23 a hand-over is one checkup round: that is the unit the department
+    # receives, and the unit its own tables are keyed by.
+    checkup_batch_id: Mapped[int | None] = mapped_column(
+        ForeignKey("employee_checkup_batches.id"), index=True)
+    year: Mapped[int] = mapped_column(Integer, index=True)       # CE year of the round
     people: Mapped[int] = mapped_column(Integer, default=0)
     summary: Mapped[dict] = mapped_column(JSON, default=dict)
     file_sha256: Mapped[str | None] = mapped_column(String(64))  # the export handed over

@@ -15,9 +15,7 @@
 </div>
 
 <div class="filter-row">
-    <select id="pickHospital" hidden></select>
-    <select id="pickYear"></select>
-    <select id="pickDept"><option value="">ทุกแผนก</option></select>
+    <select id="pickRound" style="max-width:520px;"></select>
     <span class="grow"></span>
     <span class="muted" id="scopeNote"></span>
 </div>
@@ -78,9 +76,9 @@
      */
     function pendingWarning() {
         const w = (DATA && DATA.open_work) || null;
-        if (!w || (!w.reviews_total && !w.conflicts && !w.people_without_name)) return '';
+        if (!w || (!w.reviews_total && !w.conflicts && !w.incomplete_registry)) return '';
         const bits = [];
-        if (w.people_without_name) bits.push(`<li><b>${w.people_without_name} คนยังไม่มีชื่อ</b> ในรอบนี้ — ไฟล์ที่ส่งจะมีช่องชื่อว่าง</li>`);
+        if (w.incomplete_registry) bits.push(`<li><b>${w.incomplete_registry} คนทะเบียนไม่ครบ</b> — ช่องที่กรมฯ บังคับ (เพศ ปีเกิด สัญชาติ อายุงาน ตำแหน่ง) จะว่างในไฟล์ที่ส่ง</li>`);
         for (const [kind, n] of Object.entries(w.reviews || {})) {
             bits.push(`<li>${esc(KIND_TH[kind] || kind)}: ${n} รายการ</li>`);
         }
@@ -93,39 +91,26 @@
         </div>`;
     }
 
+    const thaiDate = iso => iso
+        ? new Date(iso + 'T00:00:00').toLocaleDateString('th-TH', {day:'numeric', month:'short', year:'numeric'})
+        : '—';
+
     async function boot() {
         OPT = await api('/api/summary/options');
-        const hs = document.getElementById('pickHospital');
-        hs.hidden = !IS_SUPERADMIN;
-        hs.innerHTML = OPT.hospitals.map(h =>
-            `<option value="${esc(h.code)}">${esc(h.code)} — ${esc(h.name)} (${h.people} คน)</option>`).join('')
-            || '<option value="">ยังไม่มีหน่วยบริการที่มีข้อมูล</option>';
-        const ys = document.getElementById('pickYear');
-        ys.innerHTML = OPT.years.map(y =>
-            `<option value="${y.year}">รอบปี ${y.year + 543} (${y.people} คน)</option>`).join('')
-            || '<option value="">ยังไม่มีข้อมูล</option>';
-        [hs, ys, document.getElementById('pickDept')].forEach(el =>
-            el.addEventListener('change', (e) => load(e.target.id === 'pickDept')));
-        load(false);
+        const sel = document.getElementById('pickRound');
+        sel.innerHTML = OPT.rounds.map(r =>
+            `<option value="${r.id}">${esc(r.company)} · ${esc(r.checkup_type)} · นัด ${thaiDate(r.appoint_date)} (${r.people} คน)</option>`
+        ).join('') || '<option value="">ยังไม่มีรอบตรวจที่มีผล</option>';
+        sel.addEventListener('change', load);
+        load();
     }
 
-    async function load(keepDept) {
-        const hospital = document.getElementById('pickHospital').value;
-        const year = document.getElementById('pickYear').value;
-        const dept = keepDept ? document.getElementById('pickDept').value : '';
-        if (!year) { document.getElementById('content').innerHTML = empty(); return; }
-        const q = new URLSearchParams({ year });
-        if (hospital) q.set('hospital', hospital);
-        if (dept) q.set('department', dept);
-        DATA = await api('/api/summary?' + q);
-
-        if (!keepDept) {
-            const sel = document.getElementById('pickDept');
-            sel.innerHTML = '<option value="">ทุกแผนก</option>' + DATA.departments.map(d =>
-                `<option value="${esc(d.department)}">${esc(d.department)} (${d.people} คน)</option>`).join('');
-        }
+    async function load() {
+        const roundId = document.getElementById('pickRound').value;
+        if (!roundId) { document.getElementById('content').innerHTML = empty(); return; }
+        DATA = await api('/api/summary?round_id=' + roundId);
         document.getElementById('scopeNote').textContent =
-            `${esc(DATA.hospital.code)} · ${DATA.people.toLocaleString()} คนในรอบนี้`;
+            `${esc(DATA.hospital ? DATA.hospital.code : '')} · ${DATA.people.toLocaleString()} คนในรอบนี้`;
         render();
     }
 
@@ -221,8 +206,7 @@
     }
 
     async function loadHistory() {
-        const hospital = document.getElementById('pickHospital').value;
-        const rows = await api('/api/summary/submissions' + (hospital ? '?hospital=' + encodeURIComponent(hospital) : ''));
+        const rows = await api('/api/summary/submissions');
         document.getElementById('historyRows').innerHTML = rows.length ? rows.map(r => `<tr>
             <td>${r.year + 543}</td><td>${r.people.toLocaleString()}</td>
             <td>${esc(r.submitted_by)}</td>
@@ -235,8 +219,9 @@
         const d = DATA, c = d.completeness;
         document.getElementById('sendBody').innerHTML = `
             <div class="kv">
-                <div class="k">หน่วยบริการ</div><div class="v">${esc(d.hospital.code)} — ${esc(d.hospital.name)}</div>
-                <div class="k">รอบปี</div><div class="v">${d.year + 543}</div>
+                <div class="k">หน่วยบริการ</div><div class="v">${esc(d.hospital ? d.hospital.name : '—')}</div>
+                <div class="k">สถานประกอบการ</div><div class="v">${esc(d.round.company)}</div>
+                <div class="k">รอบตรวจ</div><div class="v">${esc(d.round.checkup_type)} · นัด ${thaiDate(d.round.appoint_date)}</div>
                 <div class="k">จำนวนคน</div><div class="v">${d.people.toLocaleString()} คน</div>
                 <div class="k">ผู้ส่ง</div><div class="v">{{ user.username }}</div>
             </div>
@@ -257,13 +242,12 @@
             await api('/api/summary/submit', {
                 method: 'POST',
                 body: JSON.stringify({
-                    hospital: document.getElementById('pickHospital').value || DATA.hospital.code,
-                    year: Number(document.getElementById('pickYear').value),
+                    round_id: Number(document.getElementById('pickRound').value),
                     note: (document.getElementById('sendNote').value || '').trim() || null,
                 }),
             });
             closeSend();
-            load(true);
+            load();
         } catch (e) {
             alert(e.message);
         }
