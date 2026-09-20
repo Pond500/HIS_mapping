@@ -45,7 +45,10 @@ for _col, _names in {
     "first_name": ["first_name", "firstname", "ชื่อ", "ชื่อจริง", "name"],
     "last_name": ["last_name", "lastname", "นามสกุล", "surname"],
     "title": ["title", "คำนำหน้า", "คำนำหน้าชื่อ"],
-    "department_id": ["department", "department_id", "แผนก", "ฝ่าย", "หน่วยงาน", "แผนกงาน"],
+    # "ชื่อแผนก" and "ID แผนก" both appear in the department's own register template,
+    # with the name filled in and the id column left empty.
+    "department_id": ["department", "department_id", "แผนก", "ฝ่าย", "หน่วยงาน", "แผนกงาน",
+                      "ชื่อแผนก", "id แผนก", "รหัสแผนก"],
     "gender": ["gender", "sex", "เพศ"],
     "birth_year": ["birth_year", "ปีเกิด", "ปีเกิด (พ.ศ.)", "พ.ศ. เกิด"],
     "nationality": ["nationality", "สัญชาติ"],

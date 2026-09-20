@@ -67,7 +67,9 @@ TEMPLATE_FIELDS: list[Field] = [
     _n("uric_acid", "metabolic", "mg/dL", 0.5, 20),
     _c("chest_xray", "xray"),
     _t("xray_comment", "xray"),
-    _t("profusion", "xray", 10),  # ILO scale e.g. "1/0" — text, not numeric
+    # ILO scale e.g. "1/0" — text, not numeric. 50, not 10: the department's own
+    # template writes "no profusion" in this column, which 10 could not hold.
+    _t("profusion", "xray", 50),
     _t("primary_lesion", "xray", 20),
     _t("secondary_lesion", "xray", 20),
     _n("rbc_che", "cholinesterase", "U/L", 1000, 20000, (12, 2)),
