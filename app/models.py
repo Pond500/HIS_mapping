@@ -54,6 +54,16 @@ class SourceFile(Base):
     # the API key that sent the file (D19); NULL when it came through the staff web page
     api_key_id: Mapped[int | None] = mapped_column(ForeignKey("api_keys.id"))
 
+    # Which field set the file is read against, "result" or "registry" (D23).
+    field_set: Mapped[str] = mapped_column(String(20), default="result")
+    # The round a results file belongs to. Chosen in the upload dialog before the
+    # file is picked, and it is where the visit date comes from — the department
+    # keeps the date on the round, not in the file (D23).
+    checkup_batch_id: Mapped[int | None] = mapped_column(ForeignKey("employee_checkup_batches.id"), index=True)
+    # The workplace a registry file belongs to. A results file gets its company
+    # through the round instead.
+    company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id"), index=True)
+
     def to_dict(self):
         s = self.stats or {}
         return {

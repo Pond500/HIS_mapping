@@ -26,7 +26,7 @@ async def lifespan(_app: FastAPI):
     # Checkpointer tables/indexes are created here, before any request can hold a
     # transaction open (setup() uses CREATE INDEX CONCURRENTLY, which waits for them).
     service.init()
-    api_v1.resume_unfinished()   # files whose background run died with the last process
+    # api_v1.resume_unfinished() — see the note on the mount below (D19-หนี้)
     yield
 
 
@@ -41,10 +41,19 @@ BASE_DIR = os.path.dirname(__file__)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 # the HTML pages themselves live in app/routes/pages.py
 
-# External API for hospital HIS systems (D19), with its own docs at /api/v1/docs. Mounted
-# before the internal routes so none of them can shadow it. Only /api/v1 may be exposed
-# to the internet (deploy/Caddyfile); everything else is the staff web page's API.
-app.mount("/api/v1", api_v1.api)
+# External API for hospital HIS systems (D19), with its own docs at /api/v1/docs.
+#
+# CLOSED while the schema moves to the department's shape (D19-หนี้). A results
+# file now only means something inside a checkup round, and the round — company,
+# survey, appointment date — is chosen by a person in the upload dialog. A HIS
+# posting bytes and a key cannot supply any of that, and D23 ruled out asking the
+# hospitals to change their side.
+#
+# The code stays. The agreed direction is to accept the file into a waiting state
+# and let a member of staff attach it to a round in the web page, which keeps the
+# promise made to the department without a change at the hospital end.
+#
+# app.mount("/api/v1", api_v1.api)
 
 # Routes (internal)
 app.include_router(accounts.router)

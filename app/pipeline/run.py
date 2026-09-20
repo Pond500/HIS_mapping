@@ -11,7 +11,9 @@ import os
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import AgentDecision, CommentLabel, Hospital, PendingReview, SourceFile
+from app.models import (
+    AgentDecision, CheckupBatch, CommentLabel, Hospital, PendingReview, SourceFile,
+)
 from app.pipeline.extract import extract
 from app.pipeline.mapper import Mapper
 from app.pipeline.profiler import file_title_date, profile_sheet
@@ -44,7 +46,11 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
         fdate = file_title_date(sheets)
         specs = [profile_sheet(s, mapper.known_labels(), mapper.identity_aliases(), fdate) for s in sheets]
         labels = {(c.column, c.text_norm): c.value for c in db.query(CommentLabel)}
-        ex = extract(sheets, specs, mapper, evidence, labels, comment_evidence)
+        # The round holds the date (D23). Passing it in is what lets a file with no
+        # date column be read at all — which is most of the department's own files.
+        batch = db.get(CheckupBatch, sf.checkup_batch_id) if sf.checkup_batch_id else None
+        round_date = batch.appoint_date.isoformat() if batch else None
+        ex = extract(sheets, specs, mapper, evidence, labels, comment_evidence, round_date)
         db.query(PendingReview).filter(PendingReview.source_file_id == sf.id,
                                        PendingReview.status == "open").delete()
         stored = save(db, sf, ex)

@@ -84,21 +84,31 @@ def observations(sheet: Sheet, spec: SheetSpec):
 
 def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
             evidence: dict | None = None, comment_labels: dict | None = None,
-            comment_evidence: dict | None = None) -> Extraction:
+            comment_evidence: dict | None = None, round_date: str | None = None) -> Extraction:
     """
     evidence:         {(label, unit): {...}} from the agents, attached to mapping reviews
     comment_labels:   {(category column, norm_comment(text)): 1|2} learned meanings of findings
     comment_evidence: {(category column, norm_comment(text)): {...}} attached to comment reviews
+    round_date:       the checkup round's appoint_date, ISO (D23). The department keeps
+                      the date on the round, so a file with no date column is normal
+                      rather than unreadable. A date written in the file still wins:
+                      this is only the fallback, and it is never guessed — it comes
+                      from what the person picked in the upload dialog.
     """
     ex = Extraction()
     id_headers = set()
     for spec in specs:
         for p in spec.problems:
             ex.reviews.append({"kind": "profile", "payload": {"sheet": spec.sheet, "problem": p}})
-        if spec.layout != "skip" and spec.missing_roles:
+        # A missing date column is not a problem when the round supplies one (D23):
+        # asking a reviewer to find a column that is not supposed to be there would
+        # be noise. Every other missing role still has to be answered.
+        missing = [r for r in spec.missing_roles
+                   if not (r == "visit_date" and round_date is not None)]
+        if spec.layout != "skip" and missing:
             ex.reviews.append({"kind": "identity", "payload": {
-                "sheet": spec.sheet, "missing": spec.missing_roles, "candidates": spec.candidates,
-                "reason": "หาคอลัมน์ " + ", ".join(ROLE_TH.get(r, r) for r in spec.missing_roles)
+                "sheet": spec.sheet, "missing": missing, "candidates": spec.candidates,
+                "reason": "หาคอลัมน์ " + ", ".join(ROLE_TH.get(r, r) for r in missing)
                           + " ไม่พบ — ช่วยเลือกคอลัมน์ที่ถูกต้อง"}})
             id_headers |= {c["header"] for c in spec.candidates}
 
@@ -106,7 +116,7 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
     resolutions: dict[tuple, Resolution] = {}
     obs_by_label = defaultdict(list)
     for sheet, spec in zip(sheets, specs):
-        if spec.layout == "skip" or "visit_date" in spec.missing_roles:
+        if spec.layout == "skip" or ("visit_date" in spec.missing_roles and round_date is None):
             continue   # no visit date yet: the sheet waits for its "identity" review, row by row noise helps no one
         for o in observations(sheet, spec):
             if o.label is None:
@@ -136,12 +146,16 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
                 review("cid", raw_cid=raw, sheet=o.sheet, cell=o.cell,
                        reason="เลขบัตรประชาชนไม่ถูกต้อง (checksum ไม่ผ่านหรือไม่ครบ 13 หลัก)")
             return None
-        try:
-            vd = N.parse_date(o.ident.get("visit_date")).isoformat()
-        except N.Unparseable as e:
-            review("value", cid=d, visit_date=None, column="visit_date", raw=N.text(o.ident.get("visit_date")),
-                   sheet=o.sheet, reason=str(e))
-            return None
+        raw_date = o.ident.get("visit_date")
+        if N.text(raw_date) is None and round_date is not None:
+            vd = round_date                      # the round's date, as picked in the dialog
+        else:
+            try:
+                vd = N.parse_date(raw_date).isoformat()
+            except N.Unparseable as e:
+                review("value", cid=d, visit_date=None, column="visit_date", raw=N.text(raw_date),
+                       sheet=o.sheet, reason=str(e))
+                return None
         person = {}
         try:
             if "full_name" in o.ident:
