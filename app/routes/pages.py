@@ -34,6 +34,7 @@ MENU = [
     {"key": "health", "label": "รายงานผลตรวจสุขภาพกลุ่มเสี่ยง", "href": "/health-report", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "registry", "label": "นำเข้าทะเบียนพนักงาน", "href": "/import-registry", "roles": ("superadmin", "admin", "staff")},
     {"key": "import", "label": "นำเข้าผลตรวจ (AI)", "href": "/import", "roles": ("superadmin", "admin", "staff")},
+    {"key": "manual", "label": "กรอกผลตรวจทีละคน", "href": "/manual-entry", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "reviews", "label": "งานที่ต้องตรวจ", "href": "/reviews", "roles": ("superadmin", "admin", "staff")},
     {"key": "people", "label": "ข้อมูลพนักงาน", "href": "/people", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "summary", "label": "ภาพรวมและส่งรายงาน", "href": "/summary", "roles": ("superadmin", "admin", "staff", "doctor")},
@@ -202,6 +203,19 @@ def reviews_page(request: Request, response: Response, db: Session = Depends(get
         return redirect
     page = templates.TemplateResponse(request, "import_reviews.html",
                                       _ctx(request, user, db, active="reviews"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/manual-entry", response_class=HTMLResponse)
+def manual_entry_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """กรอกผลตรวจทีละคน — the path the manual keeps for one person at a time, and
+    for correcting a typo (D23). Values are stored as typed; every change is logged."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "manual_entry.html",
+                                      _ctx(request, user, db, active="manual"))
     page.headers.update(response.headers)
     return page
 

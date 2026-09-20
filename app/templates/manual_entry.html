@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}กรอกผลตรวจทีละคน — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<div class="page-head-row">
+    <div>
+        <h1 class="page-title">กรอกผลตรวจทีละคน</h1>
+        <p class="page-sub">
+            สำหรับคนที่เดินมาตรวจคนเดียว หรือแก้ค่าที่พิมพ์ผิด
+            ค่าที่กรอกที่นี่จะถูกบันทึก<b>ตามที่พิมพ์</b> ไม่มีการแปลงหน่วย เพราะหน่วยที่เขียนกำกับแต่ละช่อง
+            คือหน่วยที่ระบบเก็บจริง และทุกการแก้จะบันทึกว่าใครแก้
+        </p>
+    </div>
+    <a class="btn" href="/">← กลับเมนูหลัก</a>
+</div>
+
+<div class="card">
+    <div class="form-row">
+        <label class="field" for="pickRound"><span>รอบตรวจ <b class="req">*</b></span>
+            <select id="pickRound"></select></label>
+        <label class="field" for="pickPerson"><span>พนักงาน <b class="req">*</b></span>
+            <select id="pickPerson"><option value="">— เลือกรอบก่อน —</option></select>
+            <small class="field-hint" id="personHint"></small></label>
+    </div>
+</div>
+
+<div id="formCard" class="card" hidden>
+    <div class="filter-row" style="margin-bottom:8px;">
+        <b id="whoLabel"></b>
+        <span class="grow"></span>
+        <span class="muted" id="saveNote"></span>
+        <button class="btn btn-primary" id="saveBtn">บันทึกผลตรวจ</button>
+    </div>
+    <div id="fields"></div>
+    <label class="field" for="commentBox" style="margin-top:16px;">
+        <span>หมายเหตุของการตรวจครั้งนี้</span>
+        <input id="commentBox" placeholder="เว้นว่างได้">
+    </label>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const GROUP_TH = {
+    toxicology: 'สารพิษ', cbc: 'ความสมบูรณ์ของเม็ดเลือด (CBC)', kidney: 'ไต', liver: 'ตับ',
+    metabolic: 'เมตาบอลิก', xray: 'เอกซเรย์ทรวงอก', cholinesterase: 'โคลีนเอสเตอเรส',
+    ekg: 'คลื่นไฟฟ้าหัวใจ', vitals: 'สัญญาณชีพ', spirometry: 'สมรรถภาพปอด',
+    hearing: 'การได้ยิน', vision: 'การมองเห็น',
+};
+let FIELDS = [], current = null;
+
+const thaiDate = iso => iso
+    ? new Date(iso + 'T00:00:00').toLocaleDateString('th-TH', {day:'numeric', month:'short', year:'numeric'})
+    : '';
+
+async function api(url, opts) {
+    const r = await fetch(url, opts);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.detail?.message || body.detail?.[0]?.msg || body.detail || 'ทำรายการไม่สำเร็จ');
+    return body;
+}
+
+async function boot() {
+    FIELDS = await api('/api/checkups/fields');
+    const rounds = await api('/api/rounds');
+    $('pickRound').innerHTML = rounds.length
+        ? '<option value="">— เลือกรอบตรวจ —</option>' + rounds.map(r =>
+            `<option value="${r.id}">${esc(r.company)} · ${esc(r.checkup_type_name)} · นัด ${thaiDate(r.appoint_date)}</option>`).join('')
+        : '<option value="">ยังไม่มีรอบตรวจ</option>';
+    $('pickRound').addEventListener('change', loadPeople);
+    $('pickPerson').addEventListener('change', loadPerson);
+    $('saveBtn').addEventListener('click', save);
+}
+
+async function loadPeople() {
+    $('formCard').hidden = true;
+    const rid = $('pickRound').value;
+    if (!rid) { $('pickPerson').innerHTML = '<option value="">— เลือกรอบก่อน —</option>'; return; }
+    const people = await api(`/api/rounds/${rid}/people`);
+    $('pickPerson').innerHTML = people.length
+        ? '<option value="">— เลือกพนักงาน —</option>' + people.map(p =>
+            `<option value="${p.employee_id}" data-checkup="${p.checkup_id || ''}">${esc(p.name)} · ${esc(p.department)}${p.checkup_id ? ' (มีผลแล้ว)' : ''}</option>`).join('')
+        : '<option value="">ยังไม่มีใครในทะเบียนของสถานประกอบการนี้</option>';
+    $('personHint').innerHTML = people.length
+        ? 'คนที่ขึ้น “มีผลแล้ว” จะเปิดค่าเดิมขึ้นมาให้แก้'
+        : 'ต้อง <a href="/import-registry">นำเข้าทะเบียนพนักงาน</a> ของสถานประกอบการนี้ก่อน';
+}
+
+async function loadPerson() {
+    const opt = $('pickPerson').selectedOptions[0];
+    if (!opt || !opt.value) { $('formCard').hidden = true; return; }
+    const checkupId = opt.dataset.checkup;
+    const existing = checkupId ? await api('/api/checkups/' + checkupId) : {};
+    current = {round_id: Number($('pickRound').value), employee_id: Number(opt.value)};
+    $('whoLabel').textContent = opt.textContent.replace(' (มีผลแล้ว)', '');
+    $('saveNote').textContent = checkupId ? 'กำลังแก้ผลที่มีอยู่' : 'ยังไม่มีผลของคนนี้ในรอบนี้';
+    $('commentBox').value = existing.comment || '';
+
+    const groups = {};
+    FIELDS.forEach(f => (groups[f.group] = groups[f.group] || []).push(f));
+    $('fields').innerHTML = Object.entries(groups).map(([g, fs]) => `
+        <div class="band">${esc(GROUP_TH[g] || g)}</div>
+        <div class="form-row">${fs.map(f => input(f, existing[f.column])).join('')}</div>`).join('');
+    $('formCard').hidden = false;
+}
+
+function input(f, value) {
+    const v = value == null ? '' : value;
+    if (f.kind === 'categorical') {
+        return `<label class="field"><span>${esc(f.header)}</span>
+            <select data-col="${esc(f.column)}">
+                <option value="">— ไม่ระบุ —</option>
+                <option value="0" ${v === 0 ? 'selected' : ''}>ปกติ</option>
+                <option value="1" ${v === 1 ? 'selected' : ''}>ผิดปกติ</option>
+            </select></label>`;
+    }
+    const unit = f.unit ? ` <span class="muted">(${esc(f.unit)})</span>` : '';
+    return `<label class="field"><span>${esc(f.header)}${unit}</span>
+        <input data-col="${esc(f.column)}" value="${esc(v)}"
+               ${f.kind === 'numeric' ? 'inputmode="decimal"' : ''}></label>`;
+}
+
+async function save() {
+    const values = {};
+    document.querySelectorAll('#fields [data-col]').forEach(el => {
+        values[el.dataset.col] = el.value === '' ? null : el.value;
+    });
+    $('saveBtn').disabled = true;
+    try {
+        const res = await api('/api/checkups', {
+            method: 'PUT', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({...current, values, comment: $('commentBox').value})});
+        $('saveNote').textContent = res.changed
+            ? `บันทึกแล้ว ${res.changed} ช่อง`
+            : 'ไม่มีอะไรเปลี่ยน';
+        await loadPeople();
+    } catch (e) { alert(e.message); }
+    $('saveBtn').disabled = false;
+}
+
+boot();
+</script>
+{% endblock %}

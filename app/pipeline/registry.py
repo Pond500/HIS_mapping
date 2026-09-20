@@ -93,18 +93,6 @@ def find_header_row(rows: list[list]) -> int | None:
     return None
 
 
-def _same_value(column: str, current, incoming) -> bool:
-    """Numeric fields are compared as numbers. Decimal("5.00") and 5 are the same
-    answer written two ways, and calling that a disagreement would send a reviewer
-    a question with no difference in it."""
-    if REGISTRY_BY_COLUMN[column].kind == "numeric":
-        try:
-            return abs(float(current) - float(incoming)) < 0.005
-        except (TypeError, ValueError):
-            pass
-    return str(current).strip() == str(incoming).strip()
-
-
 def _parse(column: str, raw):
     """-> (value, None) or (None, reason). Never guesses."""
     text = N.text(raw)
@@ -256,7 +244,7 @@ def import_registry(db: Session, sheets, hospital_id: int, company_id: int,
             if current is None:
                 setattr(person, col, value)
                 changed = True
-            elif not _same_value(col, current, value):
+            elif not N.same_value(REGISTRY_BY_COLUMN[col].kind, current, value):
                 # The stored value stands; the difference becomes a question (D13).
                 res.reviews.append({"kind": "value", "payload": {
                     "cid": cid, "column": col, "raw": str(value), "current": str(current),

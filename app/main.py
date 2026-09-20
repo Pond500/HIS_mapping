@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from app.graph import service
 from app.routes import (
     accounts, api_v1, conflicts, dashboard, mapping, pages, registration, reviews, summary,
-    rounds, workplaces,
+    manual, rounds, workplaces,
     upload, upload_legacy,
 )
 
@@ -68,6 +68,7 @@ app.include_router(conflicts.router)
 app.include_router(summary.router)
 app.include_router(workplaces.router)
 app.include_router(rounds.router)
+app.include_router(manual.router)
 
 
 # ---------------------------------------------------------------------------

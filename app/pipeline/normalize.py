@@ -250,3 +250,21 @@ def split_full_name(v) -> tuple[str | None, str | None]:
     first = parts[0] or None
     last = parts[1].strip() if len(parts) > 1 else None
     return _check_name(first), _check_name(last)
+
+
+def same_value(kind: str, a, b) -> bool:
+    """Is this the same answer, written two ways?
+
+    Numeric fields are compared as numbers. Decimal("14.20") and 14.2 are one
+    value, and treating them as different has bitten this project twice: once it
+    sent reviewers questions with no difference in them, and once it filled the
+    audit trail of manual edits with changes that never happened.
+    """
+    if a is None or b is None:
+        return a is None and b is None
+    if kind in ("numeric", "categorical"):
+        try:
+            return abs(float(a) - float(b)) < 0.005
+        except (TypeError, ValueError):
+            pass
+    return str(a).strip() == str(b).strip()
