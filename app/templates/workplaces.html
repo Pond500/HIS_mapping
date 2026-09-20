@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}ทะเบียนสถานประกอบการ — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<h1 class="page-title">ทะเบียนสถานประกอบการ</h1>
+<p class="page-sub">
+    สถานประกอบการและแผนกงานที่อยู่ข้างใน ทุกอย่างหลังจากนี้ผูกกับรายการในหน้านี้ —
+    การสำรวจ Walk Through, รอบตรวจ, ทะเบียนพนักงาน และผลตรวจ
+    ถ้ายังไม่มีสถานประกอบการ จะยังนำเข้าผลตรวจไม่ได้
+</p>
+
+<div class="card" style="margin-top:20px;">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <input id="search" placeholder="ค้นหาชื่อ, เลขนิติบุคคล หรือสาขา" style="max-width:320px;">
+        <button class="btn btn-primary" id="addBtn">เพิ่มสถานประกอบการ +</button>
+    </div>
+
+    <div class="muted" id="count" style="margin-bottom:8px;"></div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ชื่อสถานประกอบการ</th><th>สาขา</th><th>เลขนิติบุคคล</th>
+                    <th>ประเภทอุตสาหกรรม</th><th>แผนก</th><th>พนักงานในทะเบียน</th><th></th>
+                </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- เพิ่ม / แก้ไขสถานประกอบการ -->
+<div class="modal-back" id="coModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span id="coTitle">เพิ่มสถานประกอบการ</span><button class="close" data-close="coModal">×</button></div>
+        <form id="coForm">
+            <div class="modal-body">
+                <label class="field" for="coJuristic"><span>เลขนิติบุคคล 13 หลัก <b class="req">*</b></span>
+                    <input id="coJuristic" inputmode="numeric" maxlength="13" required placeholder="0105500000001"></label>
+                <label class="field" for="coName"><span>ชื่อสถานประกอบการ <b class="req">*</b></span>
+                    <input id="coName" required></label>
+                <label class="field" for="coBranch"><span>สาขา</span>
+                    <input id="coBranch" placeholder="เว้นว่างถ้าเป็นสำนักงานใหญ่"></label>
+                <label class="field" for="coAddress"><span>ที่อยู่</span>
+                    <input id="coAddress"></label>
+                <div class="form-row">
+                    <label class="field" for="coIndustry"><span>ประเภทอุตสาหกรรม</span>
+                        <input id="coIndustry" placeholder="เช่น ผลิตชิ้นส่วนโลหะ"></label>
+                    <label class="field" for="coIndustryCode"><span>รหัส TSIC</span>
+                        <input id="coIndustryCode"></label>
+                </div>
+                <label class="field" for="coHeadcount"><span>จำนวนลูกจ้างทั้งหมด</span>
+                    <input id="coHeadcount" inputmode="numeric"></label>
+                <p class="muted" style="margin:4px 0 0;">
+                    เลขนิติบุคคลกับสาขาใช้ร่วมกันซ้ำไม่ได้ เพราะเป็นคู่ที่กรมฯ ใช้ระบุสถานประกอบการ
+                </p>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn" data-close="coModal">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary">บันทึก</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- แผนกงาน -->
+<div class="modal-back" id="deptModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span id="deptTitle">แผนกงาน</span><button class="close" data-close="deptModal">×</button></div>
+        <div class="modal-body">
+            <p class="muted" style="margin-top:0;">
+                ชื่อแผนกที่ตั้งไว้ที่นี่คือชื่อที่ระบบใช้เทียบกับแผนกในไฟล์ที่นำเข้า
+                ถ้าไม่ตรงกัน ระบบจะถามก่อน ไม่เดาให้
+            </p>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>ชื่อแผนก</th><th>พนักงานในทะเบียน</th><th></th></tr></thead>
+                    <tbody id="deptRows"></tbody>
+                </table>
+            </div>
+            <form id="deptForm" style="display:flex;gap:8px;margin-top:14px;">
+                <input id="deptName" placeholder="ชื่อแผนกใหม่ เช่น ฝ่ายผลิต" style="flex:1;" required>
+                <button type="submit" class="btn btn-primary">เพิ่มแผนก</button>
+            </form>
+        </div>
+        <div class="modal-foot">
+            <button type="button" class="btn" data-close="deptModal">ปิด</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// esc() comes from base.html — every value out of the database goes through it (D16)
+let companies = [], editingId = null, deptCompany = null;
+
+const show = id => document.getElementById(id).hidden = false;
+const hide = id => document.getElementById(id).hidden = true;
+document.querySelectorAll('[data-close]').forEach(b =>
+    b.addEventListener('click', () => hide(b.dataset.close)));
+
+async function api(url, opts) {
+    const r = await fetch(url, opts);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.detail?.[0]?.msg || body.detail || 'ทำรายการไม่สำเร็จ');
+    return body;
+}
+
+async function load() {
+    const q = document.getElementById('search').value.trim();
+    companies = await api('/api/companies' + (q ? '?search=' + encodeURIComponent(q) : ''));
+    const rows = document.getElementById('rows');
+    document.getElementById('count').textContent =
+        companies.length ? `ทั้งหมด ${companies.length} แห่ง` : '';
+    if (!companies.length) {
+        rows.innerHTML = `<tr><td colspan="7" class="muted" style="padding:28px;text-align:center;">
+            ${q ? 'ไม่พบสถานประกอบการที่ค้นหา' : 'ยังไม่มีสถานประกอบการ — กด “เพิ่มสถานประกอบการ” เพื่อเริ่ม'}
+        </td></tr>`;
+        return;
+    }
+    rows.innerHTML = companies.map(c => `
+        <tr>
+            <td>${esc(c.name)}</td>
+            <td>${esc(c.branch_name) || '<span class="muted">สำนักงานใหญ่</span>'}</td>
+            <td>${esc(c.juristic_id)}</td>
+            <td>${esc(c.industry_group) || '<span class="muted">—</span>'}</td>
+            <td>${c.departments ? c.departments : '<span class="review-warn">ยังไม่มีแผนก</span>'}</td>
+            <td>${c.people}</td>
+            <td style="white-space:nowrap;">
+                <button class="btn btn-sm" data-dept="${c.id}">แผนก</button>
+                <button class="btn btn-sm" data-edit="${c.id}" style="margin-left:6px;">แก้ไข</button>
+            </td>
+        </tr>`).join('');
+    rows.querySelectorAll('[data-dept]').forEach(b =>
+        b.addEventListener('click', () => openDepartments(Number(b.dataset.dept))));
+    rows.querySelectorAll('[data-edit]').forEach(b =>
+        b.addEventListener('click', () => openCompany(Number(b.dataset.edit))));
+}
+
+function openCompany(id) {
+    editingId = id;
+    const c = id ? companies.find(x => x.id === id) : null;
+    document.getElementById('coTitle').textContent = c ? 'แก้ไขสถานประกอบการ' : 'เพิ่มสถานประกอบการ';
+    document.getElementById('coJuristic').value = c?.juristic_id || '';
+    document.getElementById('coJuristic').disabled = !!c;   // it is half the identity; changing it means a different workplace
+    document.getElementById('coName').value = c?.name || '';
+    document.getElementById('coBranch').value = c?.branch_name || '';
+    document.getElementById('coAddress').value = c?.address || '';
+    document.getElementById('coIndustry').value = c?.industry_group || '';
+    document.getElementById('coIndustryCode').value = c?.industry_group_code || '';
+    document.getElementById('coHeadcount').value = c?.employee_numbers ?? '';
+    show('coModal');
+}
+
+document.getElementById('addBtn').addEventListener('click', () => openCompany(null));
+document.getElementById('search').addEventListener('input', () => load());
+
+document.getElementById('coForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const headcount = document.getElementById('coHeadcount').value.trim();
+    const body = {
+        name: document.getElementById('coName').value,
+        branch_name: document.getElementById('coBranch').value,
+        address: document.getElementById('coAddress').value || null,
+        industry_group: document.getElementById('coIndustry').value || null,
+        industry_group_code: document.getElementById('coIndustryCode').value || null,
+        employee_numbers: headcount ? Number(headcount) : null,
+    };
+    try {
+        if (editingId) {
+            await api(`/api/companies/${editingId}`, {
+                method: 'PATCH', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)});
+        } else {
+            body.juristic_id = document.getElementById('coJuristic').value;
+            await api('/api/companies', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)});
+        }
+        hide('coModal');
+        load();
+    } catch (err) { alert(err.message); }
+});
+
+async function openDepartments(companyId) {
+    deptCompany = companyId;
+    const c = companies.find(x => x.id === companyId);
+    document.getElementById('deptTitle').textContent = 'แผนกงาน — ' + c.name;
+    document.getElementById('deptName').value = '';
+    await loadDepartments();
+    show('deptModal');
+}
+
+async function loadDepartments() {
+    const list = await api(`/api/companies/${deptCompany}/departments`);
+    const rows = document.getElementById('deptRows');
+    rows.innerHTML = list.length ? list.map(d => `
+        <tr>
+            <td>${esc(d.name)}</td>
+            <td>${d.people}</td>
+            <td style="text-align:right;">
+                <button class="btn btn-sm" data-del="${d.id}" ${d.people ? 'disabled title="มีพนักงานอยู่ในแผนกนี้"' : ''}>ลบ</button>
+            </td>
+        </tr>`).join('')
+        : `<tr><td colspan="3" class="muted" style="padding:20px;text-align:center;">ยังไม่มีแผนก</td></tr>`;
+    rows.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+        try {
+            await api(`/api/departments/${b.dataset.del}`, {method: 'DELETE'});
+            loadDepartments(); load();
+        } catch (err) { alert(err.message); }
+    }));
+}
+
+document.getElementById('deptForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+        await api(`/api/companies/${deptCompany}/departments`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: document.getElementById('deptName').value})});
+        document.getElementById('deptName').value = '';
+        loadDepartments(); load();
+    } catch (err) { alert(err.message); }
+});
+
+load();
+</script>
+{% endblock %}

@@ -28,6 +28,7 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(os.path.dirna
 
 MENU = [
     {"key": "registration", "label": "ขึ้นทะเบียนหน่วยบริการ", "href": "/registration", "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "workplaces", "label": "ทะเบียนสถานประกอบการ", "href": "/workplaces", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "walkthrough", "label": "รายงานผล WalkThroughSurvey", "href": "/walkthrough", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "health", "label": "รายงานผลตรวจสุขภาพกลุ่มเสี่ยง", "href": "/health-report", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "import", "label": "นำเข้าผลตรวจ (AI)", "href": "/import", "roles": ("superadmin", "admin", "staff")},
@@ -103,6 +104,19 @@ def registration_page(request: Request, response: Response, db: Session = Depend
     if redirect:
         return redirect
     page = templates.TemplateResponse(request, "registration.html", _ctx(request, user, db, active="registration"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/workplaces", response_class=HTMLResponse)
+def workplaces_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """ทะเบียนสถานประกอบการ: the workplaces and their departments (D23). Everything
+    downstream — surveys, rounds, the register, results — hangs off a row here."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "workplaces.html",
+                                      _ctx(request, user, db, active="workplaces"))
     page.headers.update(response.headers)
     return page
 
