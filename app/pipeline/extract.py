@@ -99,6 +99,11 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
     id_headers = set()
     for spec in specs:
         for p in spec.problems:
+            # Same reason as the missing-role filter below: when the round carries
+            # the date, a file without a date column is the normal case, not a
+            # problem to report (D23).
+            if round_date is not None and "วันที่ตรวจไม่พบ" in p:
+                continue
             ex.reviews.append({"kind": "profile", "payload": {"sheet": spec.sheet, "problem": p}})
         # A missing date column is not a problem when the round supplies one (D23):
         # asking a reviewer to find a column that is not supposed to be there would
@@ -169,11 +174,19 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
                    raw=N.text(o.ident.get("full_name") or o.ident.get("first_name")), sheet=o.sheet, reason=str(e))
         dept = N.text(o.ident.get("department_id")) if "department_id" in o.ident else None
         if dept:
-            code = dept if N.looks_like_code(dept) else mapper.dept_code(dept)
-            if code:
-                person["department_id"] = code
+            if round_date is not None:
+                # D23 superseded D18. A department is now a real row owned by the
+                # workplace, so the name is passed through as written and store.py
+                # matches it against that workplace's departments. Asking a reviewer
+                # for a "department code" here would be a question about a scheme
+                # that no longer exists.
+                person["department_id"] = dept
             else:
-                dept_pending[dept].add((d, vd))
+                code = dept if N.looks_like_code(dept) else mapper.dept_code(dept)
+                if code:
+                    person["department_id"] = code
+                else:
+                    dept_pending[dept].add((d, vd))
         return d, vd, person
 
     def put(key, person, col, value, o: Obs, res: Resolution):

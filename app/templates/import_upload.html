@@ -23,6 +23,15 @@
         {% endif %}
     </label>
 
+    <label class="field" for="roundPick">
+        <span>รอบตรวจที่ไฟล์นี้เป็นผลของ <b class="req">*</b></span>
+        <select id="roundPick"><option value="">— เลือกรอบตรวจ —</option></select>
+        <small class="field-hint" id="roundHint">
+            วันที่ตรวจของทุกคนมาจากวันนัดของรอบ ไฟล์ผลแล็บส่วนใหญ่ไม่มีวันที่มาด้วย
+            และคนในไฟล์ต้องอยู่ในทะเบียนพนักงานของสถานประกอบการนั้นแล้ว
+        </small>
+    </label>
+
     <div class="upload-zone" id="uploadZone">
         <div class="upload-icon" aria-hidden="true">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -65,6 +74,28 @@
     const zone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
     const pick = document.getElementById('hospitalPick');
+    const roundPick = document.getElementById('roundPick');
+
+    const thaiDate = iso => iso
+        ? new Date(iso + 'T00:00:00').toLocaleDateString('th-TH', {day:'numeric', month:'short', year:'numeric'})
+        : '';
+
+    // A results file only means something inside a round: that is where its date
+    // comes from and whose register its people are looked up in (D23).
+    api('/api/rounds').then(rounds => {
+        if (!rounds.length) {
+            document.getElementById('roundHint').innerHTML =
+                'ยังไม่มีรอบตรวจ — สร้างที่หน้า <a href="/rounds">รอบตรวจสุขภาพ</a> ก่อน ' +
+                '(และต้องมี <a href="/workplaces">สถานประกอบการ</a> กับ <a href="/walkthrough">การสำรวจ</a> ก่อนหน้านั้น)';
+            return;
+        }
+        for (const r of rounds) {
+            const o = document.createElement('option');
+            o.value = r.id;
+            o.textContent = `${r.company} · ${r.checkup_type_name} · นัด ${thaiDate(r.appoint_date)}`;
+            roundPick.appendChild(o);
+        }
+    }).catch(() => { /* the upload itself refuses without a round */ });
 
     if (IS_SUPERADMIN) {
         api('/api/hospitals').then(d => {
@@ -96,6 +127,11 @@
             showResult('error', 'รองรับเฉพาะไฟล์ .csv, .xlsx และ .xls');
             return;
         }
+        if (!roundPick.value) {
+            showResult('error', 'กรุณาเลือกรอบตรวจก่อน — วันที่ตรวจของทุกคนมาจากรอบ');
+            fileInput.value = '';
+            return;
+        }
         const progress = document.getElementById('progressSection');
         document.getElementById('resultCard').className = 'result-card';
         progress.className = 'progress-section visible';
@@ -104,6 +140,7 @@
 
         const form = new FormData();
         form.append('file', file);
+        form.append('round_id', roundPick.value);
         if (IS_SUPERADMIN) form.append('hospital', pick.value);
 
         try {
