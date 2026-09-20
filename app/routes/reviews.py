@@ -121,6 +121,10 @@ def _apply_people_decision(db: Session, sf: SourceFile, r: PendingReview, d: Dec
 
     if r.kind == "unregistered_person":
         dept_name = d.header or r.payload.get("department_in_file")
+        if not dept_name:
+            # A results file often carries no department. Saying which one is part
+            # of the answer, not a failure — the screen asks for it.
+            raise HTTPException(400, "ต้องเลือกแผนกที่จะเพิ่มคนนี้เข้าไปด้วย")
         dept = (db.query(Department)
                 .filter(Department.company_id == company_id, Department.name == dept_name).one_or_none())
         if dept is None:

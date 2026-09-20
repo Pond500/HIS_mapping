@@ -91,9 +91,13 @@ def save(db: Session, sf: SourceFile, ex) -> dict:
                 stats["unregistered"] += 1
                 name = " ".join(x for x in (row["person"].get("first_name"),
                                             row["person"].get("last_name")) if x)
+                # The workplace's departments travel with the question. A results
+                # file often has no department column at all, and without this the
+                # reviewer is asked to add someone with nowhere to put them.
                 ex.reviews.append({"kind": "unregistered_person", "payload": {
                     "cid": cid, "name_in_file": name or None,
                     "department_in_file": row["person"].get("department_id"),
+                    "known_departments": sorted(departments),
                     "values_waiting": len(row["cells"]),
                     "reason": "ไม่พบเลขบัตรนี้ในทะเบียนพนักงานของสถานประกอบการนี้ "
                               "— ผลตรวจของคนนี้ยังไม่ถูกบันทึก"}})
@@ -115,6 +119,7 @@ def save(db: Session, sf: SourceFile, ex) -> dict:
                         "cid": cid,
                         "department_in_register": db.get(Department, emp.department_pk).name,
                         "department_in_file": dept_in_file,
+                        "known_departments": sorted(departments),
                         "values_waiting": len(row["cells"]),
                         "reason": "แผนกในไฟล์ไม่ตรงกับทะเบียน — ย้ายแผนกจริง "
                                   "หรือไฟล์เขียนผิด ต้องให้คนตัดสิน"}})
