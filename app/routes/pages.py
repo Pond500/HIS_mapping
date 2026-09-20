@@ -26,18 +26,41 @@ from app.models import AppUser, Hospital
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"))
 
+# The main menu is the manual's, and only the manual's: three cards plus the
+# staff section (หน้าเมนูหลัก, p.4). Everything this project added lives inside
+# "รายงานผลตรวจสุขภาพกลุ่มเสี่ยง", which is where the manual itself puts searching
+# for a company, its checkup rounds, and uploading the employee and result files.
 MENU = [
     {"key": "registration", "label": "ขึ้นทะเบียนหน่วยบริการ", "href": "/registration", "roles": ("superadmin", "admin", "staff", "doctor")},
-    {"key": "workplaces", "label": "ทะเบียนสถานประกอบการ", "href": "/workplaces", "roles": ("superadmin", "admin", "staff", "doctor")},
-    {"key": "walkthrough", "label": "Walk Through Survey", "href": "/walkthrough", "roles": ("superadmin", "admin", "staff", "doctor")},
-    {"key": "rounds", "label": "รอบตรวจสุขภาพ", "href": "/rounds", "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "walkthrough", "label": "รายงานผล Walk Through Survey", "href": "/walkthrough", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "health", "label": "รายงานผลตรวจสุขภาพกลุ่มเสี่ยง", "href": "/health-report", "roles": ("superadmin", "admin", "staff", "doctor")},
-    {"key": "registry", "label": "นำเข้าทะเบียนพนักงาน", "href": "/import-registry", "roles": ("superadmin", "admin", "staff")},
-    {"key": "import", "label": "นำเข้าผลตรวจ (AI)", "href": "/import", "roles": ("superadmin", "admin", "staff")},
-    {"key": "manual", "label": "กรอกผลตรวจทีละคน", "href": "/manual-entry", "roles": ("superadmin", "admin", "staff", "doctor")},
-    {"key": "reviews", "label": "งานที่ต้องตรวจ", "href": "/reviews", "roles": ("superadmin", "admin", "staff")},
-    {"key": "people", "label": "ข้อมูลพนักงาน", "href": "/people", "roles": ("superadmin", "admin", "staff", "doctor")},
-    {"key": "summary", "label": "ภาพรวมและส่งรายงาน", "href": "/summary", "roles": ("superadmin", "admin", "staff", "doctor")},
+]
+
+#: The steps inside "รายงานผลตรวจสุขภาพกลุ่มเสี่ยง", in the order they have to happen.
+HEALTH_STEPS = [
+    {"key": "workplaces", "label": "ทะเบียนสถานประกอบการ", "href": "/workplaces",
+     "note": "สถานประกอบการและแผนกงาน ต้องมีก่อนทุกอย่าง",
+     "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "rounds", "label": "รอบตรวจสุขภาพ", "href": "/rounds",
+     "note": "รอบและวันนัดตรวจ เป็นที่มาของวันที่ตรวจทุกคน",
+     "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "registry", "label": "นำเข้าทะเบียนพนักงาน", "href": "/import-registry",
+     "note": "ไฟล์รายชื่อพนักงาน ต้องนำเข้าก่อนผลตรวจ",
+     "roles": ("superadmin", "admin", "staff")},
+    {"key": "import", "label": "นำเข้าผลตรวจ (AI)", "href": "/import",
+     "note": "ไฟล์ผลตรวจจาก HIS หน้าตาแบบไหนก็ได้",
+     "roles": ("superadmin", "admin", "staff")},
+    {"key": "manual", "label": "กรอกผลตรวจทีละคน", "href": "/manual-entry",
+     "note": "สำหรับคนเดียว หรือแก้ค่าที่พิมพ์ผิด",
+     "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "reviews", "label": "งานที่ต้องตรวจ", "href": "/reviews",
+     "note": "สิ่งที่ระบบไม่ยอมเดา รอให้คนตัดสิน",
+     "roles": ("superadmin", "admin", "staff")},
+    {"key": "people", "label": "ข้อมูลพนักงาน", "href": "/people",
+     "note": "ทะเบียนและผลตรวจรายคน", "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "summary", "label": "ภาพรวมและส่งรายงาน", "href": "/summary",
+     "note": "สรุปรายรอบ และสร้างไฟล์ส่งกรมฯ",
+     "roles": ("superadmin", "admin", "staff", "doctor")},
 ]
 STAFF_MENU = [
     {"key": "users", "label": "จัดการผู้ใช้งาน", "href": "/users", "roles": ("superadmin", "admin")},
@@ -49,6 +72,7 @@ def _ctx(request: Request, user: AppUser, db: Session, **extra) -> dict:
     return {"request": request, "user": user, "role_th": auth.ROLE_TH.get(user.role, user.role),
             "hospital": hospital.name if hospital else "ส่วนกลาง",
             "menu": [m for m in MENU if user.role in m["roles"]],
+            "health_steps": [m for m in HEALTH_STEPS if user.role in m["roles"]],
             "staff_menu": [m for m in STAFF_MENU if user.role in m["roles"]], **extra}
 
 
@@ -161,7 +185,19 @@ def rounds_page(request: Request, response: Response, db: Session = Depends(get_
 
 @router.get("/health-report", response_class=HTMLResponse)
 def health_report_page(request: Request, response: Response, db: Session = Depends(get_db)):
-    """รายงานผลตรวจสุขภาพกลุ่มเสี่ยง — mockup only, nothing is stored yet."""
+    """รายงานผลตรวจสุขภาพกลุ่มเสี่ยง — the hub the manual puts this flow under."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "health_report.html",
+                                      _ctx(request, user, db, active="health"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/health-report-mock", response_class=HTMLResponse)
+def health_report_mock_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """The department's own risk-group report screen — mockup only."""
     user, redirect = _guard(request, response)
     if redirect:
         return redirect

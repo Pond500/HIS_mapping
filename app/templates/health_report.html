@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}รายงานผลตรวจสุขภาพกลุ่มเสี่ยง — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<div class="page-head-row">
+    <div>
+        <h1 class="page-title">รายงานผลตรวจสุขภาพกลุ่มเสี่ยง</h1>
+        <p class="page-sub">
+            ตั้งแต่ทะเบียนสถานประกอบการ จนถึงไฟล์ที่ส่งเข้ากรมฯ
+            ลำดับด้านล่างคือลำดับที่ต้องทำ ข้ามขั้นไม่ได้ เพราะแต่ละขั้นเป็นของที่ขั้นถัดไปต้องใช้
+        </p>
+    </div>
+    <a class="btn" href="/">← เมนูหลัก</a>
+</div>
+
+<div class="menu-grid" style="margin-top:20px;">
+    {% for step in health_steps %}
+    <a class="menu-card step-card" href="{{ step.href }}">
+        <span class="menu-icon">{{ loop.index }}</span>
+        <span>
+            <b>{{ step.label }}</b>
+            <span class="muted step-note">{{ step.note }}</span>
+            {% if step.key == 'reviews' %}<span class="pill" id="reviewPill" hidden></span>{% endif %}
+        </span>
+    </a>
+    {% endfor %}
+</div>
+
+<div class="card" style="margin-top:20px;">
+    <h2 style="margin-top:0;font-size:16px;">หน้าตัวอย่างตามคู่มือ</h2>
+    <p class="muted" style="margin-bottom:12px;">
+        หน้ารายงานกลุ่มเสี่ยงแบบที่คู่มือแสดง (กราฟตามปัจจัยเสี่ยงและระดับความเสี่ยง)
+        <b>ยังเป็นตัวอย่างหน้าจอ ไม่ได้ต่อฐานข้อมูล</b> — ปัจจัยเสี่ยงมาจากแบบสอบถาม Walk Through
+        ซึ่งยังเป็นม็อกอัปเช่นกัน กราฟที่วาดจากข้อมูลที่เราไม่มีจะเป็นการเดาที่ดูเหมือนข้อเท็จจริง
+    </p>
+    <a class="btn" href="/health-report-mock">เปิดตัวอย่างหน้าจอ</a>
+</div>
+
+<script>
+    // The one number worth showing on a hub: how much is waiting for a person.
+    fetch('/api/reviews?status=open&limit=5000')
+        .then(r => r.ok ? r.json() : [])
+        .then(rows => {
+            const pill = document.getElementById('reviewPill');
+            if (!pill || !Array.isArray(rows) || !rows.length) return;
+            pill.textContent = rows.length;
+            pill.hidden = false;
+        })
+        .catch(() => { /* a hub that cannot count is still a hub */ });
+</script>
+{% endblock %}

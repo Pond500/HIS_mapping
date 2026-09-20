@@ -319,3 +319,11 @@ tr.clickable { cursor: pointer; }
 /* A group heading inside the person modal: quieter than .band, because each
    round already has one and repeating it at full weight drowns the values. */
 .kv-head { margin: 14px 0 6px; font-size: 12.5px; font-weight: 600; }
+
+/* Steps inside รายงานผลตรวจสุขภาพกลุ่มเสี่ยง: the card carries a number and a
+   line saying what the step is for, so the order is readable without the manual. */
+.step-card { align-items: flex-start; }
+.step-card .menu-icon { font-weight: 700; font-size: 15px; }
+.step-card b { display: block; }
+.step-note { display: block; font-size: 12.5px; line-height: 1.5; margin-top: 2px; }
+.step-card .pill { margin-top: 6px; }
