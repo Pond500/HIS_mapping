@@ -5,30 +5,68 @@
 <div class="page-head-row">
     <div>
         <h1 class="page-title">งานที่ต้องตรวจ</h1>
-        <p class="page-sub">ระบบบันทึกเฉพาะค่าที่แน่ใจแล้ว รายการในหน้านี้ยังไม่เข้าระบบจนกว่าคุณจะยืนยัน
-            ถ้าไม่แน่ใจ เลือก “ข้ามไว้ก่อน” ได้เสมอ รายการจะรออยู่ที่นี่</p>
+        <p class="page-sub">ระบบถามทีละข้อ ตอบแล้วไปข้อถัดไป ข้ามไว้ก่อนได้เสมอ
+            ข้อที่ข้ามจะรออยู่ที่นี่ ไม่หายไปไหน</p>
     </div>
     <div class="head-actions">
-        <a class="btn" href="/import">← นำเข้าผลตรวจ</a>
-        <a class="btn" href="/">เมนูหลัก</a>
+        <a class="btn" href="/health-report">← กลับหน้ารวม</a>
     </div>
 </div>
 
 <div class="tabs" id="tabs">
-    <button class="tab on" data-pane="reviews">รอตรวจ <span class="pill" id="reviewCount" hidden></span></button>
+    <button class="tab on" data-pane="reviews">คำถามรอตอบ <span class="pill" id="reviewCount" hidden></span></button>
     <button class="tab" data-pane="conflicts">ข้อมูลขัดแย้ง <span class="pill" id="conflictCount" hidden></span></button>
 </div>
 
 <section id="pane-reviews">
-    <div class="filter-row" id="filterRow" hidden>
-        <input id="filterText" placeholder="ค้นหาชื่อในไฟล์ เช่น Hb, CXR, ฝ่ายผลิต">
-        <label class="check"><input type="checkbox" id="onlyUndecided"> แสดงเฉพาะที่ยังไม่ตัดสิน</label>
+    <div id="wizard" hidden>
+        <div class="wiz-bar">
+            <div class="wiz-progress"><div class="wiz-progress-fill" id="wizFill"></div></div>
+            <div class="wiz-count muted" id="wizCount"></div>
+        </div>
+
+        <div class="card wiz-card">
+            <div class="wiz-source muted" id="wizSource"></div>
+            <h2 class="wiz-q" id="wizTitle"></h2>
+            <div class="wiz-why" id="wizWhy"></div>
+            <div class="wiz-body" id="wizBody"></div>
+            <div class="wiz-answer" id="wizAnswer"></div>
+            <div class="wiz-foot">
+                <button class="btn" id="wizBack">← ย้อนกลับ</button>
+                <span class="grow"></span>
+                <button class="btn" id="wizSkip">ข้ามไว้ก่อน</button>
+                <button class="btn btn-primary" id="wizNext">ตอบข้อนี้ →</button>
+            </div>
+        </div>
+
+        <details class="card wiz-detail" id="wizEvidence" hidden>
+            <summary>ดูหลักฐานทั้งหมดของข้อนี้</summary>
+            <div id="wizEvidenceBody"></div>
+        </details>
     </div>
-    <div id="capNote" class="review-warn" hidden></div>
-    <div id="reviewList"></div>
+
+    <div id="wizDone" class="card center" hidden>
+        <div class="empty-mark">✓</div>
+        <div id="wizDoneTitle" style="font-size:17px;font-weight:600;"></div>
+        <div class="muted" id="wizDoneNote" style="margin:6px 0 16px;"></div>
+        <div id="wizDoneList" class="wiz-summary"></div>
+        <div style="margin-top:18px;">
+            <button class="btn" id="wizRestart">ดูคำถามอีกครั้ง</button>
+            <button class="btn btn-primary" id="wizSave">บันทึกคำตอบทั้งหมด</button>
+        </div>
+    </div>
+
+    <div id="skippedBox" class="card" hidden>
+        <h2 style="margin-top:0;font-size:16px;">สิ่งที่ตอบจากหน้านี้ไม่ได้</h2>
+        <p class="muted" style="margin-bottom:10px;">
+            รายการเหล่านี้ไม่มีคำถามให้ตอบ เพราะต้องแก้ที่ต้นทาง แล้วนำเข้าไฟล์ใหม่
+        </p>
+        <div id="skippedList"></div>
+    </div>
+
     <div id="reviewEmpty" class="card center" hidden>
         <div class="empty-mark">✓</div>
-        <div>ไม่มีรายการรอตรวจ</div>
+        <div>ไม่มีคำถามรอตอบ</div>
         <div class="muted">ทุกค่าที่นำเข้ามาแล้วถูกบันทึกหรือถูกตัดสินไปหมดแล้ว</div>
     </div>
 </section>
@@ -45,446 +83,424 @@
 
 {% block scripts %}
 <script>
-    /* ══════════════════════════════════════════════════════════════════
-     * One row per decision, evidence one click away.
-     *
-     * The decision logic is the same as the old page, deliberately: a row with
-     * no AI proposal offers no "accept" and starts at "skip", the column picker
-     * appears only when someone asks for it, and saving refuses while a row set
-     * to "choose a column" has none. The measured precision rests on that.
-     *
-     * There is no "accept everything the AI proposed" button. Everything on this
-     * page is here BECAUSE the system could not decide it alone; a bulk accept
-     * would turn the review into a rubber stamp.
-     * ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+ * One question at a time.
+ *
+ * The decision rules are the same as the table this replaces, deliberately: a
+ * question with no AI proposal offers no "accept", nothing is preselected,
+ * the column picker appears only when someone asks for it, and a question left
+ * blank saves nothing. The measured precision rests on those rules, not on the
+ * layout.
+ *
+ * There is no "accept everything" button. Every question here exists BECAUSE
+ * the system could not decide it alone.
+ *
+ * Things that cannot be answered from this screen — an invalid citizen id, a
+ * sheet that could not be read — are not dressed up as questions with no usable
+ * answer. They are listed at the end, saying where they can actually be fixed.
+ * ══════════════════════════════════════════════════════════════════════ */
 
-    let templateColumns = null;
-    const ACTIONS = [
-        ['approve', 'ยอมรับตามที่ AI เสนอ'],
-        ['set', 'เลือกคอลัมน์เอง'],
-        ['extra', 'ผลตรวจนอก template (เก็บแยก)'],
-        ['ignore', 'ไม่ใช่ผลตรวจ (ไม่ต้องเก็บ)'],
-        ['skip', 'ข้ามไว้ก่อน'],
-    ];
-    const KIND_LABEL = { value: 'ค่าที่อ่านไม่ได้หรือผิดปกติ', cid: 'เลขบัตรประชาชนไม่ถูกต้อง',
-                         comment: 'มีแต่ข้อความผลตรวจ', profile: 'อ่านโครงสร้างไฟล์ไม่ได้' };
-    const ROLE_TH = { first_name: 'ชื่อ', last_name: 'นามสกุล', full_name: 'ชื่อ-สกุล',
-                      department_id: 'แผนก', visit_date: 'วันที่ตรวจ' };
-    const TITLE_DATE = '__report_title_date__';
+const ANSWERABLE = ['mapping', 'identity', 'comment', 'department',
+                    'unregistered_person', 'department_change'];
+const KIND_LABEL = {cid: 'เลขบัตรประชาชนไม่ถูกต้อง', profile: 'อ่านโครงไฟล์ไม่ออก',
+                    value: 'ค่าที่อ่านไม่ได้'};
+const ROLE_TH = {first_name: 'ชื่อ', last_name: 'นามสกุล', full_name: 'ชื่อ-สกุล',
+                 department_id: 'แผนก', visit_date: 'วันที่ตรวจ', cid: 'เลขบัตรประชาชน'};
+const TITLE_DATE = '__report_title_date__';
 
-    document.querySelectorAll('#tabs .tab').forEach(t => t.addEventListener('click', () => {
-        document.querySelectorAll('#tabs .tab').forEach(x => x.classList.toggle('on', x === t));
-        document.getElementById('pane-reviews').hidden = t.dataset.pane !== 'reviews';
-        document.getElementById('pane-conflicts').hidden = t.dataset.pane !== 'conflicts';
-    }));
+let QUESTIONS = [], SKIPPED = [], FILES = {}, templateColumns = [];
+let idx = 0;
+const answers = {};                       // key(q) -> decision (absent = unanswered)
+const $ = id => document.getElementById(id);
+const key = q => q.kind === 'identity' ? `${q.id}:${q.role}` : String(q.id);
 
-    function formatDate(iso) {
-        if (!iso) return '—';
-        const d = new Date(iso);
-        return isNaN(d) ? esc(iso) : d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
-    }
+async function load() {
+    const [reviews, columns, files] = await Promise.all([
+        api('/api/reviews?status=open&limit=5000'),
+        templateColumns.length ? templateColumns : api('/api/template/columns'),
+        api('/api/upload-logs'),
+    ]);
+    templateColumns = columns;
+    FILES = Object.fromEntries(files.map(f => [String(f.id), f]));
 
-    function setReviewCount(n) {
-        const pill = document.getElementById('reviewCount');
-        pill.textContent = n;
-        pill.hidden = n === 0;
-    }
-
-    // ── รอตรวจ ──────────────────────────────────────────────────────
-
-    async function loadReviews() {
-        if (!templateColumns) templateColumns = await fetch('/api/template/columns').then(r => r.json());
-        // ask for a cap we choose, and say so when we hit it: an item waiting for a
-        // human that never reaches the screen waits forever, and nobody finds out
-        const CAP = 5000;
-        const items = await fetch(`/api/reviews?status=open&limit=${CAP}`).then(r => r.json());
-        const capped = items.length >= CAP;
-        const note = document.getElementById('capNote');
-        note.hidden = !capped;
-        if (capped) note.textContent =
-            `แสดง ${CAP} รายการแรกเท่านั้น ยังมีรายการที่รอการตัดสินอยู่อีก จัดการรายการในหน้านี้ให้เสร็จแล้วเปิดใหม่เพื่อดูส่วนที่เหลือ`;
-        document.getElementById('reviewEmpty').hidden = items.length > 0;
-        document.getElementById('filterRow').hidden = items.length === 0;
-        const byFile = {};
-        items.forEach(r => (byFile[r.source_file_id] = byFile[r.source_file_id] || []).push(r));
-        document.getElementById('reviewList').innerHTML =
-            Object.entries(byFile).map(([fid, rs]) => fileBlock(fid, rs)).join('');
-        setReviewCount(document.querySelectorAll('#reviewList tr.dec').length);
-        refreshProgress();
-        applyFilter();
-    }
-
-    function fileBlock(fid, rs) {
-        const maps = rs.filter(r => r.kind === 'mapping');
-        const ids = rs.filter(r => r.kind === 'identity');
-        const depts = rs.filter(r => r.kind === 'department');
-        // D23: the two questions about people rather than about labels
-        const strangers = rs.filter(r => r.kind === 'unregistered_person');
-        const moved = rs.filter(r => r.kind === 'department_change');
-        // one row per distinct finding text: the answer applies to every row with that text
-        const cmtGroups = {};
-        rs.filter(r => r.kind === 'comment').forEach(r => {
+    const groups = {};
+    QUESTIONS = []; SKIPPED = [];
+    for (const r of reviews) {
+        if (!ANSWERABLE.includes(r.kind)) { SKIPPED.push(r); continue; }
+        if (r.kind === 'comment') {
+            // one question per finding text: the answer applies to everyone who has it
             const k = r.payload.column + '|' + String(r.payload.text || '').trim().toLowerCase();
-            (cmtGroups[k] = cmtGroups[k] || []).push(r);
-        });
-        const cmts = Object.values(cmtGroups);
-        const others = rs.filter(r => !['mapping', 'identity', 'comment', 'department', 'unregistered_person', 'department_change'].includes(r.kind));
-        const counts = {};
-        others.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
-
-        const rows = [
-            ...strangers.map(strangerRow),
-            ...moved.map(movedRow),
-            ...ids.flatMap(identityRows),
-            ...depts.map(deptRow),
-            ...maps.map(mappingRow),
-            ...cmts.map(commentRow),
-        ].join('');
-        // n drives both the progress line and whether the save button exists at all,
-        // so every kind that produces a decidable row has to be counted here.
-        const n = ids.reduce((s, r) => s + (r.payload.missing || []).length, 0)
-                + depts.length + maps.length + cmts.length + strangers.length + moved.length;
-
-        return `<div class="review-file" data-file="${Number(fid)}">
-            <div class="review-file-head">
-                <span>ไฟล์ #${esc(fid)}</span>
-                <span class="progress-line"><span class="done-count">0</span> จาก ${n} เรื่องที่ตัดสินแล้ว</span>
-            </div>
-            <div class="table-wrap dec-wrap"><table class="dec-table">
-                <thead><tr>
-                    <th style="width:1%"></th><th>เรื่องที่ต้องตัดสิน</th><th>ค่าตัวอย่างในไฟล์</th>
-                    <th>AI ว่าอย่างไร</th><th style="width:1%">การตัดสินใจ</th>
-                </tr></thead>
-                <tbody>${rows}</tbody>
-            </table></div>
-            ${Object.entries(counts).map(([k, m]) => `<div class="review-other">${esc(KIND_LABEL[k] || k)}: ${m} รายการ</div>`).join('')}
-            ${n ? `<div class="review-foot">
-                <span class="muted" id="foot-${Number(fid)}"></span>
-                <button class="btn btn-primary" onclick="submitDecisions(${Number(fid)})">บันทึกการตัดสินใจ</button>
-            </div>` : ''}
-        </div>`;
+            if (groups[k]) { groups[k].group.push(r); continue; }
+            groups[k] = Object.assign({}, r, {group: [r]});
+            QUESTIONS.push(groups[k]);
+        } else if (r.kind === 'identity') {
+            for (const role of (r.payload.missing || [])) QUESTIONS.push(Object.assign({}, r, {role}));
+        } else {
+            QUESTIONS.push(r);
+        }
     }
+    // people first: each one blocks whole rows of results
+    const order = {unregistered_person: 0, department_change: 1, identity: 2,
+                   department: 3, mapping: 4, comment: 5};
+    QUESTIONS.sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9));
 
-    function caret(hasDetail) {
-        return hasDetail ? `<td class="caret" onclick="toggleDetail(this)" title="ดูหลักฐานเต็ม">▸</td>` : '<td></td>';
-    }
+    const pill = $('reviewCount');
+    pill.textContent = QUESTIONS.length; pill.hidden = !QUESTIONS.length;
+    $('reviewEmpty').hidden = QUESTIONS.length > 0 || SKIPPED.length > 0;
+    renderSkipped();
+    idx = 0;
+    if (QUESTIONS.length) { $('wizDone').hidden = true; show(); } else finish();
+}
 
-    function toggleDetail(td) {
-        const row = td.closest('tr');
-        const detail = row.nextElementSibling;
-        const open = detail.hasAttribute('hidden');
-        if (open) detail.removeAttribute('hidden'); else detail.setAttribute('hidden', '');
-        td.textContent = open ? '▾' : '▸';
-    }
+function renderSkipped() {
+    $('skippedBox').hidden = !SKIPPED.length;
+    if (!SKIPPED.length) return;
+    const byKind = {};
+    SKIPPED.forEach(r => (byKind[r.kind] = byKind[r.kind] || []).push(r));
+    $('skippedList').innerHTML = Object.entries(byKind).map(([kind, rows]) => {
+        const where = kind === 'cid'
+            ? 'แก้เลขบัตรในไฟล์ต้นฉบับให้ถูกต้อง แล้วนำเข้าไฟล์ใหม่'
+            : 'แก้ที่ไฟล์ต้นฉบับ แล้วนำเข้าใหม่';
+        const ex = rows.slice(0, 6).map(r =>
+            `<code>${esc(r.payload.raw_cid || r.payload.raw || r.payload.problem || '')}</code>`).join(' ');
+        return `<div class="skip-row">
+            <div><b>${esc(KIND_LABEL[kind] || kind)}</b> · ${rows.length} รายการ
+                 <div class="muted">${ex}${rows.length > 6 ? ' …' : ''}</div></div>
+            <div class="muted">${esc(where)}</div></div>`;
+    }).join('');
+}
 
-    function samples(list, max) {
-        const s = (list || []).slice(0, max).map(x => `<code>${esc(x)}</code>`).join('');
-        return s || '<span class="muted">—</span>';
-    }
+const samples = (list, max) =>
+    (list || []).slice(0, max).map(x => `<code>${esc(x)}</code>`).join(' ') || '<span class="muted">—</span>';
 
-    function mappingRow(r) {
-        const p = r.payload, prop = p.proposal || {}, ver = p.verification || {};
-        const hasProp = prop.target && prop.target !== '__unknown__';
-        const actions = ACTIONS.filter(([a]) => a !== 'approve' || hasProp);
-        const first = hasProp ? 'approve' : 'skip';   // never preselect a column nobody proposed
-        const agree = ver.verdict
-            ? (ver.agrees ? '<span class="tag ok">AI ตรงกัน</span>'
-               : ver.verdict === 'wrong' ? '<span class="tag bad">AI ไม่ตรงกัน</span>'
-               : '<span class="tag warn">AI ไม่แน่ใจ</span>')
-            : '';
-        const range = prop.range_ok === true ? '<span class="tag ok">ค่าอยู่ในช่วง</span>'
-            : prop.range_note ? `<span class="tag warn">${esc(prop.range_note)}</span>` : '';
-        const colOptions = templateColumns.map(c =>
-            `<option value="${esc(c.column)}" ${c.column === (prop.target || p.suggestion) ? 'selected' : ''}>${esc(c.column)} — ${esc(c.desc)}</option>`).join('');
+function show() {
+    const q = QUESTIONS[idx];
+    $('wizard').hidden = false;
+    $('wizDone').hidden = true;
 
-        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="mapping" data-text="${esc(p.label)}">
-            ${caret(true)}
-            <td><b>${esc(p.label)}</b>${p.unit ? `<div class="muted">หน่วยในไฟล์ ${esc(p.unit)}</div>` : ''}
-                ${p.maybe_identity ? '<div class="tag warn">อาจเป็นชื่อหรือแผนก</div>' : ''}</td>
-            <td class="samples">${samples(p.samples, 4)}<div class="muted">${Number(p.count || 0)} ค่า</div></td>
-            <td>${hasProp ? `<b>${esc(prop.target)}</b>${prop.unit ? ' (' + esc(prop.unit) + ')' : ''}
-                    <div class="chips">${agree}${range}</div>`
-                : '<span class="muted">ไม่ได้เสนอ</span>'}</td>
-            <td class="decide">
-                <select class="act" onchange="onAct(this)">
-                    ${actions.map(([a, t]) => `<option value="${a}" ${a === first ? 'selected' : ''}>${t}</option>`).join('')}</select>
-                <select class="target set-only">${prop.target || p.suggestion ? '' : '<option value="" selected>— เลือกคอลัมน์ —</option>'}${colOptions}</select>
-                <input class="unit-in set-only" placeholder="หน่วยในไฟล์ เช่น g/L" value="${esc(p.unit || prop.unit || '')}">
-            </td>
-        </tr>
-        <tr class="dec-detail" hidden><td></td><td colspan="4">
-            <div class="review-grid">
-                <div><b>ค่าตัวอย่างทั้งหมด</b><br>${samples(p.samples, 12)}</div>
-                <div><b>AI เสนอ</b> ${hasProp ? `${esc(prop.target)} <span class="muted">มั่นใจ ${esc(prop.confidence)}</span>` : 'ไม่มี'}
-                     <br><span class="muted">${esc(prop.reason || p.reason || '')}</span></div>
-                <div><b>AI ตรวจทาน</b> ${agree || '—'}${ver.agrees === false && ver.target ? ` → ${esc(ver.target)}` : ''}
-                     <br><span class="muted">${esc(ver.reason || '')}</span></div>
-                <div><b>ช่วงค่า</b> ${range || '—'}</div>
-            </div>
-        </td></tr>`;
-    }
+    $('wizCount').textContent =
+        `ข้อ ${idx + 1} จาก ${QUESTIONS.length} · ตอบแล้ว ${Object.keys(answers).length}`;
+    $('wizFill').style.width = `${(idx / QUESTIONS.length) * 100}%`;
 
-    function commentRow(group) {
-        const r = group[0], p = r.payload, a = p.proposal || {}, b = p.check || {};
-        const v = x => x.value === 1 ? '<span class="tag ok">ปกติ</span>'
-            : x.value === 2 ? '<span class="tag bad">ผิดปกติ</span>' : '<span class="tag warn">ไม่แน่ใจ</span>';
-        const both = a.value !== undefined && a.value === b.value;
-        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="comment" data-text="${esc(p.text)}">
-            ${caret(true)}
-            <td><b>“${esc(p.text)}”</b><div class="muted">ข้อความในช่อง ${esc(p.column)} · ${group.length} คน</div></td>
-            <td class="samples"><span class="muted">—</span></td>
-            <td>${a.value !== undefined ? v(a) : '<span class="muted">ไม่ได้เสนอ</span>'}
-                <div class="chips">${both ? '<span class="tag ok">AI ตรงกัน</span>' : '<span class="tag warn">AI ไม่ตรงกัน</span>'}</div></td>
-            <td class="decide">
-                <select class="cmt-val" onchange="refreshProgress()">
-                    <option value="">ข้ามไว้ก่อน</option>
-                    <option value="1" ${both && a.value === 1 ? 'selected' : ''}>ปกติ (1)</option>
-                    <option value="2" ${both && a.value === 2 ? 'selected' : ''}>ผิดปกติ (2)</option>
-                </select>
-            </td>
-        </tr>
-        <tr class="dec-detail" hidden><td></td><td colspan="4">
-            <div class="review-grid">
-                <div><b>AI ตัวที่ 1</b> ${a.value !== undefined ? v(a) + ' <span class="muted">' + esc(a.confidence) + '</span>' : '—'}
-                     <br><span class="muted">${esc(a.reason || '')}</span></div>
-                <div><b>AI ตัวที่ 2</b> ${b.value !== undefined ? v(b) + ' <span class="muted">' + esc(b.confidence) + '</span>' : '—'}
-                     <br><span class="muted">${esc(b.reason || '')}</span></div>
-            </div>
-        </td></tr>`;
-    }
+    const f = FILES[String(q.source_file_id)];
+    $('wizSource').textContent = f
+        ? `จากไฟล์ ${f.filename}${f.created_at ? ' · นำเข้า ' + new Date(f.created_at).toLocaleString('th-TH') : ''}`
+        : `จากไฟล์ #${q.source_file_id}`;
 
-    function deptRow(r) {
-        const p = r.payload;
-        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="department" data-text="${esc(p.name)}">
-            <td></td>
-            <td><b>“${esc(p.name)}”</b><div class="muted">ต้องการรหัสแผนก · ตอบครั้งเดียว ระบบจำไว้ให้หน่วยบริการนี้</div></td>
-            <td class="samples"><span class="muted">${Number(p.count || 0)} คน</span></td>
-            <td><span class="muted">ระบบไม่เดารหัส</span></td>
-            <td class="decide"><input class="dept-code" placeholder="เช่น QC (เว้นว่าง = ข้าม)" oninput="refreshProgress()"></td>
-        </tr>`;
-    }
+    const view = RENDER[q.kind](q);
+    $('wizTitle').innerHTML = view.title;
+    $('wizWhy').innerHTML = view.why || '';
+    $('wizBody').innerHTML = view.body || '';
+    $('wizAnswer').innerHTML = view.answer;
+    $('wizEvidence').hidden = !view.evidence;
+    if (view.evidence) $('wizEvidenceBody').innerHTML = view.evidence;
 
-    function onStranger(sel) {
-        // The name only matters once they are actually being added, so it stays
-        // out of the way until then.
-        const box = sel.closest('.decide').querySelector('.stranger-name');
-        box.style.display = sel.value === 'register' ? 'flex' : 'none';
-        refreshProgress();
-    }
+    if (view.onShow) view.onShow();
+    restore(q);
+    $('wizBack').disabled = idx === 0;
+    $('wizNext').textContent = idx === QUESTIONS.length - 1 ? 'ตอบข้อนี้ แล้วดูสรุป →' : 'ตอบข้อนี้ →';
+}
 
-    function strangerRow(r) {
-        const p = r.payload;
-        const parts = String(p.name_in_file || '').split(' ');
-        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="stranger" data-text="${esc(p.cid)}">
-            <td></td>
-            <td><b>ไม่มีคนนี้ในทะเบียนพนักงาน</b>
-                <div class="muted">เลขบัตร ${esc(p.cid)} · ในไฟล์เขียนว่า “${esc(p.name_in_file || '—')}”
-                     แผนก “${esc(p.department_in_file || '—')}”</div></td>
-            <td class="samples"><span class="review-warn">${Number(p.values_waiting || 0)} ค่ารออยู่</span></td>
-            <td><span class="muted">ระบบไม่เพิ่มคนเข้าทะเบียนเอง</span></td>
-            <td class="decide">
-                <select class="stranger-act" onchange="onStranger(this)">
-                    <option value="">ข้ามไว้ก่อน</option>
-                    <option value="register">เพิ่มเข้าทะเบียน แล้วบันทึกผล</option>
-                </select>
-                <div class="stranger-name" style="margin-top:6px;display:none;gap:6px;">
-                    <input class="sn-first" placeholder="ชื่อ" value="${esc(parts[0] || '')}">
-                    <input class="sn-last" placeholder="นามสกุล" value="${esc(parts.slice(1).join(' '))}">
-                </div>
-            </td>
-        </tr>`;
-    }
+const RENDER = {
+    unregistered_person(q) {
+        const p = q.payload, parts = String(p.name_in_file || '').split(' ');
+        return {
+            title: 'ไฟล์มีผลตรวจของคนที่ยังไม่อยู่ในทะเบียนพนักงาน',
+            why: `<span class="review-warn">ผลตรวจ ${Number(p.values_waiting || 0)} ค่าของคนนี้ยังไม่ถูกบันทึก จนกว่าจะรู้ว่าเป็นใคร</span>`,
+            body: `<div class="kv">
+                <div class="k">เลขบัตรประชาชน</div><div class="v mono">${esc(p.cid)}</div>
+                <div class="k">ชื่อที่เขียนในไฟล์</div><div class="v">${esc(p.name_in_file) || '<span class="muted">ไม่มี</span>'}</div>
+                <div class="k">แผนกที่เขียนในไฟล์</div><div class="v">${esc(p.department_in_file) || '<span class="muted">ไม่มี</span>'}</div></div>`,
+            answer: `<div class="wiz-choices">
+                <label class="choice"><input type="radio" name="ans" value="register">
+                    <span><b>เพิ่มคนนี้เข้าทะเบียน แล้วบันทึกผล</b>
+                    <span class="muted">ใช้เมื่อเป็นพนักงานจริงที่ยังไม่ได้ลงทะเบียน</span></span></label>
+                <div class="choice-extra" id="nameBox" hidden>
+                    <input id="snFirst" placeholder="ชื่อ" value="${esc(parts[0] || '')}">
+                    <input id="snLast" placeholder="นามสกุล" value="${esc(parts.slice(1).join(' '))}">
+                </div></div>`,
+            onShow() {
+                const sync = () => $('nameBox').hidden = !document.querySelector('input[name=ans]:checked');
+                document.querySelectorAll('input[name=ans]').forEach(el => el.addEventListener('change', sync));
+                sync();
+            },
+        };
+    },
 
-    function movedRow(r) {
-        const p = r.payload;
-        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="moved" data-text="${esc(p.cid)}">
-            <td></td>
-            <td><b>แผนกในไฟล์ไม่ตรงกับทะเบียน</b>
-                <div class="muted">เลขบัตร ${esc(p.cid)} · ทะเบียน “${esc(p.department_in_register)}”
-                     แต่ไฟล์เขียนว่า “${esc(p.department_in_file)}”</div></td>
-            <td class="samples"><span class="review-warn">${Number(p.values_waiting || 0)} ค่ารออยู่</span></td>
-            <td><span class="muted">ระบบไม่เดาว่าย้ายจริงหรือพิมพ์ผิด</span></td>
-            <td class="decide"><select class="moved-act" onchange="refreshProgress()">
-                <option value="">ข้ามไว้ก่อน</option>
-                <option value="move_department">ย้ายแผนกจริง — เปิดทะเบียนในแผนกใหม่</option>
-                <option value="use_register">ไฟล์เขียนผิด — ใช้แผนกในทะเบียน</option>
-            </select></td>
-        </tr>`;
-    }
+    department_change(q) {
+        const p = q.payload;
+        return {
+            title: 'ไฟล์บอกแผนกไม่ตรงกับทะเบียน',
+            why: `<span class="review-warn">ผลตรวจ ${Number(p.values_waiting || 0)} ค่าของคนนี้รออยู่ จนกว่าจะรู้ว่าอันไหนถูก</span>`,
+            body: `<div class="compare">
+                    <div class="compare-side"><div class="muted">ในทะเบียนพนักงาน</div><b>${esc(p.department_in_register)}</b></div>
+                    <div class="compare-vs">≠</div>
+                    <div class="compare-side"><div class="muted">ในไฟล์ผลตรวจ</div><b>${esc(p.department_in_file)}</b></div>
+                   </div>
+                   <div class="muted" style="margin-top:8px;">เลขบัตร ${esc(p.cid)}</div>`,
+            answer: `<div class="wiz-choices">
+                <label class="choice"><input type="radio" name="ans" value="move_department">
+                    <span><b>ย้ายแผนกจริง</b>
+                    <span class="muted">เปิดทะเบียนในแผนกใหม่ ประวัติในแผนกเดิมยังอยู่ที่เดิม</span></span></label>
+                <label class="choice"><input type="radio" name="ans" value="use_register">
+                    <span><b>ไฟล์เขียนผิด ใช้แผนกในทะเบียน</b>
+                    <span class="muted">บันทึกผลไว้ที่แผนกเดิม</span></span></label></div>`,
+        };
+    },
 
-    function identityRows(r) {
-        const p = r.payload;
+    identity(q) {
+        const p = q.payload, role = q.role;
         const opts = (p.candidates || []).map(c => c.header === TITLE_DATE
             ? `<option value="${esc(c.header)}">วันที่ในหัวรายงาน (${esc(c.date)})</option>`
-            : `<option value="${esc(c.header)}">${esc(c.header)} — เช่น ${esc((c.samples || []).slice(0, 2).join(', '))}</option>`).join('');
-        return (p.missing || []).map(role => `<tr class="dec" data-review="${Number(r.id)}" data-kind="identity"
-                data-role="${esc(role)}" data-text="${esc(ROLE_TH[role] || role)}">
-            <td></td>
-            <td><b>หาคอลัมน์ “${esc(ROLE_TH[role] || role)}” ไม่พบ</b><div class="muted">${esc(p.reason)} · sheet ${esc(p.sheet)}</div></td>
-            <td class="samples"><span class="muted">—</span></td>
-            <td><span class="muted">ระบบไม่เดาคอลัมน์ข้อมูลคน</span></td>
-            <td class="decide"><select class="id-pick" data-role="${esc(role)}" onchange="refreshProgress()">
-                <option value="">ข้ามไว้ก่อน</option>${opts}</select></td>
-        </tr>`);
-    }
+            : `<option value="${esc(c.header)}">${esc(c.header)}${(c.samples || []).length ? ' — เช่น ' + esc((c.samples || []).slice(0, 2).join(', ')) : ''}</option>`).join('');
+        return {
+            title: `ระบบหาคอลัมน์ “${esc(ROLE_TH[role] || role)}” ในไฟล์ไม่เจอ`,
+            why: 'ระบบไม่เดาคอลัมน์ที่บอกว่าใครเป็นใคร เพราะเดาผิดแล้วผลตรวจจะไปอยู่กับคนผิด',
+            body: `<div class="muted">sheet ${esc(p.sheet)} · ${esc(p.reason || '')}</div>`,
+            answer: `<div class="wiz-choices"><label class="choice-field">
+                <span>คอลัมน์ไหนในไฟล์คือ “${esc(ROLE_TH[role] || role)}”</span>
+                <select id="idPick"><option value="">— เลือกคอลัมน์ —</option>${opts}</select></label></div>`,
+        };
+    },
 
-    function onAct(sel) {
-        sel.closest('tr').classList.toggle('show-set', sel.value === 'set');
-        refreshProgress();
-    }
+    department(q) {
+        const p = q.payload;
+        return {
+            title: `แผนก “${esc(p.name)}” ยังไม่มีรหัส`,
+            why: `มีพนักงาน ${Number(p.count || 0)} คนอยู่ในแผนกนี้ · ตอบครั้งเดียว ระบบจะจำไว้ให้หน่วยบริการนี้`,
+            answer: `<div class="wiz-choices"><label class="choice-field">
+                <span>รหัสแผนก (ตัวอักษรอังกฤษ/ตัวเลข)</span>
+                <input id="deptCode" placeholder="เช่น QC หรือ PROD-01"></label></div>`,
+        };
+    },
 
-    /** A row counts as decided once it says something other than "skip". */
-    function rowDecided(tr) {
-        const kind = tr.dataset.kind;
-        if (kind === 'mapping') return tr.querySelector('.act').value !== 'skip';
-        if (kind === 'comment') return tr.querySelector('.cmt-val').value !== '';
-        if (kind === 'department') return tr.querySelector('.dept-code').value.trim() !== '';
-        if (kind === 'stranger') return tr.querySelector('.stranger-act').value !== '';
-        if (kind === 'moved') return tr.querySelector('.moved-act').value !== '';
-        return tr.querySelector('.id-pick').value !== '';
-    }
+    comment(q) {
+        const p = q.payload, a = p.proposal || {}, b = p.check || {};
+        const v = x => x.value === 1 ? '<span class="tag ok">ปกติ</span>'
+            : x.value === 2 ? '<span class="tag bad">ผิดปกติ</span>' : '<span class="tag warn">ไม่แน่ใจ</span>';
+        return {
+            title: `ข้อความ “${esc(p.text)}” หมายถึงปกติหรือผิดปกติ`,
+            why: `พบในช่อง ${esc(p.column)} ของ ${q.group.length} คน · ตอบครั้งเดียว ใช้กับทุกคนที่มีข้อความนี้`,
+            answer: `<div class="wiz-choices">
+                <label class="choice"><input type="radio" name="ans" value="1"><span><b>ปกติ</b></span></label>
+                <label class="choice"><input type="radio" name="ans" value="2"><span><b>ผิดปกติ</b></span></label></div>`,
+            evidence: `<div class="review-grid">
+                <div><b>AI ตัวที่ 1</b> ${a.value !== undefined ? v(a) : '—'}<br><span class="muted">${esc(a.reason || '')}</span></div>
+                <div><b>AI ตัวที่ 2</b> ${b.value !== undefined ? v(b) : '—'}<br><span class="muted">${esc(b.reason || '')}</span></div>
+                <div><b>ตรงกันไหม</b> ${a.value !== undefined && a.value === b.value
+                    ? '<span class="tag ok">ตรงกัน</span>' : '<span class="tag warn">ไม่ตรงกัน</span>'}</div></div>`,
+        };
+    },
 
-    function refreshProgress() {
-        document.querySelectorAll('#reviewList .review-file').forEach(block => {
-            const rows = [...block.querySelectorAll('tr.dec')];
-            const done = rows.filter(rowDecided);
-            done.forEach(r => r.classList.add('decided'));
-            rows.filter(r => !done.includes(r)).forEach(r => r.classList.remove('decided'));
-            const el = block.querySelector('.done-count');
-            if (el) el.textContent = done.length;
-            const foot = block.querySelector('.review-foot .muted');
-            if (foot) foot.textContent = done.length === 0
-                ? 'ยังไม่ได้ตัดสินเรื่องใดเลย กดบันทึกได้ แต่จะไม่มีอะไรเปลี่ยน'
-                : `จะบันทึก ${done.length} เรื่อง ที่เหลือยังรออยู่ที่นี่`;
-        });
-        applyFilter();
-    }
-
-    function applyFilter() {
-        const q = (document.getElementById('filterText').value || '').trim().toLowerCase();
-        const only = document.getElementById('onlyUndecided').checked;
-        document.querySelectorAll('#reviewList tr.dec').forEach(tr => {
-            const hitText = !q || (tr.dataset.text || '').toLowerCase().includes(q);
-            const hitState = !only || !tr.classList.contains('decided');
-            const show = hitText && hitState;
-            tr.hidden = !show;
-            const detail = tr.nextElementSibling;
-            if (detail && detail.classList.contains('dec-detail') && !show) detail.hidden = true;
-        });
-    }
-    document.getElementById('filterText').addEventListener('input', applyFilter);
-    document.getElementById('onlyUndecided').addEventListener('change', applyFilter);
-
-    async function submitDecisions(fid) {
-        const block = document.querySelector(`.review-file[data-file="${fid}"]`);
-        const decisions = [];
-        let noTarget = false;
-        block.querySelectorAll('tr.dec').forEach(tr => {
-            const id = Number(tr.dataset.review), kind = tr.dataset.kind;
-            if (kind === 'stranger') {
-                const act = tr.querySelector('.stranger-act').value;
-                if (act) decisions.push({ review_id: id, action: 'register',
-                    first_name: tr.querySelector('.sn-first').value.trim() || null,
-                    last_name: tr.querySelector('.sn-last').value.trim() || null });
-            } else if (kind === 'moved') {
-                const act = tr.querySelector('.moved-act').value;
-                if (act) decisions.push({ review_id: id, action: act });
-            } else if (kind === 'department') {
-                const code = tr.querySelector('.dept-code').value.trim();
-                if (code) decisions.push({ review_id: id, action: 'department', code });
-            } else if (kind === 'comment') {
-                const val = tr.querySelector('.cmt-val').value;
-                if (val) decisions.push({ review_id: id, action: 'comment', value: Number(val) });
-            } else if (kind === 'identity') {
-                const sel = tr.querySelector('.id-pick');
-                if (sel.value) decisions.push({ review_id: id, action: 'identity', role: sel.dataset.role, header: sel.value });
-            } else {
-                const action = tr.querySelector('.act').value;
-                const d = { review_id: id, action };
-                if (action === 'set') {
-                    d.target = tr.querySelector('.target').value;
-                    d.unit = tr.querySelector('.unit-in').value || null;
-                    if (!d.target) noTarget = true;
-                }
-                decisions.push(d);
-            }
-        });
-        if (noTarget) { alert('มีรายการที่เลือก “เลือกคอลัมน์เอง” แต่ยังไม่ได้เลือกคอลัมน์'); return; }
-        const btn = block.querySelector('.review-foot .btn');
-        if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
-        const res = await fetch(`/api/files/${fid}/decisions`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ decisions }),
-        });
-        if (!res.ok) {
-            alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
-            if (btn) { btn.disabled = false; btn.textContent = 'บันทึกการตัดสินใจ'; }
-            return;
-        }
-        loadReviews();
-        loadConflicts();
-    }
-
-    // ── ข้อมูลขัดแย้ง ────────────────────────────────────────────────
-
-    async function refreshConflictCount() {
-        try {
-            const items = await fetch('/api/conflicts?status=open').then(r => r.json());
-            const pill = document.getElementById('conflictCount');
-            pill.textContent = items.length;
-            pill.hidden = items.length === 0;
-        } catch (e) { /* the count is a convenience */ }
-    }
-
-    async function loadConflicts() {
-        const items = await fetch('/api/conflicts?status=open').then(r => r.json());
-        document.getElementById('conflictEmpty').hidden = items.length > 0;
-        const byFile = {};
-        items.forEach(c => (byFile[c.source_file_id] = byFile[c.source_file_id] || []).push(c));
-        document.getElementById('conflictList').innerHTML = Object.entries(byFile).map(([fid, cs]) => `
-            <div class="review-file">
-                <div class="review-file-head">
-                    <span>ไฟล์ #${esc(fid)} ${esc(cs[0].incoming_from.file || '')} <span class="muted">${cs.length} ค่าไม่ตรงกับที่มีอยู่</span></span>
-                    <button class="btn btn-sm" onclick="acceptAllConflicts(${Number(fid)})">ใช้ค่าใหม่ทั้งไฟล์</button>
+    mapping(q) {
+        const p = q.payload, prop = p.proposal || {}, ver = p.verification || {};
+        const hasProp = prop.target && prop.target !== '__unknown__';
+        const colOptions = templateColumns.map(c =>
+            `<option value="${esc(c.column)}" ${c.column === (prop.target || p.suggestion) ? 'selected' : ''}>${esc(c.column)} — ${esc(c.desc)}</option>`).join('');
+        const agree = ver.verdict
+            ? (ver.agrees ? '<span class="tag ok">AI สองตัวตรงกัน</span>'
+               : ver.verdict === 'wrong' ? '<span class="tag bad">AI สองตัวไม่ตรงกัน</span>'
+               : '<span class="tag warn">AI ตัวที่สองไม่แน่ใจ</span>') : '';
+        return {
+            title: `คอลัมน์ “${esc(p.label)}” ในไฟล์คือผลตรวจอะไร`,
+            why: p.maybe_identity
+                ? '<span class="review-warn">ค่าในคอลัมน์นี้อาจเป็นชื่อหรือแผนก ไม่ใช่ผลตรวจ ระบบจึงไม่บันทึกเองแม้ AI จะเสนอ</span>'
+                : `<span class="muted">มี ${Number(p.count || 0)} ค่าในคอลัมน์นี้${p.unit ? ' · หน่วยที่เขียนในไฟล์ ' + esc(p.unit) : ''}</span>`,
+            body: `<div class="muted">ค่าตัวอย่างในไฟล์</div>
+                   <div class="sample-strip">${samples(p.samples, 8)}</div>
+                   ${hasProp ? `<div class="ai-box">AI เสนอว่าเป็น <b>${esc(prop.target)}</b>${prop.unit ? ' หน่วย ' + esc(prop.unit) : ''}
+                        <div class="chips">${agree}</div></div>` : ''}`,
+            answer: `<div class="wiz-choices">
+                ${hasProp ? `<label class="choice"><input type="radio" name="ans" value="approve">
+                    <span><b>ใช่ ตามที่ AI เสนอ</b><span class="muted">${esc(prop.target)}</span></span></label>` : ''}
+                <label class="choice"><input type="radio" name="ans" value="set">
+                    <span><b>เป็นผลตรวจอย่างอื่น</b><span class="muted">เลือกช่องเอง</span></span></label>
+                <div class="choice-extra" id="setBox" hidden>
+                    <select id="setTarget">${prop.target || p.suggestion ? '' : '<option value="">— เลือกคอลัมน์ —</option>'}${colOptions}</select>
+                    <input id="setUnit" placeholder="หน่วยในไฟล์ เช่น g/L" value="${esc(p.unit || prop.unit || '')}">
                 </div>
-                <div class="table-wrap" style="border:0;border-radius:0;"><table>
-                    <thead><tr><th>คน</th><th>วันที่ตรวจ</th><th>ช่อง</th><th>ค่าในระบบ</th><th>ค่าใหม่</th><th></th></tr></thead>
-                    <tbody>${cs.map(conflictRow).join('')}</tbody>
-                </table></div>
-            </div>`).join('');
-        refreshConflictCount();
-    }
+                <label class="choice"><input type="radio" name="ans" value="extra">
+                    <span><b>เป็นผลตรวจจริง แต่ไม่มีช่องในแบบฟอร์ม</b>
+                    <span class="muted">เก็บไว้เป็นข้อมูลเพิ่มเติม ไม่ทิ้ง</span></span></label>
+                <label class="choice"><input type="radio" name="ans" value="ignore">
+                    <span><b>ไม่ใช่ผลตรวจ</b><span class="muted">เช่น ลำดับที่ รหัสภายใน</span></span></label></div>`,
+            evidence: `<div class="review-grid">
+                <div><b>ค่าตัวอย่างทั้งหมด</b><br>${samples(p.samples, 12)}</div>
+                <div><b>AI ตัวที่ 1</b> ${hasProp ? `${esc(prop.target)} <span class="muted">มั่นใจ ${esc(prop.confidence)}</span>` : 'ไม่ได้เสนอ'}
+                     <br><span class="muted">${esc(prop.reason || p.reason || '')}</span></div>
+                <div><b>AI ตัวที่ 2</b> ${agree || '—'}${ver.agrees === false && ver.target ? ' → ' + esc(ver.target) : ''}
+                     <br><span class="muted">${esc(ver.reason || '')}</span></div>
+                <div><b>ตรวจช่วงค่าด้วยโค้ด</b> ${prop.range_ok === true ? '<span class="tag ok">ผ่าน</span>'
+                    : prop.range_note ? `<span class="tag warn">${esc(prop.range_note)}</span>` : '—'}</div></div>`,
+            onShow() {
+                const sync = () => {
+                    const v = document.querySelector('input[name=ans]:checked');
+                    $('setBox').hidden = !v || v.value !== 'set';
+                };
+                document.querySelectorAll('input[name=ans]').forEach(el => el.addEventListener('change', sync));
+                sync();
+            },
+        };
+    },
+};
 
-    function conflictRow(c) {
-        const from = f => f.file ? `<div class="muted">${esc(f.file)}${f.cell ? ' · ' + esc(f.sheet || '') + '!' + esc(f.cell) : ''}</div>` : '';
-        return `<tr>
-            <td>${esc(c.name || '—')}<div class="muted">${esc(c.cid)}</div></td>
-            <td>${formatDate(c.visit_date)}</td>
-            <td>${esc(c.column)}</td>
-            <td><b>${esc(c.current_value)}</b>${from(c.current_from)}</td>
-            <td><b>${esc(c.incoming_value)}</b>${from(c.incoming_from)}</td>
-            <td class="row-actions">
-                <button class="btn btn-sm" onclick="resolveConflict(${Number(c.id)}, 'keep')">เก็บค่าเดิม</button>
-                <button class="btn btn-primary btn-sm" onclick="resolveConflict(${Number(c.id)}, 'replace')">ใช้ค่าใหม่</button>
-            </td></tr>`;
+function collect() {
+    const q = QUESTIONS[idx];
+    if (q.kind === 'identity') {
+        const v = $('idPick').value;
+        return v ? {review_id: q.id, action: 'identity', role: q.role, header: v} : null;
     }
-
-    async function resolveConflict(id, action) {
-        const res = await fetch(`/api/conflicts/${id}/resolve`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
-        if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
-        loadConflicts();
+    if (q.kind === 'department') {
+        const v = $('deptCode').value.trim();
+        return v ? {review_id: q.id, action: 'department', code: v} : null;
     }
-
-    async function acceptAllConflicts(fid) {
-        if (!confirm('ใช้ค่าใหม่จากไฟล์นี้ทั้งหมด? ค่าเดิมจะถูกเก็บไว้ในประวัติ')) return;
-        const res = await fetch(`/api/files/${fid}/conflicts/accept-all`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
-        loadConflicts();
+    const picked = document.querySelector('input[name=ans]:checked');
+    if (!picked) return null;
+    if (q.kind === 'comment') return {review_id: q.id, action: 'comment', value: Number(picked.value)};
+    if (q.kind === 'unregistered_person') return {review_id: q.id, action: 'register',
+        first_name: $('snFirst').value.trim() || null, last_name: $('snLast').value.trim() || null};
+    if (q.kind === 'department_change') return {review_id: q.id, action: picked.value};
+    const d = {review_id: q.id, action: picked.value};
+    if (picked.value === 'set') {
+        d.target = $('setTarget').value;
+        d.unit = $('setUnit').value || null;
+        if (!d.target) { alert('เลือกช่องผลตรวจก่อน หรือกด “ข้ามไว้ก่อน”'); return undefined; }
     }
+    return d;
+}
 
-    loadReviews();
+function restore(q) {
+    const saved = answers[key(q)];
+    if (!saved) return;
+    const want = saved.action === 'comment' ? String(saved.value) : saved.action;
+    const radio = document.querySelector(`input[name=ans][value="${want}"]`);
+    if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change')); }
+    if (saved.action === 'identity' && $('idPick')) $('idPick').value = saved.header;
+    if (saved.action === 'department' && $('deptCode')) $('deptCode').value = saved.code;
+    if (saved.action === 'set') { $('setTarget').value = saved.target; $('setUnit').value = saved.unit || ''; }
+    if (saved.action === 'register' && $('snFirst')) {
+        $('snFirst').value = saved.first_name || ''; $('snLast').value = saved.last_name || '';
+    }
+}
+
+$('wizNext').addEventListener('click', () => {
+    const d = collect();
+    if (d === undefined) return;                  // already told the user what is missing
+    const q = QUESTIONS[idx];
+    if (d) answers[key(q)] = Object.assign({}, d, {_file: q.source_file_id, _group: q.group, _role: q.role});
+    else delete answers[key(q)];
+    step(+1);
+});
+$('wizSkip').addEventListener('click', () => { delete answers[key(QUESTIONS[idx])]; step(+1); });
+$('wizBack').addEventListener('click', () => step(-1));
+$('wizRestart').addEventListener('click', () => { idx = 0; show(); });
+
+function step(n) {
+    idx += n;
+    if (idx < 0) idx = 0;
+    if (idx >= QUESTIONS.length) finish(); else show();
+}
+
+function labelOf(q) {
+    const p = q.payload || {};
+    return p.label || p.text || p.name || p.name_in_file || p.cid || ROLE_TH[q.role] || `รายการ ${q.id}`;
+}
+const ACTION_TH = {approve: 'ยอมรับตามที่ AI เสนอ', extra: 'เก็บเป็นข้อมูลเพิ่มเติม',
+    ignore: 'ไม่ใช่ผลตรวจ', register: 'เพิ่มเข้าทะเบียน', move_department: 'ย้ายแผนกจริง',
+    use_register: 'ใช้แผนกในทะเบียน'};
+function actionTh(a) {
+    if (a.action === 'set') return `ตั้งเป็น ${a.target}`;
+    if (a.action === 'identity') return `คอลัมน์ ${a.header}`;
+    if (a.action === 'department') return `รหัส ${a.code}`;
+    if (a.action === 'comment') return a.value === 1 ? 'ปกติ' : 'ผิดปกติ';
+    return ACTION_TH[a.action] || a.action;
+}
+
+function finish() {
+    $('wizard').hidden = true;
+    $('wizDone').hidden = false;
+    const answered = Object.keys(answers).length;
+    const left = QUESTIONS.length - answered;
+    $('wizDoneTitle').textContent = QUESTIONS.length
+        ? `ตอบแล้ว ${answered} ข้อ จาก ${QUESTIONS.length} ข้อ` : 'ไม่มีคำถามรอตอบ';
+    $('wizDoneNote').textContent = left
+        ? `ข้ามไว้ ${left} ข้อ จะยังรออยู่ที่นี่ กดบันทึกได้เลย`
+        : (QUESTIONS.length ? 'กดบันทึกเพื่อให้ระบบนำไฟล์ไปประมวลผลใหม่' : '');
+    $('wizSave').hidden = !answered;
+    $('wizRestart').hidden = !QUESTIONS.length;
+    $('wizDoneList').innerHTML = QUESTIONS.filter(q => answers[key(q)]).map(q =>
+        `<div class="summary-row"><span>${esc(labelOf(q))}</span><b>${esc(actionTh(answers[key(q)]))}</b></div>`).join('');
+}
+
+$('wizSave').addEventListener('click', async () => {
+    const btn = $('wizSave');
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
+    const byFile = {};
+    for (const a of Object.values(answers)) {
+        const d = Object.assign({}, a);
+        const fid = d._file, group = d._group;
+        delete d._file; delete d._group; delete d._role;
+        const list = byFile[fid] = byFile[fid] || [];
+        // a finding's meaning was answered once; it applies to every row with that text
+        if (d.action === 'comment' && group) group.forEach(r => list.push(Object.assign({}, d, {review_id: r.id})));
+        else list.push(d);
+    }
+    try {
+        for (const [fid, decisions] of Object.entries(byFile)) {
+            await api(`/api/files/${fid}/decisions`, {method: 'POST',
+                body: JSON.stringify({decisions, by: 'reviewer'})});
+        }
+        Object.keys(answers).forEach(k => delete answers[k]);
+        await load();
+        await loadConflicts();
+    } catch (e) { alert(e.message); }
+    btn.disabled = false; btn.textContent = 'บันทึกคำตอบทั้งหมด';
+});
+
+// ── conflicts tab ─────────────────────────────────────────────────────
+async function loadConflicts() {
+    const rows = await api('/api/conflicts?status=open&limit=5000');
+    const pill = $('conflictCount');
+    pill.textContent = rows.length; pill.hidden = !rows.length;
+    $('conflictEmpty').hidden = rows.length > 0;
+    const byFile = {};
+    rows.forEach(c => (byFile[c.source_file_id] = byFile[c.source_file_id] || []).push(c));
+    $('conflictList').innerHTML = Object.entries(byFile).map(([fid, cs]) => {
+        const f = FILES[String(fid)];
+        return `<div class="card" style="margin-bottom:14px;">
+            <div class="review-file-head">
+                <span>${esc(f ? f.filename : 'ไฟล์ #' + fid)}</span>
+                <button class="btn btn-sm" onclick="acceptAllConflicts(${Number(fid)})">ใช้ค่าใหม่ทั้งไฟล์</button></div>
+            <div class="table-wrap"><table><thead><tr>
+                <th>คน</th><th>ช่อง</th><th>ค่าที่เก็บไว้</th><th>ค่าที่ส่งมาใหม่</th><th></th>
+            </tr></thead><tbody>${cs.map(c => `<tr>
+                <td>${esc(c.name) || esc(c.cid)}<div class="muted">${esc(c.visit_date)}</div></td>
+                <td>${esc(c.column)}</td>
+                <td><b>${esc(c.current_value)}</b><div class="muted">${esc(c.current_from.file || '')}</div></td>
+                <td><b>${esc(c.incoming_value)}</b><div class="muted">${esc(c.incoming_from.file || '')}</div></td>
+                <td class="row-actions">
+                    <button class="btn btn-sm" onclick="resolveConflict(${Number(c.id)}, 'keep')">เก็บค่าเดิม</button>
+                    <button class="btn btn-primary btn-sm" onclick="resolveConflict(${Number(c.id)}, 'replace')">ใช้ค่าใหม่</button>
+                </td></tr>`).join('')}</tbody></table></div></div>`;
+    }).join('');
+}
+
+async function resolveConflict(id, action) {
+    await api(`/api/conflicts/${id}/resolve`, {method: 'POST', body: JSON.stringify({action, by: 'reviewer'})});
     loadConflicts();
+}
+async function acceptAllConflicts(fid) {
+    if (!confirm('ใช้ค่าใหม่ทั้งไฟล์? ค่าเดิมจะถูกแทนที่ และบันทึกไว้ในประวัติ')) return;
+    await api(`/api/files/${fid}/conflicts/accept-all`, {method: 'POST', body: JSON.stringify({by: 'reviewer'})});
+    loadConflicts();
+}
+
+document.querySelectorAll('#tabs .tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('#tabs .tab').forEach(x => x.classList.toggle('on', x === t));
+    $('pane-reviews').hidden = t.dataset.pane !== 'reviews';
+    $('pane-conflicts').hidden = t.dataset.pane !== 'conflicts';
+}));
+
+load().then(loadConflicts);
 </script>
 {% endblock %}

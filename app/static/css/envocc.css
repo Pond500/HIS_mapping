@@ -327,3 +327,44 @@ tr.clickable { cursor: pointer; }
 .step-card b { display: block; }
 .step-note { display: block; font-size: 12.5px; line-height: 1.5; margin-top: 2px; }
 .step-card .pill { margin-top: 6px; }
+
+/* ── งานที่ต้องตรวจ: one question at a time ──
+   The old table put five kinds of question in one grid with five kinds of
+   control. Reviewers read the queue as noise and clicked past it. One question
+   per screen means the whole screen can explain that question. */
+.wiz-bar { display: flex; align-items: center; gap: 14px; margin: 18px 0 10px; }
+.wiz-progress { flex: 1; height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.wiz-progress-fill { height: 100%; background: var(--blue); border-radius: 999px; transition: width .2s; }
+.wiz-count { white-space: nowrap; }
+.wiz-card { padding: 28px 30px; }
+.wiz-source { font-size: 12.5px; }
+.wiz-q { font-size: 20px; font-weight: 700; color: var(--navy); margin: 6px 0 8px; line-height: 1.45; }
+.wiz-why { margin-bottom: 16px; font-size: 14px; }
+.wiz-body { margin-bottom: 18px; }
+.wiz-answer { margin-bottom: 20px; }
+.wiz-foot { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--border); padding-top: 16px; }
+.wiz-detail { margin-top: 14px; }
+.wiz-detail summary { cursor: pointer; font-size: 14px; color: var(--blue); }
+.wiz-detail .review-grid { margin-top: 14px; }
+
+.wiz-choices { display: flex; flex-direction: column; gap: 10px; }
+.choice { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 13px 15px; cursor: pointer; }
+.choice:hover { border-color: var(--blue); background: var(--band-soft); }
+.choice input { width: auto; margin-top: 3px; flex: none; }
+.choice b { display: block; font-weight: 600; }
+.choice .muted { display: block; font-size: 12.5px; margin-top: 2px; }
+.choice:has(input:checked) { border-color: var(--blue); background: var(--band-soft); }
+.choice-extra { display: flex; gap: 8px; padding: 0 15px 4px 38px; }
+.choice-field span { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
+
+.sample-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+.sample-strip code, .skip-row code { background: #f4f6fb; border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; font-size: 13px; }
+.ai-box { background: var(--band-soft); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.compare { display: flex; align-items: center; gap: 16px; }
+.compare-side { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.compare-vs { color: var(--text-3); font-size: 18px; }
+.wiz-summary { text-align: left; max-width: 620px; margin: 0 auto; }
+.summary-row { display: flex; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.summary-row:last-child { border-bottom: 0; }
+.skip-row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.skip-row:last-child { border-bottom: 0; }
