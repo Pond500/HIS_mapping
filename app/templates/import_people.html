@@ -5,8 +5,8 @@
 <div class="page-head-row">
     <div>
         <h1 class="page-title">ข้อมูลพนักงาน</h1>
-        <p class="page-sub">ผลตรวจที่เข้าระบบแล้ว ค้นด้วยชื่อ เลขบัตรประชาชน หรือแผนก
-            กดที่แถวเพื่อดูทุกช่องของคนนั้น</p>
+        <p class="page-sub">ทะเบียนพนักงานและผลตรวจของแต่ละคน ค้นด้วยชื่อ เลขบัตรประชาชน หรือแผนก
+            กดที่แถวเพื่อดูผลตรวจทุกรอบของคนนั้น</p>
     </div>
     <div class="head-actions">
         <a class="btn" href="/import">← นำเข้าผลตรวจ</a>
@@ -16,13 +16,14 @@
 
 <div class="tabs" id="tabs">
     <button class="tab on" data-mode="all">ทั้งหมด</button>
-    <button class="tab" data-mode="noname">รอยืนยันชื่อ <span class="pill" id="noNameCount" hidden></span></button>
+    <button class="tab" data-mode="incomplete">ทะเบียนไม่ครบ <span class="pill" id="noNameCount" hidden></span></button>
 </div>
 
 <div id="noNameNote" class="review-warn" hidden>
-    ผลตรวจของคนกลุ่มนี้เข้าระบบถูกต้องแล้ว ขาดแต่ชื่อ เพราะระบบหาคอลัมน์ชื่อในไฟล์ไม่พบและไม่เดาให้
-    เมื่อตอบคำถามในหน้า <a href="/reviews">งานที่ต้องตรวจ</a> ว่าคอลัมน์ไหนคือชื่อ ระบบจะเติมชื่อกลับเข้าแถวเหล่านี้เอง
-    ไม่ต้องอัปโหลดไฟล์ใหม่
+    คนกลุ่มนี้ยังขาดข้อมูลที่กรมฯ บังคับว่าต้องมี (เพศ ปีเกิด สัญชาติ อายุงาน ตำแหน่ง)
+    ซึ่งไฟล์ผลแล็บไม่มีทางรู้ และระบบไม่เดาให้ — เติมได้ด้วยการ
+    <a href="/import-registry">นำเข้าไฟล์ทะเบียนพนักงาน</a>
+    ผลตรวจของพวกเขาถูกบันทึกตามปกติอยู่แล้ว และส่งกรมฯ ได้ แต่ช่องเหล่านี้จะว่าง
 </div>
 
 <div class="filter-row">
@@ -37,7 +38,7 @@
     <table>
         <thead><tr>
             <th style="width:1%">#</th><th>เลขบัตรประชาชน</th><th>ชื่อ - นามสกุล</th>
-            <th>แผนก</th><th>วันที่ตรวจ</th><th>ผลที่มีในระบบ</th><th style="width:1%"></th>
+            <th>แผนก</th><th>สถานประกอบการ</th><th>ผลตรวจ</th><th>ทะเบียน</th><th style="width:1%"></th>
         </tr></thead>
         <tbody id="rows"></tbody>
     </table>
@@ -81,14 +82,14 @@
     document.querySelectorAll('#tabs .tab').forEach(t => t.addEventListener('click', () => {
         document.querySelectorAll('#tabs .tab').forEach(x => x.classList.toggle('on', x === t));
         mode = t.dataset.mode;
-        document.getElementById('noNameNote').hidden = mode !== 'noname';
+        document.getElementById('noNameNote').hidden = mode !== 'incomplete';
         page = 1;
         load();
     }));
 
     /** How many people are waiting for their name column to be confirmed. */
     async function refreshNoNameCount() {
-        const res = await fetch('/api/employees?per_page=1&missing_name=true').then(r => r.json());
+        const res = await fetch('/api/employees?per_page=1&incomplete=true').then(r => r.json());
         const pill = document.getElementById('noNameCount');
         pill.textContent = res.total || 0;
         pill.hidden = !res.total;
@@ -102,9 +103,10 @@
         } catch { return d; }
     }
     function fmtNum(v) { return v != null ? Number(v).toLocaleString() : '—'; }
+    // Stored in the department's form since D23: 0 = ปกติ, 1 = ผิดปกติ.
     function badge(v) {
-        if (v === 1) return '<span class="tag ok">ปกติ</span>';
-        if (v === 2) return '<span class="tag bad">ผิดปกติ</span>';
+        if (v === 0) return '<span class="tag ok">ปกติ</span>';
+        if (v === 1) return '<span class="tag bad">ผิดปกติ</span>';
         return '<span class="muted">—</span>';
     }
     function cell(f, v) {
@@ -122,22 +124,22 @@
     async function load() {
         if (!FIELDS) FIELDS = await fetch('/api/template/columns?all=true').then(r => r.json());
         const res = await fetch(`/api/employees?page=${page}&per_page=20&search=${encodeURIComponent(search)}` +
-            `&missing_name=${mode === 'noname'}`).then(r => r.json());
+            `&incomplete=${mode === 'incomplete'}`).then(r => r.json());
         refreshNoNameCount();
         const rows = res.data || [];
         document.getElementById('empty').hidden = rows.length > 0;
         document.getElementById('totalNote').textContent =
             res.total ? `${res.total.toLocaleString()} คน` : '';
-        const results = FIELDS.filter(f => f.group !== 'person').length;
-
         document.getElementById('rows').innerHTML = rows.map((e, i) => `
             <tr onclick="openPerson(${Number(e.id)})" class="clickable">
                 <td class="muted">${(res.page - 1) * res.per_page + i + 1}</td>
                 <td class="mono">${esc(e.cid) || '—'}</td>
                 <td><b>${esc([e.first_name, e.last_name].filter(Boolean).join(' ')) || '—'}</b></td>
-                <td>${esc(e.department_id) || '<span class="muted">—</span>'}</td>
-                <td>${esc(formatDate(e.visit_date))}</td>
-                <td>${filled(e)} จาก ${results} ช่อง</td>
+                <td>${esc(e.department) || '<span class="muted">—</span>'}</td>
+                <td class="muted">${esc(e.company) || '—'}</td>
+                <td>${e.checkups ? e.checkups + ' รอบ' : '<span class="muted">ยังไม่มี</span>'}</td>
+                <td>${e.registry_complete ? '<span class="tag">ครบ</span>'
+                                          : '<span class="review-warn">ไม่ครบ</span>'}</td>
                 <td class="row-actions"><button class="btn btn-sm" onclick="event.stopPropagation();openPerson(${Number(e.id)})">ดูผลตรวจ</button></td>
             </tr>`).join('');
 
@@ -161,15 +163,42 @@
             [e.first_name, e.last_name].filter(Boolean).join(' ') || e.cid || 'ไม่ทราบชื่อ';
 
         const groups = {};
-        FIELDS.forEach(f => (groups[f.group] = groups[f.group] || []).push(f));
-        document.getElementById('personBody').innerHTML = Object.entries(groups).map(([g, fs]) => {
-            const has = fs.filter(f => e[f.column] != null && e[f.column] !== '').length;
-            return `<div class="band">${esc(GROUP_TH[g] || g)}
-                        <span class="muted">${has} จาก ${fs.length} ช่อง</span></div>
-                <div class="kv">${fs.map(f => `
-                    <div class="k">${esc(f.header)}</div>
-                    <div class="v">${cell(f, e[f.column])}</div>`).join('')}</div>`;
-        }).join('');
+        FIELDS.filter(f => f.group !== 'person').forEach(f => (groups[f.group] = groups[f.group] || []).push(f));
+
+        const missing = e.missing_registry_fields || [];
+        const registry = `
+            <div class="band">ทะเบียนพนักงาน</div>
+            <div class="kv">
+                <div class="k">เลขบัตรประชาชน</div><div class="v mono">${esc(e.cid)}</div>
+                <div class="k">แผนก</div><div class="v">${esc(e.department) || '—'}</div>
+                <div class="k">สถานประกอบการ</div><div class="v">${esc(e.company) || '—'}</div>
+                <div class="k">เพศ</div><div class="v">${e.gender === 'male' ? 'ชาย' : e.gender === 'female' ? 'หญิง' : '<span class="muted">—</span>'}</div>
+                <div class="k">ปีเกิด (พ.ศ.)</div><div class="v">${e.birth_year ?? '<span class="muted">—</span>'}</div>
+                <div class="k">สัญชาติ</div><div class="v">${esc(e.nationality) || '<span class="muted">—</span>'}</div>
+                <div class="k">ตำแหน่ง</div><div class="v">${esc(e.position) || '<span class="muted">—</span>'}</div>
+                <div class="k">อายุงาน (ปี)</div><div class="v">${e.work_experience ?? '<span class="muted">—</span>'}</div>
+                <div class="k">โรคประจำตัว</div><div class="v">${esc(e.medical_condition) || '<span class="muted">—</span>'}</div>
+            </div>
+            ${missing.length ? `<p class="review-warn">ยังขาด ${missing.length} ช่องที่กรมฯ บังคับ —
+                เติมได้ด้วยการ <a href="/import-registry">นำเข้าไฟล์ทะเบียน</a></p>` : ''}`;
+
+        const rounds = (e.rounds || []).length
+            ? e.rounds.map(rnd => {
+                const date = rnd.checkup_date || rnd.appoint_date;
+                const body = Object.entries(groups).map(([g, fs]) => {
+                    const has = fs.filter(f => rnd[f.column] != null && rnd[f.column] !== '').length;
+                    if (!has) return '';
+                    return `<div class="kv-head muted">${esc(GROUP_TH[g] || g)} — ${has} จาก ${fs.length} ช่อง</div>
+                        <div class="kv">${fs.map(f => `
+                            <div class="k">${esc(f.header)}</div>
+                            <div class="v">${cell(f, rnd[f.column])}</div>`).join('')}</div>`;
+                }).join('');
+                return `<div class="band">ผลตรวจ ${esc(formatDate(date))}
+                            ${rnd.is_approved ? '<span class="pill pill-ok">รับรองแล้ว</span>' : ''}</div>${body}`;
+              }).join('')
+            : '<div class="band">ผลตรวจ</div><p class="muted">ยังไม่มีผลตรวจของคนนี้ในระบบ</p>';
+
+        document.getElementById('personBody').innerHTML = registry + rounds;
         document.getElementById('personModal').hidden = false;
     }
     function closePerson() { document.getElementById('personModal').hidden = true; }

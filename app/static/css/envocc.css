@@ -315,3 +315,7 @@ tr.clickable { cursor: pointer; }
 .summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 /* a tall tile (a long department list) must not stretch its neighbours into empty boxes */
 .tile-grid { align-items: start; }
+
+/* A group heading inside the person modal: quieter than .band, because each
+   round already has one and repeating it at full weight drowns the values. */
+.kv-head { margin: 14px 0 6px; font-size: 12.5px; font-weight: 600; }

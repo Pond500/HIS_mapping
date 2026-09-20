@@ -5,18 +5,19 @@ API endpoints for the monitoring dashboard.
 """
 
 import io
-from datetime import datetime
+from decimal import Decimal
 
 import openpyxl
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import desc, func, text
+from sqlalchemy import desc, func, or_, text
 from sqlalchemy.orm import Session
 
 from app.auth import require_roles, require_user
 from app.database import get_db
-from app.models import (AgentDecision, Conflict, Employee, LabMapping, PendingReview, SourceFile, ValueHistory,
-                        ValueProvenance)
+from app.models import (AgentDecision, CheckupBatch, Company, Conflict, Department, Employee,
+                        EmployeeCheckup, LabMapping, PendingReview, SourceFile, ValueHistory,
+                        ValueProvenance, WalkthroughSurvey)
 from app.template import COLUMNS, HEADERS
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
@@ -25,20 +26,18 @@ router = APIRouter(prefix="/api", tags=["dashboard"])
 @router.get("/stats")
 def get_stats(db: Session = Depends(get_db), user=Depends(require_user)):
     """สถิติรวมสำหรับ dashboard."""
-    total = db.query(func.count(Employee.id)).scalar() or 0
+    total = db.query(func.count(EmployeeCheckup.id)).scalar() or 0
     total_uploads = db.query(func.count(SourceFile.id)).scalar() or 0
 
-    # Count abnormal results
-    xray_abnormal = db.query(func.count(Employee.id)).filter(Employee.chest_xray == 2).scalar() or 0
-    ekg_abnormal = db.query(func.count(Employee.id)).filter(Employee.ekg == 2).scalar() or 0
-    hearing_abnormal = db.query(func.count(Employee.id)).filter(Employee.hearing_ability == 2).scalar() or 0
-    vision_abnormal = db.query(func.count(Employee.id)).filter(Employee.far_vision_test == 2).scalar() or 0
+    # 0 = ปกติ, 1 = ผิดปกติ in the department's schema (D23). These counts read the
+    # stored form, so they must use the stored codes, not the template's 1/2.
+    def counts(column):
+        col = getattr(EmployeeCheckup, column)
+        return {"normal": db.query(func.count(EmployeeCheckup.id)).filter(col == 0).scalar() or 0,
+                "abnormal": db.query(func.count(EmployeeCheckup.id)).filter(col == 1).scalar() or 0}
 
-    # Count normal results
-    xray_normal = db.query(func.count(Employee.id)).filter(Employee.chest_xray == 1).scalar() or 0
-    ekg_normal = db.query(func.count(Employee.id)).filter(Employee.ekg == 1).scalar() or 0
-    hearing_normal = db.query(func.count(Employee.id)).filter(Employee.hearing_ability == 1).scalar() or 0
-    vision_normal = db.query(func.count(Employee.id)).filter(Employee.far_vision_test == 1).scalar() or 0
+    xray, ekg = counts("chest_xray"), counts("ekg")
+    hearing, vision = counts("hearing_ability"), counts("far_vision_test")
 
     # Latest upload
     latest = db.query(SourceFile).order_by(desc(SourceFile.uploaded_at)).first()
@@ -47,13 +46,8 @@ def get_stats(db: Session = Depends(get_db), user=Depends(require_user)):
         "total_employees": total,
         "total_uploads": total_uploads,
         "latest_upload": latest.to_dict() if latest else None,
-        "abnormal_counts": {
-            "xray": {"normal": xray_normal, "abnormal": xray_abnormal},
-            "ekg": {"normal": ekg_normal, "abnormal": ekg_abnormal},
-            "hearing": {"normal": hearing_normal, "abnormal": hearing_abnormal},
-            "vision": {"normal": vision_normal, "abnormal": vision_abnormal},
-        },
-        "total_abnormal": xray_abnormal + ekg_abnormal + hearing_abnormal + vision_abnormal,
+        "abnormal_counts": {"xray": xray, "ekg": ekg, "hearing": hearing, "vision": vision},
+        "total_abnormal": sum(c["abnormal"] for c in (xray, ekg, hearing, vision)),
     }
 
 
@@ -62,54 +56,77 @@ def get_employees(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     search: str = Query("", max_length=100),
-    missing_name: bool = False,
+    incomplete: bool = False,
+    company_id: int | None = None,
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
     """
     ดึงข้อมูลพนักงานแบบ paginated + search.
 
-    `missing_name` lists the people whose results are stored but whose name column
-    the profiler could not find: the answer is waiting as an `identity` review, and
-    re-running the file fills the names into these same rows (store.py fills blanks
-    only). They are a queue, not damaged records.
+    Since D23 a row here is a person in the register, not a person-visit, and the
+    count of their checkup rounds comes with them.
+
+    `incomplete` lists the people whose registry fields the department requires but
+    a lab file cannot supply. They are a queue to be filled from a register file,
+    not damaged records, and their results are stored either way.
     """
-    query = db.query(Employee)
-    if missing_name:
-        query = query.filter(Employee.first_name.is_(None), Employee.last_name.is_(None))
+    query = (db.query(Employee, Department, Company)
+             .join(Department, Department.id == Employee.department_pk)
+             .join(Company, Company.id == Department.company_id))
+    if company_id is not None:
+        query = query.filter(Company.id == company_id)
+    if incomplete:
+        missing = [getattr(Employee, c).is_(None) for c in Employee.REQUIRED_BY_DDC]
+        query = query.filter(or_(*missing))
 
     if search:
+        like = f"%{search}%"
         query = query.filter(
-            (Employee.cid.ilike(f"%{search}%")) |
-            (Employee.first_name.ilike(f"%{search}%")) |
-            (Employee.last_name.ilike(f"%{search}%")) |
-            (Employee.department_id.ilike(f"%{search}%"))
+            (Employee.cid.ilike(like)) |
+            (Employee.first_name.ilike(like)) |
+            (Employee.last_name.ilike(like)) |
+            (Department.name.ilike(like))
         )
 
     total = query.count()
-    employees = (
-        query.order_by(desc(Employee.created_at))
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-        .all()
-    )
+    rows = (query.order_by(desc(Employee.created_at))
+            .offset((page - 1) * per_page).limit(per_page).all())
+    counts = dict(db.query(EmployeeCheckup.employee_id, func.count(EmployeeCheckup.id))
+                  .group_by(EmployeeCheckup.employee_id).all())
 
     return {
         "total": total,
         "page": page,
         "per_page": per_page,
         "total_pages": (total + per_page - 1) // per_page,
-        "data": [e.to_dict() for e in employees],
+        "data": [{**e.to_dict(), "department": d.name, "company": c.name,
+                  "company_id": c.id, "checkups": counts.get(e.id, 0)}
+                 for e, d, c in rows],
     }
 
 
 @router.get("/employees/{employee_id}")
 def get_employee(employee_id: int, db: Session = Depends(get_db), user=Depends(require_user)):
-    """ดูรายละเอียดพนักงานรายคน."""
+    """One person: who they are, plus every round they have results for."""
     emp = db.get(Employee, employee_id)
     if not emp:
         return {"error": "ไม่พบข้อมูล"}
-    return emp.to_dict()
+    dept = db.get(Department, emp.department_pk)
+    company = db.get(Company, dept.company_id) if dept else None
+    rounds = []
+    for c in (db.query(EmployeeCheckup)
+              .filter(EmployeeCheckup.employee_id == emp.id)
+              .order_by(desc(EmployeeCheckup.id))):
+        batch = db.get(CheckupBatch, c.checkup_batch_id)
+        rounds.append({**c.to_dict(),
+                       "appoint_date": batch.appoint_date.isoformat() if batch else None,
+                       "is_approved": batch.is_approved if batch else False})
+    return {**emp.to_dict(), "department": dept.name if dept else None,
+            "company": company.name if company else None,
+            "missing_registry_fields": [c for c in Employee.REQUIRED_BY_DDC
+                                        if getattr(emp, c) is None],
+            "rounds": rounds}
 
 
 @router.get("/upload-logs")
@@ -124,37 +141,45 @@ def delete_all_employees(db: Session = Depends(get_db),
                          user=Depends(require_roles("superadmin"))):
     """ลบข้อมูลผลตรวจและไฟล์ทั้งหมด (mapping และโรงพยาบาลยังอยู่)."""
     count = db.query(Employee).count()
-    db.execute(text("TRUNCATE employees, source_files RESTART IDENTITY CASCADE"))
+    # The workplaces and their departments stay: they are a register someone typed
+    # in, not data that came out of a file.
+    db.execute(text("TRUNCATE employees, employee_checkups, source_files "
+                    "RESTART IDENTITY CASCADE"))
     db.commit()
     return {"deleted": count}
 
 
 @router.get("/export")
-def export_excel(db: Session = Depends(get_db), user=Depends(require_user)):
-    """Export ข้อมูลทั้งหมดเป็น Excel."""
-    employees = db.query(Employee).order_by(Employee.cid).all()
+def export_excel(round_id: int | None = None, db: Session = Depends(get_db),
+                 user=Depends(require_user)):
+    """The 45-column template, rebuilt from the three tables.
+
+    This is the working export, not the submission to the department (that is
+    /api/summary/submit, which writes their own column names). It reads the same
+    view that measurement will be switched back on through, so both describe one
+    thing: v_employee_results_45.
+    """
+    sql = "SELECT * FROM v_employee_results_45"
+    params = {}
+    if round_id is not None:
+        sql += " WHERE checkup_id IN (SELECT id FROM employee_checkups WHERE checkup_batch_id = :b)"
+        params["b"] = round_id
+    rows = db.execute(text(sql + " ORDER BY cid"), params).mappings().all()
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Employees"
 
-    headers = HEADERS
-    db_fields = COLUMNS
-
-    for col_idx, h in enumerate(headers, 1):
+    for col_idx, h in enumerate(HEADERS, 1):
         ws.cell(row=1, column=col_idx, value=h)
 
-    for row_idx, emp in enumerate(employees, 2):
-        d = emp.to_dict()
-        for col_idx, field in enumerate(db_fields, 1):
-            val = d.get(field)
+    for row_idx, row in enumerate(rows, 2):
+        for col_idx, field in enumerate(COLUMNS, 1):
+            val = row.get(field)
             if field == "visit_date" and val:
-                # Convert to Buddhist Era
-                try:
-                    dt = datetime.strptime(val, "%Y-%m-%d")
-                    val = f"{dt.year + 543}-{dt.month:02d}-{dt.day:02d}"
-                except Exception:
-                    pass
+                val = f"{val.year + 543}-{val.month:02d}-{val.day:02d}"   # ปี พ.ศ.
+            elif isinstance(val, Decimal):
+                val = float(val)
             ws.cell(row=row_idx, column=col_idx, value=val)
 
     buf = io.BytesIO()
@@ -201,7 +226,8 @@ def metrics(db: Session = Depends(get_db), user=Depends(require_user)):
     return {
         "files": len(files),
         "hospitals": len({f.hospital_id for f in files}),     # hospitals that actually sent files
-        "people_visits": db.query(func.count(Employee.id)).scalar(),
+        "people": db.query(func.count(Employee.id)).scalar(),
+        "people_visits": db.query(func.count(EmployeeCheckup.id)).scalar(),
         "cells": {"automatic": automatic, "assisted": assisted, "waiting": waiting},
         "automation_rate": automatic / total if total else None,
         "open_reviews": db.query(func.count(PendingReview.id)).filter(PendingReview.status == "open").scalar(),
