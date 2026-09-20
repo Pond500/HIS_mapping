@@ -15,7 +15,10 @@ from sqlalchemy.orm import Session
 from app.auth import require_user
 from app.database import SessionLocal
 from app.graph import service
-from app.models import AppUser, Hospital, SourceFile
+from app.models import AppUser, CheckupBatch, Company, Hospital, SourceFile
+from app.models import PendingReview
+from app.pipeline import registry
+from app.pipeline.reader import read_file
 from app.pipeline.run import get_or_create_hospital
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,7 +32,8 @@ def storage_dir() -> str:
 
 
 def register_file(db: Session, filename: str, content: bytes, hospital: str | None,
-                  api_key_id: int | None = None) -> SourceFile:
+                  api_key_id: int | None = None, field_set: str = "result",
+                  checkup_batch_id: int | None = None, company_id: int | None = None) -> SourceFile:
     """Stores the original bytes and creates the SourceFile row (committed)."""
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     sha = hashlib.sha256(content).hexdigest()
@@ -39,7 +43,9 @@ def register_file(db: Session, filename: str, content: bytes, hospital: str | No
         fh.write(content)
     h = get_or_create_hospital(db, hospital)
     sf = SourceFile(hospital_id=h.id, filename=filename, file_type=ext, sha256=sha,
-                    stored_path=stored_path, status="processing", stats={}, errors=[], api_key_id=api_key_id)
+                    stored_path=stored_path, status="processing", stats={}, errors=[],
+                    api_key_id=api_key_id, field_set=field_set,
+                    checkup_batch_id=checkup_batch_id, company_id=company_id)
     db.add(sf)
     db.commit()
     db.refresh(sf)
@@ -79,10 +85,15 @@ def list_hospitals(user: AppUser = Depends(require_user)):
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...), hospital: str = Form(""),
+                      round_id: int = Form(0),
                       user: AppUser = Depends(require_user)):
+    """A results file. It must name the round it belongs to (D23): that is where its
+    date comes from, and which workplace's register its people are looked up in."""
     filename = file.filename or "unknown"
     if filename.rsplit(".", 1)[-1].lower() not in ALLOWED:
         return {"success": False, "error": "รองรับเฉพาะไฟล์ .csv .xlsx และ .xls"}
+    if not round_id:
+        return {"success": False, "error": "กรุณาเลือกรอบตรวจก่อนส่งไฟล์ผลตรวจ"}
     content = await file.read()
     # Short-lived session, closed BEFORE the graph runs: no transaction may stay open while it
     # works (LLM calls take tens of seconds, and Postgres DDL such as the checkpointer's
@@ -92,7 +103,9 @@ async def upload_file(file: UploadFile = File(...), hospital: str = Form(""),
             code = hospital_code_for(db, user, hospital)
         except ValueError as e:
             return {"success": False, "error": str(e)}
-        file_id = register_file(db, filename, content, code).id
+        if db.get(CheckupBatch, round_id) is None:
+            return {"success": False, "error": "ไม่พบรอบตรวจที่เลือก"}
+        file_id = register_file(db, filename, content, code, checkup_batch_id=round_id).id
     try:
         st = service.run_upload(file_id)
     except Exception as e:  # process_file already rolled back and marked the file failed
@@ -110,3 +123,47 @@ async def upload_file(file: UploadFile = File(...), hospital: str = Form(""),
         "stats": stats,
         "errors": [f"รอตรวจ {k}: {n} รายการ" for k, n in stats.get("reviews_by_kind", {}).items()],
     }
+
+
+@router.post("/upload/registry")
+async def upload_registry(file: UploadFile = File(...), hospital: str = Form(""),
+                          company_id: int = Form(0),
+                          user: AppUser = Depends(require_user)):
+    """A register file: who the people are, not what was measured (D23).
+
+    It runs through registry.py rather than the lab pipeline — different columns,
+    no units, no ranges — but keeps the same promise: an unrecognised header, an
+    invalid CID or a department that does not exist becomes a question, and the
+    row waits rather than landing half-understood.
+    """
+    filename = file.filename or "unknown"
+    if filename.rsplit(".", 1)[-1].lower() not in ALLOWED:
+        return {"success": False, "error": "รองรับเฉพาะไฟล์ .csv .xlsx และ .xls"}
+    if not company_id:
+        return {"success": False, "error": "กรุณาเลือกสถานประกอบการก่อนส่งไฟล์ทะเบียน"}
+    content = await file.read()
+    with SessionLocal() as db:
+        try:
+            code = hospital_code_for(db, user, hospital)
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
+        if db.get(Company, company_id) is None:
+            return {"success": False, "error": "ไม่พบสถานประกอบการที่เลือก"}
+        sf = register_file(db, filename, content, code, field_set="registry",
+                           company_id=company_id)
+        try:
+            sheets = read_file(content, sf.file_type)
+            result = registry.import_registry(db, sheets, sf.hospital_id, company_id, sf.id)
+            for r in result.reviews:
+                db.add(PendingReview(source_file_id=sf.id, kind=r["kind"], payload=r["payload"],
+                                     field_set="registry", status="open"))
+            sf.stats = result.as_stats()
+            sf.status = "awaiting_review" if result.reviews else "completed"
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            sf = db.merge(sf)
+            sf.status, sf.errors = "failed", [f"{type(e).__name__}: {e}"]
+            db.commit()
+            return {"success": False, "upload_id": sf.id, "error": f"{type(e).__name__}: {e}"}
+        return {"success": True, "upload_id": sf.id, "status": sf.status, **result.as_stats()}

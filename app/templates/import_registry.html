@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}นำเข้าทะเบียนพนักงาน — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
+
+{% block content %}
+<div class="page-head-row">
+    <div>
+        <h1 class="page-title">นำเข้าทะเบียนพนักงาน</h1>
+        <p class="page-sub">
+            ไฟล์รายชื่อพนักงานของสถานประกอบการ — ใครคือใคร อยู่แผนกไหน
+            คนละไฟล์กับผลตรวจ และ<b>ต้องนำเข้าก่อน</b> เพราะผลตรวจของคนที่ไม่มีในทะเบียนจะถูกพักไว้
+        </p>
+    </div>
+    <a class="btn" href="/">← กลับเมนูหลัก</a>
+</div>
+
+<div class="card">
+    <label class="field" for="companyPick">
+        <span>สถานประกอบการที่ทะเบียนนี้เป็นของ <b class="req">*</b></span>
+        <select id="companyPick"><option value="">— เลือกสถานประกอบการ —</option></select>
+        <small class="field-hint" id="companyHint">
+            แผนกในไฟล์ต้องมีชื่อตรงกับแผนกที่ตั้งไว้ในทะเบียนสถานประกอบการ ถ้าไม่ตรงระบบจะถาม ไม่สร้างแผนกใหม่ให้เอง
+        </small>
+    </label>
+
+    <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
+            </svg>
+        </div>
+        <div class="upload-title">ลากไฟล์มาวาง หรือ <span class="link" id="uploadBtn">เลือกไฟล์</span></div>
+        <div class="upload-subtitle">CSV · XLSX · XLS — หัวคอลัมน์จะชื่ออะไรก็ได้ ที่ไม่รู้จักระบบจะถาม</div>
+        <input type="file" class="file-input" id="fileInput" accept=".csv,.xlsx,.xls">
+    </div>
+
+    <div class="progress-section" id="progressSection">
+        <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+        <div class="progress-text" id="progressText"></div>
+    </div>
+
+    <div class="result-card" id="resultCard">
+        <div class="result-title" id="resultTitle"></div>
+        <div class="result-stats" id="resultStats"></div>
+        <div id="resultNext"></div>
+    </div>
+</div>
+
+<div class="band">ทะเบียนเก็บอะไรบ้าง</div>
+<div class="card">
+    <p class="muted" style="margin-top:0;">
+        คอลัมน์ที่ระบบเข้าใจได้เอง — อย่างอื่นจะขึ้นเป็นรายการให้ตอบครั้งเดียว แล้วจำไว้ใช้กับไฟล์ครั้งต่อไป
+    </p>
+    <div class="kv">
+        <div class="k">เลขบัตรประชาชน</div><div class="v">ตรวจ checksum ทุกแถว ไม่ผ่านคือไม่บันทึกแถวนั้น</div>
+        <div class="k">ชื่อ · นามสกุล</div><div class="v">ตัดคำนำหน้าออกให้</div>
+        <div class="k">แผนก</div><div class="v">ต้องตรงกับแผนกที่มีอยู่จริงของสถานประกอบการนั้น</div>
+        <div class="k">เพศ</div><div class="v">ชาย/หญิง เท่านั้น ตามที่ฐานข้อมูลกรมฯ กำหนด</div>
+        <div class="k">ปีเกิด</div><div class="v">เขียนเป็น ค.ศ. มาก็ได้ ระบบแปลงเป็น พ.ศ. ให้</div>
+        <div class="k">สัญชาติ · ตำแหน่ง · อายุงาน · โรคประจำตัว</div><div class="v">เก็บตามที่เขียนมา</div>
+    </div>
+    <p class="review-warn" style="margin-bottom:0;">
+        ช่องที่กรมฯ บังคับว่าต้องมี (เพศ ปีเกิด สัญชาติ อายุงาน ตำแหน่ง) ถ้าไฟล์ไม่มี ระบบจะไม่เดาให้
+        คนนั้นจะขึ้นสถานะ “ทะเบียนไม่ครบ” และยังรับผลตรวจได้ตามปกติ
+    </p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+async function boot() {
+    const r = await fetch('/api/companies');
+    const companies = await r.json();
+    if (!companies.length) {
+        $('companyHint').innerHTML =
+            'ยังไม่มีสถานประกอบการในระบบ — เพิ่มที่หน้า <a href="/workplaces">ทะเบียนสถานประกอบการ</a> ก่อน';
+        return;
+    }
+    $('companyPick').insertAdjacentHTML('beforeend', companies.map(c =>
+        `<option value="${c.id}" data-depts="${c.departments}">${esc(c.name)}${c.branch_name ? ' — ' + esc(c.branch_name) : ''}</option>`).join(''));
+}
+
+$('companyPick').addEventListener('change', e => {
+    const opt = e.target.selectedOptions[0];
+    // Every person must land in a department, so a workplace with none cannot take a file yet.
+    if (opt && opt.dataset.depts === '0') {
+        $('companyHint').innerHTML =
+            'สถานประกอบการนี้ยังไม่มีแผนก — ต้องเพิ่มแผนกที่หน้า <a href="/workplaces">ทะเบียนสถานประกอบการ</a> ก่อน ' +
+            'เพราะทะเบียนของกรมฯ ผูกพนักงานกับแผนกเสมอ';
+    } else {
+        $('companyHint').textContent =
+            'แผนกในไฟล์ต้องมีชื่อตรงกับแผนกที่ตั้งไว้ในทะเบียนสถานประกอบการ ถ้าไม่ตรงระบบจะถาม ไม่สร้างแผนกใหม่ให้เอง';
+    }
+});
+
+$('uploadBtn').addEventListener('click', () => $('fileInput').click());
+$('uploadZone').addEventListener('dragover', e => { e.preventDefault(); $('uploadZone').classList.add('drag-over'); });
+$('uploadZone').addEventListener('dragleave', () => $('uploadZone').classList.remove('drag-over'));
+$('uploadZone').addEventListener('drop', e => {
+    e.preventDefault(); $('uploadZone').classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) send(e.dataTransfer.files[0]);
+});
+$('fileInput').addEventListener('change', e => { if (e.target.files[0]) send(e.target.files[0]); });
+
+async function send(file) {
+    const companyId = $('companyPick').value;
+    if (!companyId) { alert('กรุณาเลือกสถานประกอบการก่อน'); return; }
+
+    $('progressSection').style.display = 'block';
+    $('progressText').textContent = 'กำลังอ่านไฟล์ ' + file.name;
+    $('resultCard').style.display = 'none';
+
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('company_id', companyId);
+    const res = await fetch('/api/upload/registry', {method: 'POST', body: fd});
+    const data = await res.json();
+
+    $('progressSection').style.display = 'none';
+    $('resultCard').style.display = 'block';
+    if (!data.success) {
+        $('resultTitle').textContent = 'นำเข้าไม่สำเร็จ';
+        $('resultStats').innerHTML = `<div class="review-warn">${esc(data.error)}</div>`;
+        $('resultNext').innerHTML = '';
+        return;
+    }
+    $('resultTitle').textContent = 'อ่านไฟล์เสร็จแล้ว';
+    $('resultStats').innerHTML = `
+        <div class="tile-grid">
+            <div class="tile"><div class="big">${data.rows}</div><div class="muted">แถวในไฟล์</div></div>
+            <div class="tile"><div class="big">${data.added}</div><div class="muted">เพิ่มเข้าทะเบียน</div></div>
+            <div class="tile"><div class="big">${data.updated}</div><div class="muted">เติมข้อมูลที่ขาด</div></div>
+            <div class="tile"><div class="big">${data.unchanged}</div><div class="muted">มีอยู่แล้ว ไม่เปลี่ยน</div></div>
+            <div class="tile"><div class="big">${data.reviews}</div><div class="muted">รอเจ้าหน้าที่ตัดสิน</div></div>
+        </div>`;
+    $('resultNext').innerHTML = data.reviews
+        ? `<p class="review-warn">มี ${data.reviews} รายการที่ระบบไม่ยอมเดา
+             <a href="/reviews?file=${data.upload_id}">ไปตรวจรายการ</a></p>`
+        : `<p>ทะเบียนพร้อมแล้ว ขั้นถัดไปคือ <a href="/import">นำเข้าผลตรวจ</a></p>`;
+}
+
+boot();
+</script>
+{% endblock %}

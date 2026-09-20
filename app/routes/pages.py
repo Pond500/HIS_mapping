@@ -32,6 +32,7 @@ MENU = [
     {"key": "walkthrough", "label": "Walk Through Survey", "href": "/walkthrough", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "rounds", "label": "รอบตรวจสุขภาพ", "href": "/rounds", "roles": ("superadmin", "admin", "staff", "doctor")},
     {"key": "health", "label": "รายงานผลตรวจสุขภาพกลุ่มเสี่ยง", "href": "/health-report", "roles": ("superadmin", "admin", "staff", "doctor")},
+    {"key": "registry", "label": "นำเข้าทะเบียนพนักงาน", "href": "/import-registry", "roles": ("superadmin", "admin", "staff")},
     {"key": "import", "label": "นำเข้าผลตรวจ (AI)", "href": "/import", "roles": ("superadmin", "admin", "staff")},
     {"key": "reviews", "label": "งานที่ต้องตรวจ", "href": "/reviews", "roles": ("superadmin", "admin", "staff")},
     {"key": "people", "label": "ข้อมูลพนักงาน", "href": "/people", "roles": ("superadmin", "admin", "staff", "doctor")},
@@ -176,6 +177,19 @@ def import_page(request: Request, response: Response, db: Session = Depends(get_
         return redirect
     page = templates.TemplateResponse(request, "import_upload.html",
                                       _ctx(request, user, db, active="import"))
+    page.headers.update(response.headers)
+    return page
+
+
+@router.get("/import-registry", response_class=HTMLResponse)
+def import_registry_page(request: Request, response: Response, db: Session = Depends(get_db)):
+    """นำเข้าทะเบียนพนักงาน: who the people are (D23). Must come before results —
+    a person not in the register has their results held back."""
+    user, redirect = _guard(request, response)
+    if redirect:
+        return redirect
+    page = templates.TemplateResponse(request, "import_registry.html",
+                                      _ctx(request, user, db, active="registry"))
     page.headers.update(response.headers)
     return page
 
