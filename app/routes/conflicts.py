@@ -20,7 +20,10 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
-from app.models import Conflict, Employee, PendingReview, SourceFile, ValueHistory, ValueProvenance
+from app.models import (
+    CheckupBatch, Conflict, Employee, EmployeeCheckup, PendingReview, SourceFile,
+    ValueHistory, ValueProvenance,
+)
 from app.template import FIELDS_BY_COLUMN
 
 router = APIRouter(prefix="/api", tags=["conflicts"])
@@ -45,16 +48,18 @@ def _typed(column: str, text: str):
 
 
 def _conflict_dict(db: Session, c: Conflict) -> dict:
-    e = db.get(Employee, c.employee_id)
+    checkup = db.get(EmployeeCheckup, c.checkup_id)
+    e = db.get(Employee, checkup.employee_id)
+    batch = db.get(CheckupBatch, checkup.checkup_batch_id)
     stored_prov = (db.query(ValueProvenance)
-                   .filter(ValueProvenance.employee_id == c.employee_id, ValueProvenance.column == c.column)
+                   .filter(ValueProvenance.checkup_id == c.checkup_id, ValueProvenance.column == c.column)
                    .order_by(desc(ValueProvenance.id)).first())
     stored_file = db.get(SourceFile, stored_prov.source_file_id) if stored_prov else None
     incoming_file = db.get(SourceFile, c.source_file_id)
     return {
         "id": c.id, "status": c.status, "column": c.column,
         "cid": e.cid, "name": " ".join(x for x in (e.first_name, e.last_name) if x),
-        "visit_date": e.visit_date.isoformat(),
+        "visit_date": (checkup.checkup_date or batch.appoint_date).isoformat(),
         "current_value": c.current_value, "incoming_value": c.incoming_value,
         "current_from": {"file": stored_file.filename if stored_file else None,
                          "sheet": stored_prov.sheet if stored_prov else None,
@@ -70,15 +75,17 @@ def _resolve(db: Session, c: Conflict, action: str, by: str):
     if c.status != "open":
         raise HTTPException(409, f"ข้อมูลขัดแย้ง #{c.id} ถูกตัดสินไปแล้ว ({c.status})")
     if action == "replace":
-        e = db.get(Employee, c.employee_id)
-        old = getattr(e, c.column)
-        setattr(e, c.column, _typed(c.column, c.incoming_value))
-        db.add(ValueHistory(employee_id=e.id, column=c.column, old_value=None if old is None else str(old),
+        checkup = db.get(EmployeeCheckup, c.checkup_id)
+        old = getattr(checkup, c.column)
+        setattr(checkup, c.column, _typed(c.column, c.incoming_value))
+        db.add(ValueHistory(checkup_id=checkup.id, column=c.column,
+                            old_value=None if old is None else str(old),
                             new_value=c.incoming_value, reason="conflict_resolved",
                             source_file_id=c.source_file_id, changed_by=by))
         prov = {k: v for k, v in (c.provenance or {}).items()
                 if k in ("sheet", "cell", "raw_name", "raw_value", "raw_unit", "mapping_id")}
-        db.add(ValueProvenance(employee_id=e.id, column=c.column, source_file_id=c.source_file_id, **prov))
+        db.add(ValueProvenance(checkup_id=checkup.id, column=c.column,
+                               source_file_id=c.source_file_id, **prov))
         c.status = "replaced"
     else:
         c.status = "kept"

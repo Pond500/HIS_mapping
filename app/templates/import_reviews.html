@@ -118,6 +118,9 @@
         const maps = rs.filter(r => r.kind === 'mapping');
         const ids = rs.filter(r => r.kind === 'identity');
         const depts = rs.filter(r => r.kind === 'department');
+        // D23: the two questions about people rather than about labels
+        const strangers = rs.filter(r => r.kind === 'unregistered_person');
+        const moved = rs.filter(r => r.kind === 'department_change');
         // one row per distinct finding text: the answer applies to every row with that text
         const cmtGroups = {};
         rs.filter(r => r.kind === 'comment').forEach(r => {
@@ -125,17 +128,22 @@
             (cmtGroups[k] = cmtGroups[k] || []).push(r);
         });
         const cmts = Object.values(cmtGroups);
-        const others = rs.filter(r => !['mapping', 'identity', 'comment', 'department'].includes(r.kind));
+        const others = rs.filter(r => !['mapping', 'identity', 'comment', 'department', 'unregistered_person', 'department_change'].includes(r.kind));
         const counts = {};
         others.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
 
         const rows = [
+            ...strangers.map(strangerRow),
+            ...moved.map(movedRow),
             ...ids.flatMap(identityRows),
             ...depts.map(deptRow),
             ...maps.map(mappingRow),
             ...cmts.map(commentRow),
         ].join('');
-        const n = ids.reduce((s, r) => s + (r.payload.missing || []).length, 0) + depts.length + maps.length + cmts.length;
+        // n drives both the progress line and whether the save button exists at all,
+        // so every kind that produces a decidable row has to be counted here.
+        const n = ids.reduce((s, r) => s + (r.payload.missing || []).length, 0)
+                + depts.length + maps.length + cmts.length + strangers.length + moved.length;
 
         return `<div class="review-file" data-file="${Number(fid)}">
             <div class="review-file-head">
@@ -256,6 +264,54 @@
         </tr>`;
     }
 
+    function onStranger(sel) {
+        // The name only matters once they are actually being added, so it stays
+        // out of the way until then.
+        const box = sel.closest('.decide').querySelector('.stranger-name');
+        box.style.display = sel.value === 'register' ? 'flex' : 'none';
+        refreshProgress();
+    }
+
+    function strangerRow(r) {
+        const p = r.payload;
+        const parts = String(p.name_in_file || '').split(' ');
+        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="stranger" data-text="${esc(p.cid)}">
+            <td></td>
+            <td><b>ไม่มีคนนี้ในทะเบียนพนักงาน</b>
+                <div class="muted">เลขบัตร ${esc(p.cid)} · ในไฟล์เขียนว่า “${esc(p.name_in_file || '—')}”
+                     แผนก “${esc(p.department_in_file || '—')}”</div></td>
+            <td class="samples"><span class="review-warn">${Number(p.values_waiting || 0)} ค่ารออยู่</span></td>
+            <td><span class="muted">ระบบไม่เพิ่มคนเข้าทะเบียนเอง</span></td>
+            <td class="decide">
+                <select class="stranger-act" onchange="onStranger(this)">
+                    <option value="">ข้ามไว้ก่อน</option>
+                    <option value="register">เพิ่มเข้าทะเบียน แล้วบันทึกผล</option>
+                </select>
+                <div class="stranger-name" style="margin-top:6px;display:none;gap:6px;">
+                    <input class="sn-first" placeholder="ชื่อ" value="${esc(parts[0] || '')}">
+                    <input class="sn-last" placeholder="นามสกุล" value="${esc(parts.slice(1).join(' '))}">
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    function movedRow(r) {
+        const p = r.payload;
+        return `<tr class="dec" data-review="${Number(r.id)}" data-kind="moved" data-text="${esc(p.cid)}">
+            <td></td>
+            <td><b>แผนกในไฟล์ไม่ตรงกับทะเบียน</b>
+                <div class="muted">เลขบัตร ${esc(p.cid)} · ทะเบียน “${esc(p.department_in_register)}”
+                     แต่ไฟล์เขียนว่า “${esc(p.department_in_file)}”</div></td>
+            <td class="samples"><span class="review-warn">${Number(p.values_waiting || 0)} ค่ารออยู่</span></td>
+            <td><span class="muted">ระบบไม่เดาว่าย้ายจริงหรือพิมพ์ผิด</span></td>
+            <td class="decide"><select class="moved-act" onchange="refreshProgress()">
+                <option value="">ข้ามไว้ก่อน</option>
+                <option value="move_department">ย้ายแผนกจริง — เปิดทะเบียนในแผนกใหม่</option>
+                <option value="use_register">ไฟล์เขียนผิด — ใช้แผนกในทะเบียน</option>
+            </select></td>
+        </tr>`;
+    }
+
     function identityRows(r) {
         const p = r.payload;
         const opts = (p.candidates || []).map(c => c.header === TITLE_DATE
@@ -283,6 +339,8 @@
         if (kind === 'mapping') return tr.querySelector('.act').value !== 'skip';
         if (kind === 'comment') return tr.querySelector('.cmt-val').value !== '';
         if (kind === 'department') return tr.querySelector('.dept-code').value.trim() !== '';
+        if (kind === 'stranger') return tr.querySelector('.stranger-act').value !== '';
+        if (kind === 'moved') return tr.querySelector('.moved-act').value !== '';
         return tr.querySelector('.id-pick').value !== '';
     }
 
@@ -323,7 +381,15 @@
         let noTarget = false;
         block.querySelectorAll('tr.dec').forEach(tr => {
             const id = Number(tr.dataset.review), kind = tr.dataset.kind;
-            if (kind === 'department') {
+            if (kind === 'stranger') {
+                const act = tr.querySelector('.stranger-act').value;
+                if (act) decisions.push({ review_id: id, action: 'register',
+                    first_name: tr.querySelector('.sn-first').value.trim() || null,
+                    last_name: tr.querySelector('.sn-last').value.trim() || null });
+            } else if (kind === 'moved') {
+                const act = tr.querySelector('.moved-act').value;
+                if (act) decisions.push({ review_id: id, action: act });
+            } else if (kind === 'department') {
                 const code = tr.querySelector('.dept-code').value.trim();
                 if (code) decisions.push({ review_id: id, action: 'department', code });
             } else if (kind === 'comment') {
