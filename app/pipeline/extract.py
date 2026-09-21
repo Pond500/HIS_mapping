@@ -105,11 +105,14 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
             if round_date is not None and "วันที่ตรวจไม่พบ" in p:
                 continue
             ex.reviews.append({"kind": "profile", "payload": {"sheet": spec.sheet, "problem": p}})
-        # A missing date column is not a problem when the round supplies one (D23):
-        # asking a reviewer to find a column that is not supposed to be there would
-        # be noise. Every other missing role still has to be answered.
-        missing = [r for r in spec.missing_roles
-                   if not (r == "visit_date" and round_date is not None)]
+        # Two roles a results file is not supposed to carry once a round is chosen
+        # (D23), so asking a reviewer to find them is asking for a column that is not
+        # there. The date comes from the round. The department comes from the register:
+        # a results file only gets to disagree with it, and saying nothing is not a
+        # disagreement. Left in, the question offered whatever text column happened to
+        # be in the file — on the department's own files, the chest X-ray finding.
+        skip_roles = {"visit_date", "department_id"} if round_date is not None else set()
+        missing = [r for r in spec.missing_roles if r not in skip_roles]
         if spec.layout != "skip" and missing:
             ex.reviews.append({"kind": "identity", "payload": {
                 "sheet": spec.sheet, "missing": missing, "candidates": spec.candidates,

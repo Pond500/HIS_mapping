@@ -234,3 +234,23 @@ def test_registering_a_stranger_who_is_already_there_is_not_an_error(world):
     db.flush()
 
     assert db.query(Employee).filter(Employee.cid == "1101700207994").count() == 1
+
+
+def test_a_results_file_is_not_asked_for_a_department_column(world):
+    """D23 moved the department to the register. Asking a results file for one
+    offered the reviewer whatever text column the file happened to have — on the
+    department's own files, the chest X-ray finding."""
+    from app.pipeline.extract import extract
+    from app.pipeline.mapper import Mapper
+    from app.pipeline.profiler import profile_sheet
+    from app.pipeline.reader import Sheet
+
+    db, sf = world["db"], world["sf"]
+    rows = [["เลขบัตรประชาชน", "ชื่อ-สกุล", "Hb"],
+            ["1101700207364", "สมชาย ใจดี", "13.9"]]
+    mapper = Mapper(db, sf.hospital_id)
+    spec = profile_sheet(Sheet("csv", rows), mapper.known_labels(), mapper.identity_aliases(), None)
+    assert "department_id" in spec.missing_roles        # the profiler still reports it
+
+    ex = extract([Sheet("csv", rows)], [spec], mapper, {}, {}, {}, "2026-03-01")
+    assert [r for r in ex.reviews if r["kind"] == "identity"] == []

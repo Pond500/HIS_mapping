@@ -101,26 +101,32 @@
  * ══════════════════════════════════════════════════════════════════════ */
 
 const ANSWERABLE = ['mapping', 'identity', 'comment', 'department',
-                    'unregistered_person', 'department_change'];
+                    'unregistered_person', 'department_change',
+                    'unknown_department', 'registry_value'];
 const KIND_LABEL = {cid: 'เลขบัตรประชาชนไม่ถูกต้อง', profile: 'อ่านโครงไฟล์ไม่ออก',
-                    value: 'ค่าที่อ่านไม่ได้'};
+                    value: 'ค่าที่อ่านไม่ได้',
+                    row_missing_department: 'แถวในไฟล์ทะเบียนไม่ได้เขียนแผนกไว้'};
+const SKIP_FIX = {cid: 'แก้เลขบัตรในไฟล์ต้นฉบับให้ถูกต้อง แล้วนำเข้าไฟล์ใหม่',
+                  row_missing_department: 'เติมชื่อแผนกให้แถวเหล่านี้ในไฟล์ทะเบียน แล้วนำเข้าใหม่'};
 const ROLE_TH = {first_name: 'ชื่อ', last_name: 'นามสกุล', full_name: 'ชื่อ-สกุล',
                  department_id: 'แผนก', visit_date: 'วันที่ตรวจ', cid: 'เลขบัตรประชาชน'};
 const TITLE_DATE = '__report_title_date__';
 
-let QUESTIONS = [], SKIPPED = [], FILES = {}, templateColumns = [];
+let QUESTIONS = [], SKIPPED = [], FILES = {}, templateColumns = [], registryColumns = [];
 let idx = 0;
 const answers = {};                       // key(q) -> decision (absent = unanswered)
 const $ = id => document.getElementById(id);
 const key = q => q.kind === 'identity' ? `${q.id}:${q.role}` : String(q.id);
 
 async function load() {
-    const [reviews, columns, files] = await Promise.all([
+    const [reviews, columns, regColumns, files] = await Promise.all([
         api('/api/reviews?status=open&limit=5000'),
         templateColumns.length ? templateColumns : api('/api/template/columns'),
+        registryColumns.length ? registryColumns : api('/api/registry/columns'),
         api('/api/upload-logs'),
     ]);
     templateColumns = columns;
+    registryColumns = regColumns;
     FILES = Object.fromEntries(files.map(f => [String(f.id), f]));
 
     const groups = {};
@@ -140,8 +146,8 @@ async function load() {
         }
     }
     // people first: each one blocks whole rows of results
-    const order = {unregistered_person: 0, department_change: 1, identity: 2,
-                   department: 3, mapping: 4, comment: 5};
+    const order = {unknown_department: 0, unregistered_person: 1, department_change: 2,
+                   identity: 3, department: 4, mapping: 5, registry_value: 6, comment: 7};
     QUESTIONS.sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9));
 
     const pill = $('reviewCount');
@@ -158,11 +164,10 @@ function renderSkipped() {
     const byKind = {};
     SKIPPED.forEach(r => (byKind[r.kind] = byKind[r.kind] || []).push(r));
     $('skippedList').innerHTML = Object.entries(byKind).map(([kind, rows]) => {
-        const where = kind === 'cid'
-            ? 'แก้เลขบัตรในไฟล์ต้นฉบับให้ถูกต้อง แล้วนำเข้าไฟล์ใหม่'
-            : 'แก้ที่ไฟล์ต้นฉบับ แล้วนำเข้าใหม่';
+        const where = SKIP_FIX[kind] || 'แก้ที่ไฟล์ต้นฉบับ แล้วนำเข้าใหม่';
         const ex = rows.slice(0, 6).map(r =>
-            `<code>${esc(r.payload.raw_cid || r.payload.raw || r.payload.problem || '')}</code>`).join(' ');
+            `<code>${esc(r.payload.raw_cid || r.payload.raw || r.payload.problem
+                         || (r.payload.row ? 'แถว ' + r.payload.row : ''))}</code>`).join(' ');
         return `<div class="skip-row">
             <div><b>${esc(KIND_LABEL[kind] || kind)}</b> · ${rows.length} รายการ
                  <div class="muted">${ex}${rows.length > 6 ? ' …' : ''}</div></div>
@@ -259,6 +264,41 @@ const RENDER = {
         };
     },
 
+    unknown_department(q) {
+        const p = q.payload, known = p.known_departments || [];
+        return {
+            title: `ไฟล์ทะเบียนมีแผนก “${esc(p.department_in_file)}” ที่ยังไม่มีในสถานประกอบการนี้`,
+            why: '<span class="review-warn">คนในแผนกนี้ยังไม่ถูกบันทึกเข้าทะเบียน จนกว่าจะรู้ว่าแผนกนี้มีจริงไหม</span>',
+            body: `<div class="kv">
+                <div class="k">แผนกที่มีอยู่แล้ว</div>
+                <div class="v">${known.length ? known.map(esc).join(' · ') : '<span class="muted">ยังไม่มีแผนกเลย</span>'}</div>
+                <div class="k">เลขบัตรของคนแรกที่อยู่แผนกนี้</div><div class="v mono">${esc(p.cid)}</div></div>`,
+            answer: `<div class="wiz-choices">
+                <div class="ask-form">
+                    <div class="ask-lead"><b>เพิ่มแผนก “${esc(p.department_in_file)}” เข้าสถานประกอบการนี้</b>
+                    <span class="muted">ใช้เมื่อเป็นแผนกจริงที่ยังไม่ได้ลงทะเบียนไว้
+                    — ถ้าเป็นการพิมพ์ชื่อแผนกผิด ให้กด “ข้ามไว้ก่อน” แล้วแก้ชื่อในไฟล์ แล้วนำเข้าใหม่</span></div>
+                </div></div>`,
+        };
+    },
+
+    registry_value(q) {
+        const p = q.payload;
+        return {
+            title: `ทะเบียนกับไฟล์เขียน “${esc(p.header || p.column)}” ไม่ตรงกัน`,
+            why: `<span class="muted">เลขบัตร ${esc(p.cid)} · ค่าเดิมยังอยู่จนกว่าจะมีคนตัดสิน</span>`,
+            body: `<div class="compare">
+                <div class="compare-side"><div class="muted">ในทะเบียนตอนนี้</div><b>${esc(p.current)}</b></div>
+                <div class="compare-vs">≠</div>
+                <div class="compare-side"><div class="muted">ในไฟล์ที่เพิ่งนำเข้า</div><b>${esc(p.raw)}</b></div></div>`,
+            answer: `<div class="wiz-choices">
+                <label class="choice"><input type="radio" name="ans" value="replace">
+                    <span><b>ใช้ค่าใหม่จากไฟล์</b><span class="muted">${esc(p.raw)}</span></span></label>
+                <label class="choice"><input type="radio" name="ans" value="keep">
+                    <span><b>เก็บค่าเดิมในทะเบียน</b><span class="muted">${esc(p.current)}</span></span></label></div>`,
+        };
+    },
+
     identity(q) {
         const p = q.payload, role = q.role;
         const opts = (p.candidates || []).map(c => c.header === TITLE_DATE
@@ -306,8 +346,35 @@ const RENDER = {
     mapping(q) {
         const p = q.payload, prop = p.proposal || {}, ver = p.verification || {};
         const hasProp = prop.target && prop.target !== '__unknown__';
-        const colOptions = templateColumns.map(c =>
-            `<option value="${esc(c.column)}" ${c.column === (prop.target || p.suggestion) ? 'selected' : ''}>${esc(c.column)} — ${esc(c.desc)}</option>`).join('');
+        // A register file's columns are who the person is, not what was measured.
+        // Offering the 45 lab columns here asked which blood test “ตำแหน่งงาน” is,
+        // and the answer was rejected by the server, so the question had no way out.
+        const reg = p.field_set === 'registry';
+        const cols = reg ? registryColumns : templateColumns;
+        const colOptions = cols.map(c =>
+            `<option value="${esc(c.column)}" ${c.column === (prop.target || p.suggestion) ? 'selected' : ''}>${esc(c.header || c.column)}${c.desc ? ' — ' + esc(c.desc) : ''}</option>`).join('');
+        if (reg) return {
+            title: `คอลัมน์ “${esc(p.label)}” ในไฟล์ทะเบียนคือข้อมูลอะไร`,
+            why: '<span class="muted">ตอบครั้งเดียว ระบบจะจำไว้ให้หน่วยบริการนี้</span>',
+            body: `<div class="muted">sheet ${esc(p.sheet)}</div>`,
+            answer: `<div class="wiz-choices">
+                <label class="choice"><input type="radio" name="ans" value="set">
+                    <span><b>เป็นข้อมูลของพนักงาน</b><span class="muted">เลือกช่องในทะเบียน</span></span></label>
+                <div class="choice-extra" id="setBox" hidden>
+                    <select id="setTarget"><option value="">— เลือกช่องในทะเบียน —</option>${colOptions}</select>
+                </div>
+                <label class="choice"><input type="radio" name="ans" value="ignore">
+                    <span><b>ไม่ใช่ข้อมูลทะเบียน</b>
+                    <span class="muted">เช่น ลำดับที่ รหัสภายในของบริษัท — ระบบจะไม่ถามคอลัมน์นี้อีก</span></span></label></div>`,
+            onShow() {
+                const sync = () => {
+                    const v = document.querySelector('input[name=ans]:checked');
+                    $('setBox').hidden = !v || v.value !== 'set';
+                };
+                document.querySelectorAll('input[name=ans]').forEach(el => el.addEventListener('change', sync));
+                sync();
+            },
+        };
         const agree = ver.verdict
             ? (ver.agrees ? '<span class="tag ok">AI สองตัวตรงกัน</span>'
                : ver.verdict === 'wrong' ? '<span class="tag bad">AI สองตัวไม่ตรงกัน</span>'
@@ -365,6 +432,10 @@ function collect() {
         const v = $('deptCode').value.trim();
         return v ? {review_id: q.id, action: 'department', code: v} : null;
     }
+    if (q.kind === 'unknown_department') {
+        // one possible answer, so the form is the question; "ข้ามไว้ก่อน" is the other way out
+        return {review_id: q.id, action: 'add_department'};
+    }
     if (q.kind === 'unregistered_person') {
         const dept = $('snDept').value, first = $('snFirst').value.trim();
         if (!dept) { alert('สถานประกอบการนี้ยังไม่มีแผนก — เพิ่มแผนกที่หน้าทะเบียนสถานประกอบการก่อน'); return undefined; }
@@ -375,12 +446,14 @@ function collect() {
     const picked = document.querySelector('input[name=ans]:checked');
     if (!picked) return null;
     if (q.kind === 'comment') return {review_id: q.id, action: 'comment', value: Number(picked.value)};
-    if (q.kind === 'department_change') return {review_id: q.id, action: picked.value};
+    if (q.kind === 'department_change' || q.kind === 'registry_value')
+        return {review_id: q.id, action: picked.value};
     const d = {review_id: q.id, action: picked.value};
     if (picked.value === 'set') {
         d.target = $('setTarget').value;
-        d.unit = $('setUnit').value || null;
-        if (!d.target) { alert('เลือกช่องผลตรวจก่อน หรือกด “ข้ามไว้ก่อน”'); return undefined; }
+        // a register file's question has no unit box: a name and a job title have no units
+        if ($('setUnit')) d.unit = $('setUnit').value || null;
+        if (!d.target) { alert('เลือกช่องก่อน หรือกด “ข้ามไว้ก่อน”'); return undefined; }
     }
     return d;
 }
@@ -393,7 +466,10 @@ function restore(q) {
     if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change')); }
     if (saved.action === 'identity' && $('idPick')) $('idPick').value = saved.header;
     if (saved.action === 'department' && $('deptCode')) $('deptCode').value = saved.code;
-    if (saved.action === 'set') { $('setTarget').value = saved.target; $('setUnit').value = saved.unit || ''; }
+    if (saved.action === 'set' && $('setTarget')) {
+        $('setTarget').value = saved.target;
+        if ($('setUnit')) $('setUnit').value = saved.unit || '';
+    }
     if (saved.action === 'register' && $('snFirst')) {
         $('snFirst').value = saved.first_name || ''; $('snLast').value = saved.last_name || '';
         if (saved.header) $('snDept').value = saved.header;
@@ -420,11 +496,14 @@ function step(n) {
 
 function labelOf(q) {
     const p = q.payload || {};
+    if (q.kind === 'unknown_department') return `แผนก ${p.department_in_file}`;
+    if (q.kind === 'registry_value') return `${p.header || p.column} ของ ${p.cid}`;
     return p.label || p.text || p.name || p.name_in_file || p.cid || ROLE_TH[q.role] || `รายการ ${q.id}`;
 }
 const ACTION_TH = {approve: 'ยอมรับตามที่ AI เสนอ', extra: 'เก็บเป็นข้อมูลเพิ่มเติม',
-    ignore: 'ไม่ใช่ผลตรวจ', register: 'เพิ่มเข้าทะเบียน', move_department: 'ย้ายแผนกจริง',
-    use_register: 'ใช้แผนกในทะเบียน'};
+    ignore: 'ไม่ใช่ข้อมูลที่ต้องเก็บ', register: 'เพิ่มเข้าทะเบียน', move_department: 'ย้ายแผนกจริง',
+    use_register: 'ใช้แผนกในทะเบียน', add_department: 'เพิ่มแผนกนี้',
+    keep: 'เก็บค่าเดิม', replace: 'ใช้ค่าใหม่จากไฟล์'};
 function actionTh(a) {
     if (a.action === 'set') return `ตั้งเป็น ${a.target}`;
     if (a.action === 'identity') return `คอลัมน์ ${a.header}`;

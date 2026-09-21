@@ -30,7 +30,9 @@ router = APIRouter(prefix="/api", tags=["reviews"])
 class Decision(BaseModel):
     review_id: int
     action: Literal["approve", "set", "extra", "ignore", "skip", "identity", "comment", "department",
-                    "register", "move_department", "use_register"]
+                    "register", "move_department", "use_register",
+                    # register-file answers (D23)
+                    "add_department", "keep", "replace"]
     target: str | None = None
     unit: str | None = None       # unit the values are written in (for "set"); factor computed from it
     factor: float | None = None   # explicit factor (overrides unit)
@@ -71,6 +73,15 @@ def template_columns(all: bool = False, user=Depends(require_user)):
             row.update(header=f.header, group=f.group)
         out.append(row)
     return out
+
+
+@router.get("/registry/columns")
+def registry_columns(user=Depends(require_user)):
+    """The register's own fields. A question about a register file must offer these,
+    not the 45 lab columns: asking which blood test “ตำแหน่งงาน” is has no answer."""
+    from app.template import REGISTRY_FIELDS, REGISTRY_LABEL_TH
+    return [{"column": f.column, "header": REGISTRY_LABEL_TH.get(f.column, f.header),
+             "kind": f.kind} for f in REGISTRY_FIELDS]
 
 
 @router.get("/reviews")
@@ -177,11 +188,110 @@ def _apply_people_decision(db: Session, sf: SourceFile, r: PendingReview, d: Dec
                         medical_condition=person.medical_condition, source_file_id=sf.id))
 
 
+REGISTRY_KINDS = ("mapping", "identity", "unknown_department", "registry_value")
+
+
+def _decide_registry(db: Session, sf: SourceFile, body: DecisionBody) -> dict:
+    """Answers to a register file's questions (D23).
+
+    A register file never goes through the agent graph — upload_registry calls
+    registry.import_registry directly — so there is no paused thread to resume and
+    process_file would read it as a results file. Until 2026-09-21 the answers went
+    down that path anyway: every one returned 500 and left the register marked
+    `failed`, which is how a whole step of the department's flow was unanswerable.
+    """
+    from app.pipeline.mapper import norm_label
+    from app.pipeline.reader import read_file
+    from app.pipeline.registry import REG_IGNORE, REG_PREFIX, import_registry
+    from app.models import LabMapping
+    from app.template import REGISTRY_BY_COLUMN
+
+    def learn(label: str, column: str) -> None:
+        key = norm_label(label)
+        row = (db.query(LabMapping)
+               .filter(LabMapping.hospital_id == sf.hospital_id,
+                       LabMapping.source_name == key).one_or_none())
+        if row is None:
+            db.add(LabMapping(hospital_id=sf.hospital_id, source_name=key,
+                              target_column=f"{REG_PREFIX}{column}", origin="human"))
+        else:
+            row.target_column = f"{REG_PREFIX}{column}"
+
+    for d in body.decisions:
+        r = db.get(PendingReview, d.review_id)
+        if r is None or r.source_file_id != sf.id or r.kind not in REGISTRY_KINDS:
+            raise HTTPException(400, f"รายการ {d.review_id} ไม่ใช่คำถามของไฟล์ทะเบียนนี้")
+        if d.action == "skip" or r.status != "open":
+            continue          # a re-send after a partial failure must not decide twice
+
+        if r.kind == "mapping":
+            if d.action == "ignore":
+                learn(r.payload["label"], REG_IGNORE)
+            elif d.action == "set":
+                if d.target not in REGISTRY_BY_COLUMN:
+                    raise HTTPException(400, f"ไม่มีช่อง {d.target} ในทะเบียนพนักงาน")
+                learn(r.payload["label"], d.target)
+            else:
+                raise HTTPException(400, f"รายการ {d.review_id}: เลือกช่องในทะเบียน หรือ “ไม่ใช่ข้อมูลทะเบียน”")
+
+        elif r.kind == "identity":
+            if d.action != "identity" or not d.header or d.role not in (r.payload.get("missing") or []):
+                raise HTTPException(400, f"รายการ {d.review_id}: ต้องเลือกคอลัมน์ในไฟล์")
+            learn(d.header, d.role)
+
+        elif r.kind == "unknown_department":
+            if d.action != "add_department":
+                raise HTTPException(400, f"รายการ {d.review_id}: ต้องเลือกว่าจะทำอย่างไรกับแผนกนี้")
+            name = r.payload["department_in_file"]
+            exists = (db.query(Department)
+                      .filter(Department.company_id == sf.company_id,
+                              Department.name == name).one_or_none())
+            if exists is None:
+                db.add(Department(name=name, company_id=sf.company_id))
+
+        else:   # registry_value
+            if d.action not in ("keep", "replace"):
+                raise HTTPException(400, f"รายการ {d.review_id}: เลือกเก็บค่าเดิมหรือใช้ค่าใหม่")
+            if d.action == "replace":
+                person = db.get(Employee, r.payload["employee_id"])
+                if person is None:
+                    raise HTTPException(400, "ไม่พบคนนี้ในทะเบียนแล้ว")
+                setattr(person, r.payload["column"], r.payload["raw"])
+
+        r.status, r.decision, r.decided_by = "approved", {"action": d.action}, body.by
+
+    db.commit()
+
+    # Re-read the file with the answers in place: that is what actually imports the
+    # rows that were held back. Only now are the leftover questions replaced.
+    with open(sf.stored_path, "rb") as fh:
+        content = fh.read()
+    db.query(PendingReview).filter(PendingReview.source_file_id == sf.id,
+                                   PendingReview.status == "open").delete()
+    result = import_registry(db, read_file(content, sf.file_type), sf.hospital_id,
+                             sf.company_id, sf.id)
+    for item in result.reviews:
+        db.add(PendingReview(source_file_id=sf.id, kind=item["kind"], payload=item["payload"],
+                             field_set="registry", status="open"))
+    sf.stats = result.as_stats()
+    sf.status = "awaiting_review" if result.reviews else "completed"
+    sf.errors = []
+    db.commit()
+    return {"upload_id": sf.id, "status": sf.status, "stats": sf.stats, "errors": [],
+            "waiting_for_human": bool(result.reviews)}
+
+
 @router.post("/files/{file_id}/decisions")
 def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db), user=Depends(require_user)):
     sf = db.get(SourceFile, file_id)
     if sf is None:
         raise HTTPException(404, "ไม่พบไฟล์")
+    # Who decided comes from the session, never from the browser. It was taking the
+    # client's word for it, and the client always said "reviewer", so decided_by named
+    # nobody — the same trace manual entry is careful to keep (see routes/manual.py).
+    body.by = user.username
+    if sf.field_set == "registry":
+        return _decide_registry(db, sf, body)
     decisions, touched_people = [], False
     for d in body.decisions:
         r = db.get(PendingReview, d.review_id)
@@ -190,7 +300,7 @@ def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db), user
                 "unregistered_person", "department_change"):
             raise HTTPException(400, f"รายการ {d.review_id} ไม่ใช่รายการจับคู่ของไฟล์นี้")
         if r.kind in ("unregistered_person", "department_change"):
-            if d.action == "skip":
+            if d.action == "skip" or r.status != "open":
                 continue
             if d.action not in ("register", "move_department", "use_register"):
                 raise HTTPException(400, f"รายการ {d.review_id}: ต้องเลือกว่าจะทำอย่างไรกับคนนี้")

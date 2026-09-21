@@ -32,9 +32,10 @@ from sqlalchemy.orm import Session
 from app.models import Department, Employee, LabMapping
 from app.pipeline import normalize as N
 from app.pipeline.mapper import norm_label
-from app.template import REGISTRY_BY_COLUMN, REGISTRY_FIELDS
+from app.template import REGISTRY_BY_COLUMN, REGISTRY_FIELDS, REGISTRY_LABEL_TH
 
 REG_PREFIX = "__reg:"          # a learned header -> registry column, per hospital
+REG_IGNORE = "__ignore__"      # ...or a header this hospital has said is not register data
 
 #: Header spellings we accept without asking. Deliberately short: anything not
 #: here becomes a question, which is how a wrong guess is avoided.
@@ -159,6 +160,8 @@ def import_registry(db: Session, sheets, hospital_id: int, company_id: int,
             continue
         key = norm_label(h)
         col = learned.get(key) or ALIASES.get(key)
+        if col == REG_IGNORE:
+            continue                  # someone has already said this column is not register data
         if col:
             columns[i] = col
         else:
@@ -179,7 +182,7 @@ def import_registry(db: Session, sheets, hospital_id: int, company_id: int,
             "reason": "ไม่พบคอลัมน์เลขบัตรประชาชน — ทะเบียนพนักงานต้องมีเลขบัตรเพื่อผูกกับผลตรวจ"}})
         return res
 
-    seen_bad = set()
+    seen_bad, asked_departments = set(), set()
     for r in range(head + 1, len(sheet.rows)):
         row = sheet.rows[r]
         if all(N.is_na(v) for v in row):
@@ -206,19 +209,24 @@ def import_registry(db: Session, sheets, hospital_id: int, company_id: int,
 
         dept_name = values.pop("department_id", None)
         if not dept_name:
-            res.reviews.append({"kind": "identity", "payload": {
-                "cid": cid, "sheet": sheet.name, "row": r + 1, "missing": ["department_id"],
-                "field_set": "registry",
+            # Its own kind, not `identity`: identity asks "which column holds this",
+            # and there is no column to pick — the row itself is blank. Nobody can
+            # answer that from the review screen, so it must not look answerable.
+            res.reviews.append({"kind": "row_missing_department", "payload": {
+                "cid": cid, "sheet": sheet.name, "row": r + 1, "field_set": "registry",
                 "reason": "แถวนี้ไม่มีแผนก — ทะเบียนของกรมฯ ผูกคนกับแผนก จึงบันทึกไม่ได้"}})
             continue
         if dept_name not in departments:
+            if dept_name in asked_departments:
+                continue          # one question per department, not one per person in it
+            asked_departments.add(dept_name)
             # A department is a row owned by the workplace (D23). Creating one from a
-            # spelling in a file would quietly invent an organisational unit.
-            res.reviews.append({"kind": "department_change", "payload": {
-                "cid": cid, "department_in_file": dept_name, "department_in_register": None,
+            # spelling in a file would quietly invent an organisational unit, so a
+            # person says whether this is a real department or a misspelling.
+            res.reviews.append({"kind": "unknown_department", "payload": {
+                "cid": cid, "department_in_file": dept_name,
                 "known_departments": sorted(departments), "field_set": "registry",
-                "reason": f"ไม่มีแผนก “{dept_name}” ในสถานประกอบการนี้ — "
-                          f"เพิ่มแผนกที่หน้าทะเบียนสถานประกอบการ หรือแก้ชื่อในไฟล์"}})
+                "reason": f"ไม่มีแผนก “{dept_name}” ในสถานประกอบการนี้"}})
             continue
         dept_id = departments[dept_name]
 
@@ -249,8 +257,13 @@ def import_registry(db: Session, sheets, hospital_id: int, company_id: int,
                 changed = True
             elif not N.same_value(REGISTRY_BY_COLUMN[col].kind, current, value):
                 # The stored value stands; the difference becomes a question (D13).
-                res.reviews.append({"kind": "value", "payload": {
-                    "cid": cid, "column": col, "raw": str(value), "current": str(current),
+                # Its own kind, because unlike the other `value` reviews this one IS
+                # answerable: both values are in front of the reviewer and the answer
+                # is which of the two the register should hold.
+                res.reviews.append({"kind": "registry_value", "payload": {
+                    "cid": cid, "employee_id": person.id, "column": col,
+                    "header": REGISTRY_LABEL_TH.get(col, col),
+                    "raw": str(value), "current": str(current),
                     "sheet": sheet.name, "row": r + 1, "field_set": "registry",
                     "reason": f"ทะเบียนเดิมมี “{current}” แต่ไฟล์นี้เขียนว่า “{value}” "
                               f"— ค่าเดิมยังอยู่จนกว่าจะมีคนตัดสิน"}})

@@ -169,6 +169,23 @@ REGISTRY_FIELDS: list[Field] = [
 
 REGISTRY_BY_COLUMN = {f.column: f for f in REGISTRY_FIELDS}
 
+#: What to call each register field on screen. `header` above is the department's
+#: own column name, which is what an export needs and what a Thai reviewer being
+#: asked "which field is this column" cannot read.
+REGISTRY_LABEL_TH = {
+    "cid": "เลขบัตรประชาชน",
+    "first_name": "ชื่อ",
+    "last_name": "นามสกุล",
+    "title": "คำนำหน้าชื่อ",
+    "department_id": "แผนก",
+    "gender": "เพศ",
+    "birth_year": "ปีเกิด (พ.ศ.)",
+    "nationality": "สัญชาติ",
+    "position": "ตำแหน่งงาน",
+    "work_experience": "อายุงาน (ปี)",
+    "medical_condition": "โรคประจำตัว",
+}
+
 # Which field set a file is being read against. `pending_reviews.field_set` and
 # the review screen both carry it, so a reviewer is never offered a lab column
 # for a registry file or the other way round.
