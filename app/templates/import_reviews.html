@@ -352,6 +352,9 @@ const RENDER = {
     mapping(q) {
         const p = q.payload, prop = p.proposal || {}, ver = p.verification || {};
         const hasProp = prop.target && prop.target !== '__unknown__';
+        // Asked again because the values do not fit the column's plausible range. Older
+        // questions predate the flag, so fall back to the wording of the reason.
+        const rangeSuspect = !!(p.range_suspect || /นอกช่วง/.test(p.reason || ''));
         // A register file's columns are who the person is, not what was measured.
         // Offering the 45 lab columns here asked which blood test “ตำแหน่งงาน” is,
         // and the answer was rejected by the server, so the question had no way out.
@@ -389,6 +392,11 @@ const RENDER = {
             title: `คอลัมน์ “${esc(p.label)}” ในไฟล์คือผลตรวจอะไร`,
             why: p.maybe_identity
                 ? '<span class="review-warn">ค่าในคอลัมน์นี้อาจเป็นชื่อหรือแผนก ไม่ใช่ผลตรวจ ระบบจึงไม่บันทึกเองแม้ AI จะเสนอ</span>'
+                : rangeSuspect
+                ? `<div class="review-warn"><b>ถามซ้ำเพราะค่าในไฟล์ไม่ตรงกับช่วงที่เป็นไปได้ของ ${esc(p.suggestion || 'ช่องนี้')}</b><br>
+                     ระบบคาดว่าน่าจะเป็นเรื่องหน่วย: แบบฟอร์มเก็บเป็น <b>${esc(p.canonical_unit || '')}</b>
+                     (ช่วง ${esc(p.lo)}–${esc(p.hi)}) แต่ค่าตัวอย่างข้างล่างอยู่คนละสเกล<br>
+                     ดูตัวเลขแล้ว <b>เลือกหน่วยที่ตรงกับตัวเลขเหล่านั้น</b> ที่ช่อง “หน่วยของค่าในไฟล์” ระบบจะแปลงให้เอง</div>`
                 : `<span class="muted">มี ${Number(p.count || 0)} ค่าในคอลัมน์นี้${p.unit ? ' · หน่วยที่เขียนในไฟล์ ' + esc(p.unit) : ''}</span>`,
             body: `<div class="muted">ค่าตัวอย่างในไฟล์</div>
                    <div class="sample-strip">${samples(p.samples, 8)}</div>
@@ -399,9 +407,13 @@ const RENDER = {
                     <span><b>ใช่ ตามที่ AI เสนอ</b><span class="muted">${esc(prop.target)}</span></span></label>` : ''}
                 <label class="choice"><input type="radio" name="ans" value="set">
                     <span><b>เป็นผลตรวจอย่างอื่น</b><span class="muted">เลือกช่องเอง</span></span></label>
-                <div class="choice-extra" id="setBox" hidden>
+                <div class="choice-extra choice-extra-col" id="setBox" hidden>
                     <select id="setTarget">${prop.target || p.suggestion ? '' : '<option value="">— เลือกคอลัมน์ —</option>'}${colOptions}</select>
-                    <input id="setUnit" placeholder="หน่วยในไฟล์ เช่น g/L" value="${esc(p.unit || prop.unit || '')}">
+                    <label class="choice-field" id="unitField" hidden style="margin:0;">
+                        <span>หน่วยของค่าในไฟล์ <b class="req">*</b></span>
+                        <select id="setUnit"></select>
+                        <small class="muted" id="unitHint"></small>
+                    </label>
                 </div>
                 <label class="choice"><input type="radio" name="ans" value="extra">
                     <span><b>เป็นผลตรวจจริง แต่ไม่มีช่องในแบบฟอร์ม</b>
@@ -423,10 +435,31 @@ const RENDER = {
                 };
                 document.querySelectorAll('input[name=ans]').forEach(el => el.addEventListener('change', sync));
                 sync();
+                $('setTarget').addEventListener('change', () => fillUnits(p.unit || prop.unit));
+                fillUnits(p.unit || prop.unit);
             },
         };
     },
 };
+
+// The unit is a choice from what the system can actually convert for the chosen column,
+// and it is required. It used to be a free-text box that could be left empty: a reviewer
+// answered "this is wbc", left it empty, was asked again because 4.7 is not a plausible
+// count in cells/µL, and nothing on screen said why. A blank is now a visible "not chosen".
+function fillUnits(preselect) {
+    const box = $('setUnit');
+    if (!box) return;                                   // register questions have no unit
+    const col = templateColumns.find(c => c.column === $('setTarget').value);
+    const units = (col && col.units) || [];
+    $('unitField').hidden = !units.length;
+    const canon = String((col && col.unit) || '').toLowerCase().replace('μ', 'µ');
+    box.innerHTML = '<option value="">— เลือกหน่วย —</option>' + units.map(u =>
+        `<option value="${esc(u)}">${esc(u)}${u === canon ? ' (ตรงกับหน่วยของแบบฟอร์ม)' : ''}</option>`).join('');
+    $('unitHint').textContent = col && col.unit ? `แบบฟอร์มเก็บเป็น ${col.unit}` : '';
+    const want = String(preselect || '').toLowerCase().replace('μ', 'µ').replace(/\s+/g, '');
+    const match = units.find(u => u.replace(/\s+/g, '') === want);
+    if (match) box.value = match;
+}
 
 function collect() {
     const q = QUESTIONS[idx];
@@ -457,9 +490,15 @@ function collect() {
     const d = {review_id: q.id, action: picked.value};
     if (picked.value === 'set') {
         d.target = $('setTarget').value;
-        // a register file's question has no unit box: a name and a job title have no units
-        if ($('setUnit')) d.unit = $('setUnit').value || null;
         if (!d.target) { alert('เลือกช่องก่อน หรือกด “ข้ามไว้ก่อน”'); return undefined; }
+        // a register file's question has no unit box: a name and a job title have no units
+        if ($('setUnit') && !$('unitField').hidden) {
+            d.unit = $('setUnit').value || null;
+            if (!d.unit) {
+                alert('เลือก “หน่วยของค่าในไฟล์” ก่อน — ดูจากค่าตัวอย่างว่าตัวเลขเหล่านั้นเป็นหน่วยอะไร');
+                $('setUnit').focus(); return undefined;
+            }
+        }
     }
     return d;
 }
@@ -474,7 +513,8 @@ function restore(q) {
     if (saved.action === 'department' && $('deptCode')) $('deptCode').value = saved.code;
     if (saved.action === 'set' && $('setTarget')) {
         $('setTarget').value = saved.target;
-        if ($('setUnit')) $('setUnit').value = saved.unit || '';
+        fillUnits(saved.unit);
+        if ($('setUnit') && saved.unit) $('setUnit').value = saved.unit;
     }
     if (saved.action === 'register' && $('snFirst')) {
         $('snFirst').value = saved.first_name || ''; $('snLast').value = saved.last_name || '';

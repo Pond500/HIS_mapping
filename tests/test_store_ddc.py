@@ -313,3 +313,35 @@ def test_a_retry_after_a_failed_reprocess_still_stores_the_held_back_results(wor
 
     assert reruns == ["process_file", "service.decide"], \
         "the retry must re-run the file even though nothing new was decided"
+
+
+def test_a_range_suspect_question_says_why_and_the_unit_is_a_choice(world):
+    """The reviewer answered "this is wbc" with no unit, was asked again because 4.7 is
+    not a plausible count in cells/µL, and the screen never said why: the reason was in
+    the payload and nothing displayed it. The payload now flags it, and the units the
+    reviewer may pick are exactly the ones the system can convert."""
+    from app.pipeline import units
+    from app.pipeline.extract import extract
+    from app.pipeline.mapper import Mapper
+    from app.pipeline.profiler import profile_sheet
+    from app.pipeline.reader import Sheet
+
+    db, sf = world["db"], world["sf"]
+    rows = [["เลขบัตรประชาชน", "ชื่อ-สกุล", "wbc"],
+            ["1101700207364", "สมชาย ใจดี", "4.7"],
+            ["1101700207364", "สมชาย ใจดี", "4.91"],
+            ["1101700207364", "สมชาย ใจดี", "6.46"]]        # the rule needs 3+ values to suspect anything
+    mapper = Mapper(db, sf.hospital_id)
+    spec = profile_sheet(Sheet("csv", rows), mapper.known_labels(), mapper.identity_aliases(), None)
+    ex = extract([Sheet("csv", rows)], [spec], mapper, {}, {}, {}, "2026-03-01")
+
+    q = [r for r in ex.reviews if r["kind"] == "mapping"]
+    assert len(q) == 1
+    p = q[0]["payload"]
+    assert p["range_suspect"] is True and p["canonical_unit"] == "cells/µL"
+    assert (p["lo"], p["hi"]) == (1000, 50000)
+
+    # what a reviewer can pick converts, and includes the unit those numbers are in
+    assert "10^3/µl" in units.accepted_units("wbc")
+    assert all(units.factor("wbc", u) for u in units.accepted_units("wbc"))
+    assert units.accepted_units("chest_xray") == []          # not a numeric column

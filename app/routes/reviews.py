@@ -68,7 +68,8 @@ def template_columns(all: bool = False, user=Depends(require_user)):
     out = []
     for c in columns:
         f = FIELDS_BY_COLUMN[c]
-        row = {"column": c, "kind": f.kind, "unit": f.unit, "desc": DESC.get(c, f.header)}
+        row = {"column": c, "kind": f.kind, "unit": f.unit, "desc": DESC.get(c, f.header),
+               "units": U.accepted_units(c) if f.kind == "numeric" else []}
         if all:
             row.update(header=f.header, group=f.group)
         out.append(row)

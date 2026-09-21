@@ -63,3 +63,13 @@ def factor(column: str, unit: str | None) -> float | None:
     if table is None:
         return 1.0 if u in ("", "-") else None
     return table.get(u)
+
+
+def accepted_units(column: str) -> list[str]:
+    """The units the system can convert for this column, for a reviewer to pick from.
+
+    A free-text unit box was the reason a reviewer answered "this is wbc" with no
+    unit, was asked again because 4.7 is not a plausible count in cells/µL, and could
+    not tell why. Choosing from what is actually convertible removes both problems:
+    there is nothing to mistype, and leaving it empty is visibly a choice not made."""
+    return list(_TO_CANON.get(column, {}))

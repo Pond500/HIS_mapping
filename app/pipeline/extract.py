@@ -226,7 +226,7 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
                 review("mapping", label=label, unit=unit, suggestion=res.target,
                        reason=f"ค่าส่วนใหญ่อยู่นอกช่วงที่เป็นไปได้ของ {res.target} ({f.lo}–{f.hi} {f.unit}) "
                               f"— หน่วยหรือการจับคู่อาจผิด", samples=[N.text(o.raw) for o in obs[:SAMPLES]],
-                       count=len(obs))
+                       count=len(obs), range_suspect=True, canonical_unit=f.unit, lo=f.lo, hi=f.hi)
                 ex.stats["cells_range_flagged"] += len(obs)
                 continue
 
