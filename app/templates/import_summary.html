@@ -74,9 +74,11 @@
      * a confirmed name column fills into rows that are already stored -- so sending
      * first means sending a file that is about to be out of date.
      */
-    function pendingWarning() {
+    function pendingWarning(inModal = false) {
         const w = (DATA && DATA.open_work) || null;
         if (!w || (!w.reviews_total && !w.conflicts && !w.incomplete_registry)) return '';
+        // questions and conflicts block the hand-over; an incomplete register alone does not
+        const blocking = (w.reviews_total || 0) + (w.conflicts || 0) > 0;
         const bits = [];
         if (w.incomplete_registry) bits.push(`<li><b>${w.incomplete_registry} คนทะเบียนไม่ครบ</b> — ช่องที่กรมฯ บังคับ (เพศ ปีเกิด สัญชาติ อายุงาน ตำแหน่ง) จะว่างในไฟล์ที่ส่ง</li>`);
         for (const [kind, n] of Object.entries(w.reviews || {})) {
@@ -86,8 +88,13 @@
         return `<div class="review-warn" style="margin-top:14px;">
             <b>ยังมีงานค้างอยู่ในหน้างานที่ต้องตรวจ</b>
             <ul style="margin:8px 0 8px 18px;">${bits.join('')}</ul>
-            ส่งได้ถ้ายืนยัน แต่ถ้าเคลียร์ก่อน ไฟล์ที่ส่งจะครบกว่านี้ ·
+            ${blocking ? `<b>ระบบไม่ให้ส่งจนกว่าจะเคลียร์</b> เพราะไฟล์ที่ส่งจะมีค่าที่ยังรอตัดสินหรือขาดไป ·
             <a href="/reviews">ไปเคลียร์งานค้าง</a>
+            ${inModal ? `<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:600;">
+                <input type="checkbox" id="sendAnyway" style="width:auto;margin-top:4px;"
+                       onchange="document.getElementById('confirmSend').disabled = !this.checked">
+                <span>ฉันรับทราบว่ายังมีงานค้าง และต้องการส่งทั้งที่ยังค้าง (ระบบจะบันทึกชื่อผู้ยืนยันไว้)</span></label>` : ''}`
+              : `ส่งได้ · แต่ถ้าเคลียร์ก่อน ไฟล์ที่ส่งจะครบกว่านี้ · <a href="/reviews">ไปเคลียร์</a>`}
         </div>`;
     }
 
@@ -227,11 +234,15 @@
             </div>
             ${c.none ? `<div class="review-warn" style="margin-top:14px;">
                 ยังมี ${c.none} คนที่ไม่มีผลตรวจสักช่องในรอบนี้ ส่งได้ แต่ข้อมูลจะไม่ครบ</div>` : ''}
-            ${pendingWarning()}
+            ${pendingWarning(true)}
             <label class="field" style="margin-top:14px;"><span>หมายเหตุ (ถ้ามี)</span>
                 <input id="sendNote" placeholder="เช่น ส่งรอบแรกของปี"></label>`;
         document.getElementById('sendModal').hidden = false;
-        document.getElementById('confirmSend').onclick = doSend;
+        const send = document.getElementById('confirmSend');
+        send.onclick = doSend;
+        // with work still open the button stays off until the box is ticked
+        const w = DATA.open_work || {};
+        send.disabled = ((w.reviews_total || 0) + (w.conflicts || 0)) > 0;
     }
     function closeSend() { document.getElementById('sendModal').hidden = true; }
 
@@ -244,6 +255,7 @@
                 body: JSON.stringify({
                     round_id: Number(document.getElementById('pickRound').value),
                     note: (document.getElementById('sendNote').value || '').trim() || null,
+                    confirm_open_work: !!(document.getElementById('sendAnyway') || {}).checked,
                 }),
             });
             closeSend();

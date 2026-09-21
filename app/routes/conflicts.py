@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+from app.approval import revoke_if_approved
 from app.auth import require_user
 from app.database import get_db
 from app.models import (
@@ -78,6 +79,7 @@ def _resolve(db: Session, c: Conflict, action: str, by: str):
         checkup = db.get(EmployeeCheckup, c.checkup_id)
         old = getattr(checkup, c.column)
         setattr(checkup, c.column, _typed(c.column, c.incoming_value))
+        revoke_if_approved(db, checkup.checkup_batch_id)      # the result changed
         db.add(ValueHistory(checkup_id=checkup.id, column=c.column,
                             old_value=None if old is None else str(old),
                             new_value=c.incoming_value, reason="conflict_resolved",

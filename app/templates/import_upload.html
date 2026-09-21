@@ -181,7 +181,12 @@
         const next = document.getElementById('resultNext');
         if (!data) { body.innerHTML = ''; stats.innerHTML = ''; next.innerHTML = ''; return; }
         body.innerHTML = `<div class="muted">${esc(filename)}` +
-            `${data.format_detected ? ' · รูปแบบ ' + esc(data.format_detected) : ''}</div>`;
+            `${data.format_detected ? ' · รูปแบบ ' + esc(data.format_detected) : ''}</div>` +
+            // an approved round whose results just changed is no longer approved: say so here,
+            // where the person who changed them is looking
+            ((data.stats && data.stats.approval_revoked)
+                ? `<div class="review-warn" style="margin-top:10px;"><b>การรับรองรอบนี้ถูกปลดแล้ว</b>
+                   เพราะไฟล์นี้เพิ่มผลตรวจใหม่เข้ามา ต้องรับรองใหม่ที่หน้ารอบตรวจสุขภาพเมื่อตรวจแล้ว</div>` : '');
         stats.innerHTML = `
             <div class="result-stat">ทั้งหมด <strong>${Number(data.total_rows) || 0}</strong> แถว</div>
             <div class="result-stat">บันทึกแล้ว <strong>${Number(data.success_rows) || 0}</strong></div>

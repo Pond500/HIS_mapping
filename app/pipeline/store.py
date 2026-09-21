@@ -33,6 +33,7 @@ from app.models import (
     CheckupBatch, Conflict, Department, Employee, EmployeeCheckup, ExtraResult,
     PendingReview, SourceFile, ValueProvenance, WalkthroughSurvey,
 )
+from app.approval import revoke_if_approved
 from app.template import FIELDS_BY_COLUMN, ddc_value
 
 
@@ -224,6 +225,11 @@ def save(db: Session, sf: SourceFile, ex) -> dict:
                            value_text=e["value_text"], unit=e["unit"],
                            sheet=e["sheet"], cell=e["cell"]))
         stats["extras"] += 1
+
+    # New values in a round someone has already approved: the approval described results
+    # that are no longer the results. It says so in the file's stats, so the screen can.
+    if (stats["stored"] or stats["extras"]) and revoke_if_approved(db, batch):
+        stats["approval_revoked"] = True
 
     stats["reviews"] = len(ex.reviews)
     for r in ex.reviews:

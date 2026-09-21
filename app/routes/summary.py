@@ -53,6 +53,9 @@ CATEGORICAL_TH = {
 class SubmitIn(BaseModel):
     round_id: int
     note: str | None = None
+    # A hand-over with questions or conflicts still open is refused unless a person says,
+    # in so many words, that they want it anyway. The default is the safe answer.
+    confirm_open_work: bool = False
 
 
 def _round_or_404(db: Session, round_id: int) -> CheckupBatch:
@@ -256,6 +259,16 @@ def submit(body: SubmitIn, db: Session = Depends(get_db), user: AppUser = Depend
     if snapshot["people"] == 0:
         raise HTTPException(400, {"message": "รอบนี้ยังไม่มีข้อมูลผลตรวจ จึงยังส่งไม่ได้"})
 
+    ow = snapshot["open_work"]
+    waiting = ow["reviews_total"] + ow["conflicts"]
+    if waiting and not body.confirm_open_work:
+        # Every value here is meant to be right or flagged for a person. A file sent with
+        # questions still open is a file whose flagged values are missing or unsettled, and
+        # it used to go out with only a warning on the screen.
+        raise HTTPException(409, {"message": f"ยังมีงานค้าง {waiting} รายการ (คำถามและข้อมูลขัดแย้ง) "
+                                             f"เคลียร์ที่หน้างานที่ต้องตรวจก่อน หรือยืนยันว่าส่งทั้งที่ยังค้าง",
+                                  "code": "open_work", "open_work": ow})
+
     content = build_submission_file(db, b)
     sha = hashlib.sha256(content).hexdigest()
     with open(_submission_path(sha), "wb") as fh:
@@ -264,8 +277,10 @@ def submit(body: SubmitIn, db: Session = Depends(get_db), user: AppUser = Depend
     row = ReportSubmission(
         hospital_id=b.hospital_id, checkup_batch_id=b.id, year=b.appoint_date.year,
         people=snapshot["people"],
-        summary={k: snapshot[k] for k in ("cells", "completeness", "departments",
-                                          "findings", "open_work")},
+        summary={**{k: snapshot[k] for k in ("cells", "completeness", "departments",
+                                             "findings", "open_work")},
+                 # who chose to send it with things still open is part of the record
+                 "sent_with_open_work": bool(waiting), "confirmed_by": user.username if waiting else None},
         file_sha256=sha, note=(body.note or None), submitted_by=user.username,
         submitted_at=datetime.utcnow(),
     )

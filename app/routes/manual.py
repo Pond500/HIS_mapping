@@ -28,6 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.approval import revoke_if_approved
 from app.auth import require_user
 from app.pipeline import normalize as N
 from app.database import get_db
@@ -157,6 +158,8 @@ def save_checkup(body: CheckupIn, db: Session = Depends(get_db),
         checkup.comment = body.comment or None
         changed += 1
 
+    revoked = bool(changed) and revoke_if_approved(db, b)
     db.commit()
     db.refresh(checkup)
-    return {"checkup_id": checkup.id, "created": created, "changed": changed}
+    return {"checkup_id": checkup.id, "created": created, "changed": changed,
+            "approval_revoked": revoked}

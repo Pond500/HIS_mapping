@@ -1181,16 +1181,39 @@ def s04(s):
     assert s.sa.post("/api/summary/submit", json={"round_id": s.r1}).status_code == 400
 
 
-@case("S05", "ส่งรายงานทั้งที่ยังมีงานค้าง (พฤติกรรมปัจจุบัน)")
+@case("S05", "ส่งรายงานตอนยังมีงานค้าง ถูกบล็อก ต้องยืนยันชัดเจน")
 def s05(s):
-    """ตอนนี้ระบบส่งได้แม้ยังมีคำถามค้าง และบันทึกจำนวนงานค้างไว้ในประวัติการส่ง
-    (เป็นข้อตัดสินใจของผู้ใช้ว่าจะบล็อกหรือแค่เตือน — เคสนี้บันทึกพฤติกรรมไว้ ไม่ตัดสิน)"""
+    """มีคำถามค้าง 1 ข้อ → ส่งรายงานถูกปฏิเสธ (409 รหัส open_work พร้อมจำนวน) ไม่มีการบันทึกการส่ง
+    ยืนยัน confirm_open_work → ส่งได้ และบันทึกไว้ว่าส่งทั้งที่ยังค้าง พร้อมชื่อผู้ยืนยันจากบัญชี"""
     with_people(s)
     s.results(lab(["hb", "รหัสภายใน"], (1, [14.0, "A"])))
     r = s.sa.post("/api/summary/submit", json={"round_id": s.r1})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "open_work", r.text
+    assert r.json()["detail"]["open_work"]["reviews_total"] == 1
+    assert s.h.scalar("select count(*) from report_submissions") == 0
+    r = s.sa.post("/api/summary/submit", json={"round_id": s.r1, "confirm_open_work": True})
     assert r.status_code == 200, r.text
-    row = s.h.one("select summary from report_submissions")
-    assert row["summary"]["open_work"]["reviews_total"] == 1, row["summary"]["open_work"]
+    sm = s.h.one("select summary from report_submissions")["summary"]
+    assert sm["sent_with_open_work"] is True and sm["confirmed_by"] == "sa", sm
+
+
+@case("S08", "ส่งรายงานตอนไม่มีงานค้าง ส่งได้เลย และบันทึกว่าไม่ได้ส่งทั้งที่ค้าง")
+def s08(s):
+    """ไม่มีคำถาม/ข้อขัดแย้ง → ส่งได้โดยไม่ต้องยืนยัน sent_with_open_work เป็นเท็จ"""
+    loaded(s)
+    r = s.sa.post("/api/summary/submit", json={"round_id": s.r1})
+    assert r.status_code == 200, r.text
+    sm = s.h.one("select summary from report_submissions")["summary"]
+    assert sm["sent_with_open_work"] is False and sm["confirmed_by"] is None, sm
+
+
+@case("S09", "ข้อขัดแย้งที่ค้างก็บล็อกการส่งเหมือนคำถาม")
+def s09(s):
+    """ไม่มีคำถาม แต่มีข้อขัดแย้งค้าง → ส่งไม่ได้จนกว่าจะตัดสิน; ตัดสินแล้วส่งได้"""
+    conflict_setup(s)
+    assert s.sa.post("/api/summary/submit", json={"round_id": s.r1}).status_code == 409
+    s.sa.post(f"/api/files/{s.fid}/conflicts/accept-all", json={})
+    assert s.sa.post("/api/summary/submit", json={"round_id": s.r1}).status_code == 200
 
 
 @case("S06", "รับรองรอบ และยกเลิกการรับรอง")
@@ -1336,14 +1359,49 @@ def x06(s):
     s.decide(s.fid, [{"review_id": q["id"], "action": "dismiss"}], expect=400)
 
 
-@case("S07", "รอบที่รับรองแล้ว ยังรับข้อมูลใหม่ได้ไหม (พฤติกรรมปัจจุบัน)")
+@case("S07", "รอบที่รับรองแล้ว ผลเปลี่ยน → ปลดการรับรองอัตโนมัติ")
 def s07(s):
-    """รับรองรอบแล้วอัปผลตรวจเพิ่ม → ตอนนี้ระบบรับโดยไม่ปลดการรับรอง
-    (เคสนี้บันทึกพฤติกรรมไว้ให้ผู้ใช้ตัดสินใจ: ควรล็อก ปลดการรับรองอัตโนมัติ หรือเตือน)"""
+    """รับรองรอบแล้ว: อัปผลใหม่ที่เพิ่มค่า → ปลดการรับรอง (ข้อมูลอยู่ครบ) และบอกในผลการอัป;
+    อัปไฟล์เดิมซ้ำที่ไม่เปลี่ยนอะไร → ยังรับรองอยู่"""
     with_people(s)
     s.results(lab(["hb"], (1, [14.0])), name="แรก.csv")
     s.sa.post(f"/api/rounds/{s.r1}/approve", json={"approved": True})
-    s.results(lab(["hb"], (2, [13.0])), name="เพิ่ม.csv")
-    approved = s.h.scalar("select is_approved from employee_checkup_batches where id=:i", i=s.r1)
-    print(f"       (observed: round stays approved={approved} after new data; people now {s.n_checkups()})")
-    assert s.n_checkups() == 2
+
+    def approved():
+        return s.h.one("select is_approved, approved_by, approved_at from employee_checkup_batches where id=:i", i=s.r1)
+
+    out = s.results(lab(["hb"], (1, [14.0])), name="ซ้ำ.csv")          # nothing new
+    assert approved()["is_approved"] and not out["stats"].get("approval_revoked"), out["stats"]
+    out = s.results(lab(["hb"], (2, [13.0])), name="เพิ่ม.csv")          # a new value
+    a = approved()
+    assert not a["is_approved"] and a["approved_by"] is None and a["approved_at"] is None, a
+    assert out["stats"].get("approval_revoked") is True
+    assert s.n_checkups() == 2, "withdrawing an approval must not lose data"
+
+
+@case("S10", "ข้อขัดแย้งเปลี่ยนค่า → ปลดการรับรอง; เก็บค่าเดิม → ไม่ปลด")
+def s10(s):
+    """ตัดสิน keep ไม่กระทบการรับรอง; replace เปลี่ยนค่า จึงปลดการรับรอง"""
+    conflict_setup(s)
+    cs = {c["column"]: c for c in s.sa.get("/api/conflicts?status=open").json()}
+    s.sa.post(f"/api/rounds/{s.r1}/approve", json={"approved": True})
+    s.sa.post(f"/api/conflicts/{cs['wbc']['id']}/resolve", json={"action": "keep"})
+    assert s.h.scalar("select is_approved from employee_checkup_batches where id=:i", i=s.r1) is True
+    s.sa.post(f"/api/conflicts/{cs['hb']['id']}/resolve", json={"action": "replace"})
+    assert s.h.scalar("select is_approved from employee_checkup_batches where id=:i", i=s.r1) is False
+
+
+@case("S11", "กรอกมือแก้ค่า → ปลดการรับรอง; กรอกค่าเดิม → ไม่ปลด")
+def s11(s):
+    """แก้ hb ในรอบที่รับรองแล้ว → ปลดการรับรองและบอกในคำตอบ; ส่งค่าเท่าเดิมอีกครั้งไม่ปลด"""
+    with_people(s)
+    body = {"round_id": s.r1, "employee_id": emp_id(s, 1), "values": {"hb": "14.5"}}
+    s.sa.put("/api/checkups", json=body)
+    s.sa.post(f"/api/rounds/{s.r1}/approve", json={"approved": True})
+    r = s.sa.put("/api/checkups", json=body)                           # same value
+    assert r.json()["changed"] == 0 and not r.json()["approval_revoked"]
+    assert s.h.scalar("select is_approved from employee_checkup_batches where id=:i", i=s.r1) is True
+    body["values"] = {"hb": "15.0"}
+    r = s.sa.put("/api/checkups", json=body)
+    assert r.json()["approval_revoked"] is True
+    assert s.h.scalar("select is_approved from employee_checkup_batches where id=:i", i=s.r1) is False
