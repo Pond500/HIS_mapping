@@ -60,7 +60,11 @@ app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), na
 app.include_router(accounts.router)
 app.include_router(registration.router)
 app.include_router(upload.router)
-app.include_router(upload_legacy.router)
+# /api/legacy/upload needs no sign-in and writes with the pre-D23 code, which no longer
+# matches the schema. Only the paused `baseline` evaluation uses it, so it is off unless
+# ENABLE_LEGACY_UPLOAD is set. A server must never set it (D22).
+if os.environ.get("ENABLE_LEGACY_UPLOAD", "").lower() in ("on", "1", "true", "yes"):
+    app.include_router(upload_legacy.router)
 app.include_router(dashboard.router)
 app.include_router(mapping.router)
 app.include_router(reviews.router)

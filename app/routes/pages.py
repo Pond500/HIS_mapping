@@ -14,7 +14,7 @@ Every page except /login needs a session; without one the browser is sent to /lo
 
 import os
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -286,6 +286,9 @@ def import_legacy_page(request: Request, response: Response, db: Session = Depen
     The old single-page converter screen, kept reachable while its tabs are moved into
     the Env-Occ pages one by one (D20). Delete it once the new cards cover everything.
     """
+    # The page posts to /api/legacy/upload, which is off unless ENABLE_LEGACY_UPLOAD is set.
+    if os.environ.get("ENABLE_LEGACY_UPLOAD", "").lower() not in ("on", "1", "true", "yes"):
+        raise HTTPException(404, "ไม่พบหน้านี้")
     user, redirect = _guard(request, response)
     if redirect:
         return redirect

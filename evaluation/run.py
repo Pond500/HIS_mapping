@@ -34,6 +34,7 @@ EVAL_URL = os.environ.get("EVAL_DATABASE_URL") or BASE_URL.rsplit("/", 1)[0] + "
 # must happen before any app.* import: app.database reads DATABASE_URL at import time
 os.environ["DATABASE_URL"] = EVAL_URL
 os.environ.setdefault("STORAGE_DIR", os.path.join(ROOT, "storage", "eval_uploads"))
+os.environ.setdefault("ENABLE_LEGACY_UPLOAD", "on")     # the `baseline` SUT calls /api/legacy/upload
 
 import psycopg  # noqa: E402
 from sqlalchemy import func, text  # noqa: E402
