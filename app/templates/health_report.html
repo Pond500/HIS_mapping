@@ -20,8 +20,9 @@
         <span>
             <b>{{ step.label }}</b>
             <span class="muted step-note">{{ step.note }}</span>
-            {% if step.key == 'reviews' %}<span class="pill" id="reviewPill" hidden></span>{% endif %}
         </span>
+        {# a count belongs to the card, not to its text: inside the text it fell to a line of its own #}
+        {% if step.key == 'reviews' %}<span class="pill" id="reviewPill" hidden></span>{% endif %}
     </a>
     {% endfor %}
 </div>

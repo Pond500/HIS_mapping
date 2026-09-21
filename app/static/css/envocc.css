@@ -326,7 +326,8 @@ tr.clickable { cursor: pointer; }
 .step-card .menu-icon { font-weight: 700; font-size: 15px; }
 .step-card b { display: block; }
 .step-note { display: block; font-size: 12.5px; line-height: 1.5; margin-top: 2px; }
-.step-card .pill { margin-top: 6px; }
+/* the count sits at the card's right edge, level with the title */
+.step-card .pill { margin: 2px 0 0 auto; align-self: flex-start; }
 
 /* ── งานที่ต้องตรวจ: one question at a time ──
    The old table put five kinds of question in one grid with five kinds of
