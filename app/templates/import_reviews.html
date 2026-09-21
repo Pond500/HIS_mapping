@@ -556,15 +556,31 @@ $('wizSave').addEventListener('click', async () => {
             (byFile[fid] = byFile[fid] || []).push(d);
         }
     }
-    try {
-        for (const [fid, decisions] of Object.entries(byFile)) {
+    // Files are saved one at a time, so a failure part-way leaves some saved and some
+    // not. Say which, then reload from the server: what was saved is no longer a
+    // question, and what was not stays answered so nobody has to type it again.
+    const saved = [];
+    let failure = null;
+    for (const [fid, decisions] of Object.entries(byFile)) {
+        try {
             await api(`/api/files/${fid}/decisions`, {method: 'POST',
                 body: JSON.stringify({decisions, by: 'reviewer'})});
-        }
-        Object.keys(answers).forEach(k => delete answers[k]);
-        await load();
-        await loadConflicts();
-    } catch (e) { alert(e.message); }
+            saved.push(fid);
+        } catch (e) { failure = {fid, message: e.message}; break; }
+    }
+    if (!failure) Object.keys(answers).forEach(k => delete answers[k]);
+    await load();
+    await loadConflicts();
+    if (failure) {
+        // keep only answers whose question is still open
+        const stillOpen = new Set(QUESTIONS.map(key));
+        Object.keys(answers).forEach(k => { if (!stillOpen.has(k)) delete answers[k]; });
+        const name = (FILES[String(failure.fid)] || {}).filename || `ไฟล์ #${failure.fid}`;
+        alert(`บันทึกไม่สำเร็จที่ ${name}: ${failure.message}\n\n`
+            + (saved.length ? `ไฟล์ที่บันทึกไปแล้ว ${saved.length} ไฟล์ ไม่ต้องตอบซ้ำ\n` : '')
+            + 'คำตอบที่ยังไม่ได้บันทึกยังอยู่ กดบันทึกใหม่ได้เลย');
+        if (Object.keys(answers).length) finish();
+    }
     btn.disabled = false; btn.textContent = 'บันทึกคำตอบทั้งหมด';
 });
 

@@ -254,3 +254,62 @@ def test_a_results_file_is_not_asked_for_a_department_column(world):
 
     ex = extract([Sheet("csv", rows)], [spec], mapper, {}, {}, {}, "2026-03-01")
     assert [r for r in ex.reviews if r["kind"] == "identity"] == []
+
+
+def test_a_retry_after_a_failed_reprocess_still_stores_the_held_back_results(world, monkeypatch):
+    """Registering a stranger commits first, then the file is re-run to store the
+    results that were waiting on them. If that re-run fails and the reviewer presses
+    save again, the registration is already decided and is skipped. The retry must
+    still re-run the file, or the held-back results stay unsaved with nothing on
+    screen to say so.
+
+    Today it does — with nothing decided, the route hands the file to
+    service.decide, which re-runs it whether the graph is waiting or finished. This
+    test pins that: it is the property, not the mechanism, that must not be lost."""
+    from sqlalchemy.orm import sessionmaker
+    from app.routes import reviews as route
+
+    db, sf, dept = world["db"], world["sf"], world["dept"]
+    r = PendingReview(source_file_id=sf.id, kind="unregistered_person", status="open",
+                      field_set="result",
+                      payload={"cid": "1101700207994", "name_in_file": "คนใหม่ มาก่อน",
+                               "known_departments": [dept.name]})
+    db.add(r)
+    db.commit()
+    # the route closes the session it is given, so take what the test needs first
+    file_id, review_id, dept_name = sf.id, r.id, dept.name
+
+    reruns = []
+
+    def flaky_process(session, file):
+        reruns.append("process_file")
+        if len(reruns) == 1:
+            raise RuntimeError("the re-run fell over")
+
+    class StubService:
+        @staticmethod
+        def status(fid):
+            return {"upload_id": fid}
+
+        @staticmethod
+        def decide(fid, decisions):
+            reruns.append("service.decide")      # the real one re-runs the file
+            return {"upload_id": fid}
+
+    monkeypatch.setattr(route, "process_file", flaky_process)
+    monkeypatch.setattr(route, "service", StubService)
+    monkeypatch.setattr(route, "SessionLocal", sessionmaker(bind=db.get_bind()))
+
+    class U:
+        username = "tester"
+
+    body = route.DecisionBody(decisions=[route.Decision(
+        review_id=review_id, action="register", header=dept_name,
+        first_name="คนใหม่", last_name="มาก่อน")])
+
+    with pytest.raises(RuntimeError):
+        route.decide(file_id, body, db=db, user=U())        # registered, re-run failed
+    route.decide(file_id, body, db=db, user=U())            # the reviewer presses save again
+
+    assert reruns == ["process_file", "service.decide"], \
+        "the retry must re-run the file even though nothing new was decided"
