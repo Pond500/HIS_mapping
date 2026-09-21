@@ -14,6 +14,18 @@
 </div>
 
 <div class="card">
+    <label class="field" for="hospitalPick">
+        <span>หน่วยบริการที่ไฟล์นี้จะถูกบันทึกเข้า{% if user.role == 'superadmin' %} <b class="req">*</b>{% endif %}</span>
+        {% if user.role == 'superadmin' %}
+        <select id="hospitalPick"><option value="">— เลือกหน่วยบริการ —</option></select>
+        <small class="field-hint">คุณเป็นผู้ดูแลส่วนกลาง จึงต้องเลือกเอง ระบบจำคำตอบที่ยืนยันแล้วแยกตามหน่วยบริการ
+            เลือกหน่วยเดิมทุกครั้งที่ทดสอบ ไม่อย่างนั้นจะถูกถามคำถามเดิมซ้ำ</small>
+        {% else %}
+        <input id="hospitalPick" value="{{ hospital }}" readonly>
+        <small class="field-hint">มาจากบัญชีของคุณ</small>
+        {% endif %}
+    </label>
+
     <label class="field" for="companyPick">
         <span>สถานประกอบการที่ทะเบียนนี้เป็นของ <b class="req">*</b></span>
         <select id="companyPick"><option value="">— เลือกสถานประกอบการ —</option></select>
@@ -67,8 +79,31 @@
 
 <script>
 const $ = id => document.getElementById(id);
+const IS_SUPERADMIN = {{ 'true' if user.role == 'superadmin' else 'false' }};
+const HOSP_KEY = 'hospitalPick';   // shared with the results page, so one choice serves both
+
+async function loadHospitals() {
+    if (!IS_SUPERADMIN) return;
+    try {
+        const d = await (await fetch('/api/hospitals')).json();
+        for (const h of (d.hospitals || [])) {
+            const o = document.createElement('option');
+            o.value = h.code;
+            o.textContent = h.code === h.name ? h.code : `${h.code} — ${h.name}`;
+            $('hospitalPick').appendChild(o);
+        }
+        // Only ever restores something the reviewer chose before. Guessing a hospital
+        // would file learned answers under the wrong one, which is what the picker is for.
+        let saved = ''; try { saved = localStorage.getItem(HOSP_KEY) || ''; } catch (e) { /* no storage */ }
+        if (saved && [...$('hospitalPick').options].some(o => o.value === saved)) $('hospitalPick').value = saved;
+    } catch (e) { /* the upload itself still reports a missing hospital */ }
+}
+if (IS_SUPERADMIN) $('hospitalPick').addEventListener('change', e => {
+    try { localStorage.setItem(HOSP_KEY, e.target.value); } catch (err) { /* no storage */ }
+});
 
 async function boot() {
+    loadHospitals();
     const r = await fetch('/api/companies');
     const companies = await r.json();
     if (!companies.length) {
@@ -104,7 +139,15 @@ $('fileInput').addEventListener('change', e => { if (e.target.files[0]) send(e.t
 
 async function send(file) {
     const companyId = $('companyPick').value;
-    if (!companyId) { alert('กรุณาเลือกสถานประกอบการก่อน'); return; }
+    if (IS_SUPERADMIN && !$('hospitalPick').value) {
+        // Clear the file too: a browser fires no change event when the same file is
+        // picked again, so a refusal that kept it would leave the reviewer clicking
+        // "เลือกไฟล์" with nothing happening.
+        $('fileInput').value = '';
+        alert('เลือก “หน่วยบริการที่ไฟล์นี้จะถูกบันทึกเข้า” ที่ช่องบนสุดก่อน');
+        $('hospitalPick').focus(); return;
+    }
+    if (!companyId) { $('fileInput').value = ''; alert('กรุณาเลือกสถานประกอบการก่อน'); return; }
 
     $('progressSection').style.display = 'block';
     $('progressText').textContent = 'กำลังอ่านไฟล์ ' + file.name;
@@ -113,6 +156,7 @@ async function send(file) {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('company_id', companyId);
+    if (IS_SUPERADMIN) fd.append('hospital', $('hospitalPick').value);
     const res = await fetch('/api/upload/registry', {method: 'POST', body: fd});
     const data = await res.json();
 

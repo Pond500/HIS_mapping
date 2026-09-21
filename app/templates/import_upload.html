@@ -105,7 +105,12 @@
                 o.textContent = h.code === h.name ? h.code : `${h.code} — ${h.name}`;
                 pick.appendChild(o);
             }
+            let saved = ''; try { saved = localStorage.getItem('hospitalPick') || ''; } catch (e) { /* no storage */ }
+            if (saved && [...pick.options].some(o => o.value === saved)) pick.value = saved;
         }).catch(() => { /* the upload itself still reports a missing hospital */ });
+        pick.addEventListener('change', () => {
+            try { localStorage.setItem('hospitalPick', pick.value); } catch (e) { /* no storage */ }
+        });
     }
 
     document.getElementById('uploadBtn').addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
@@ -125,6 +130,12 @@
         const ext = file.name.split('.').pop().toLowerCase();
         if (!['csv', 'xlsx', 'xls'].includes(ext)) {
             showResult('error', 'รองรับเฉพาะไฟล์ .csv, .xlsx และ .xls');
+            return;
+        }
+        if (IS_SUPERADMIN && !pick.value) {
+            showResult('error', 'เลือก “หน่วยบริการที่ไฟล์นี้จะถูกบันทึกเข้า” ที่ช่องบนสุดก่อน');
+            fileInput.value = '';
+            pick.focus();
             return;
         }
         if (!roundPick.value) {
