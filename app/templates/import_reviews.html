@@ -217,25 +217,24 @@ const RENDER = {
                 <div class="k">เลขบัตรประชาชน</div><div class="v mono">${esc(p.cid)}</div>
                 <div class="k">ชื่อที่เขียนในไฟล์</div><div class="v">${esc(p.name_in_file) || '<span class="muted">ไม่มี</span>'}</div>
                 <div class="k">แผนกที่เขียนในไฟล์</div><div class="v">${esc(p.department_in_file) || '<span class="muted">ไฟล์นี้ไม่มีคอลัมน์แผนก</span>'}</div></div>`,
+            // There is only one thing to do with this person, so there is no choice to
+            // make and no radio to find: the form is the question. "ข้ามไว้ก่อน" is the
+            // other way out, and it is already in the footer of every question.
             answer: `<div class="wiz-choices">
-                <label class="choice"><input type="radio" name="ans" value="register">
-                    <span><b>เพิ่มคนนี้เข้าทะเบียน แล้วบันทึกผล</b>
-                    <span class="muted">ใช้เมื่อเป็นพนักงานจริงที่ยังไม่ได้ลงทะเบียน</span></span></label>
-                <div class="choice-extra choice-extra-col" id="nameBox" hidden>
+                <div class="ask-form">
+                    <div class="ask-lead"><b>เพิ่มคนนี้เข้าทะเบียนพนักงาน แล้วบันทึกผลตรวจ</b>
+                        <span class="muted">ตรวจชื่อให้ถูก แล้วเลือกแผนก ถ้ายังไม่แน่ใจว่าเป็นใคร กด “ข้ามไว้ก่อน”</span></div>
                     <div class="extra-row">
-                        <input id="snFirst" placeholder="ชื่อ" value="${esc(parts[0] || '')}">
-                        <input id="snLast" placeholder="นามสกุล" value="${esc(parts.slice(1).join(' '))}">
+                        <label class="choice-field"><span>ชื่อ</span>
+                            <input id="snFirst" placeholder="ชื่อ" value="${esc(parts[0] || '')}"></label>
+                        <label class="choice-field"><span>นามสกุล</span>
+                            <input id="snLast" placeholder="นามสกุล" value="${esc(parts.slice(1).join(' '))}"></label>
                     </div>
-                    <label class="choice-field" style="margin:0;">
+                    <label class="choice-field">
                         <span>แผนกที่จะเพิ่มคนนี้เข้าไป</span>
                         <select id="snDept">${deptOptions}</select>
                     </label>
                 </div></div>`,
-            onShow() {
-                const sync = () => $('nameBox').hidden = !document.querySelector('input[name=ans]:checked');
-                document.querySelectorAll('input[name=ans]').forEach(el => el.addEventListener('change', sync));
-                sync();
-            },
         };
     },
 
@@ -366,16 +365,16 @@ function collect() {
         const v = $('deptCode').value.trim();
         return v ? {review_id: q.id, action: 'department', code: v} : null;
     }
+    if (q.kind === 'unregistered_person') {
+        const dept = $('snDept').value, first = $('snFirst').value.trim();
+        if (!dept) { alert('สถานประกอบการนี้ยังไม่มีแผนก — เพิ่มแผนกที่หน้าทะเบียนสถานประกอบการก่อน'); return undefined; }
+        if (!first) { alert('ใส่ชื่อของคนนี้ก่อน หรือกด “ข้ามไว้ก่อน”'); return undefined; }
+        return {review_id: q.id, action: 'register', header: dept,
+                first_name: first, last_name: $('snLast').value.trim() || null};
+    }
     const picked = document.querySelector('input[name=ans]:checked');
     if (!picked) return null;
     if (q.kind === 'comment') return {review_id: q.id, action: 'comment', value: Number(picked.value)};
-    if (q.kind === 'unregistered_person') {
-        const dept = $('snDept').value;
-        if (!dept) { alert('สถานประกอบการนี้ยังไม่มีแผนก — เพิ่มแผนกที่หน้าทะเบียนสถานประกอบการก่อน'); return undefined; }
-        return {review_id: q.id, action: 'register', header: dept,
-                first_name: $('snFirst').value.trim() || null,
-                last_name: $('snLast').value.trim() || null};
-    }
     if (q.kind === 'department_change') return {review_id: q.id, action: picked.value};
     const d = {review_id: q.id, action: picked.value};
     if (picked.value === 'set') {

@@ -370,3 +370,9 @@ tr.clickable { cursor: pointer; }
 .skip-row:last-child { border-bottom: 0; }
 .choice-extra-col { flex-direction: column; gap: 10px; }
 .extra-row { display: flex; gap: 8px; }
+/* a question with only one possible answer: the form itself, not hidden behind a radio */
+.ask-form { border: 1px solid var(--blue); border-radius: 8px; padding: 16px 18px; background: var(--band-soft);
+            display: flex; flex-direction: column; gap: 12px; }
+.ask-lead b { display: block; font-weight: 600; }
+.ask-lead .muted { display: block; font-size: 12.5px; margin-top: 3px; }
+.ask-form .extra-row > * { flex: 1; }

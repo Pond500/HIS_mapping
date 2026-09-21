@@ -138,8 +138,18 @@ def _apply_people_decision(db: Session, sf: SourceFile, r: PendingReview, d: Dec
             first, last = (parts[0] if parts else None), (" ".join(parts[1:]) or None)
         if not first:
             raise HTTPException(400, "ต้องระบุชื่ออย่างน้อยหนึ่งช่องก่อนเพิ่มเข้าทะเบียน")
-        db.add(Employee(cid=r.payload["cid"], department_pk=dept.id,
-                        first_name=first, last_name=last, source_file_id=sf.id))
+        # Two files can each ask about the same stranger, and the same question can
+        # be answered twice. Inserting blindly hits the (citizen_id, department_id)
+        # key, and the 500 that follows throws away every other answer saved with it.
+        # Someone who is already there is the outcome this decision asked for.
+        already = (db.query(Employee)
+                   .filter(Employee.cid == r.payload["cid"],
+                           Employee.department_pk == dept.id).one_or_none())
+        if already is None:
+            db.add(Employee(cid=r.payload["cid"], department_pk=dept.id,
+                            first_name=first, last_name=last, source_file_id=sf.id))
+        elif not already.first_name and first:
+            already.first_name, already.last_name = first, last
         return
 
     # department_change

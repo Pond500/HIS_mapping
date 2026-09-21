@@ -155,10 +155,20 @@ def save(db: Session, sf: SourceFile, ex) -> dict:
             elif _same(col, old, stored_form):
                 stats["skipped_same"] += 1
             else:
-                db.add(Conflict(checkup_id=checkup.id, column=col,
-                                current_value=str(old), incoming_value=str(stored_form),
-                                source_file_id=sf.id, provenance=prov, status="open"))
-                stats["conflicts"] += 1
+                # A file can be processed more than once — answering a review about
+                # one person re-runs the whole file — and the disagreement it found
+                # the first time is still there. Asking about it again would put the
+                # same decision on the screen twice, and deciding one copy would
+                # leave the other open forever.
+                dup = (db.query(Conflict)
+                       .filter(Conflict.checkup_id == checkup.id, Conflict.column == col,
+                               Conflict.status == "open",
+                               Conflict.incoming_value == str(stored_form)).first())
+                if dup is None:
+                    db.add(Conflict(checkup_id=checkup.id, column=col,
+                                    current_value=str(old), incoming_value=str(stored_form),
+                                    source_file_id=sf.id, provenance=prov, status="open"))
+                    stats["conflicts"] += 1
 
     # extras hang off the checkup row of the person they belong to
     for e in ex.extras:

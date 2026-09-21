@@ -172,6 +172,20 @@ def test_a_different_value_keeps_the_first_and_opens_a_conflict(world):
     assert (c.current_value, c.incoming_value, c.status) == ("8.38", "9.1", "open")
 
 
+def test_processing_the_same_file_again_does_not_ask_twice(world):
+    """Answering a review re-runs the whole file. The disagreement it found the
+    first time is still there, and a second copy of it would mean the reviewer
+    decides once and the other copy stays open for ever."""
+    db, sf = world["db"], world["sf"]
+    save(db, sf, _ex("1101700207364", {"wbc": 8383}))
+    db.flush()
+    for _ in range(3):
+        save(db, sf, _ex("1101700207364", {"wbc": 9100}))
+        db.flush()
+
+    assert db.query(Conflict).count() == 1
+
+
 def test_a_second_round_is_a_new_row_not_a_conflict(world):
     """The old schema keyed on (cid, visit_date), so this case never arose. Under
     the department's keys a later round must not look like a disagreement."""
@@ -196,3 +210,27 @@ def test_a_results_file_without_a_round_is_refused(world):
     sf.checkup_batch_id = None
     with pytest.raises(ValueError):
         save(db, sf, _ex("1101700207364", {"wbc": 8383}))
+
+
+def test_registering_a_stranger_who_is_already_there_is_not_an_error(world):
+    """Two files can each ask about the same stranger. Answering the second one
+    used to hit the (citizen_id, department_id) key and 500, which threw away
+    every other answer saved in the same click."""
+    from app.routes.reviews import Decision, _apply_people_decision
+
+    db, sf, dept = world["db"], world["sf"], world["dept"]
+    r = PendingReview(source_file_id=sf.id, kind="unregistered_person", status="open",
+                      field_set="result",
+                      payload={"cid": "1101700207994", "name_in_file": "คนใหม่ มาก่อน",
+                               "known_departments": [dept.name]})
+    db.add(r)
+    db.flush()
+    d = Decision(review_id=r.id, action="register", header=dept.name,
+                 first_name="คนใหม่", last_name="มาก่อน")
+
+    _apply_people_decision(db, sf, r, d, "reviewer")
+    db.flush()
+    _apply_people_decision(db, sf, r, d, "reviewer")   # the second file's question
+    db.flush()
+
+    assert db.query(Employee).filter(Employee.cid == "1101700207994").count() == 1

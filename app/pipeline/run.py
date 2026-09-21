@@ -12,7 +12,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import (
-    AgentDecision, CheckupBatch, CommentLabel, Hospital, PendingReview, SourceFile,
+    AgentDecision, CheckupBatch, CommentLabel, Conflict, Hospital, PendingReview, SourceFile,
 )
 from app.pipeline.extract import extract
 from app.pipeline.mapper import Mapper
@@ -72,7 +72,13 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
             "error_rows": len(ex.reviews),
         }
         sf.errors = []
-        sf.status = "awaiting_review" if ex.reviews or stored["conflicts"] else "completed"
+        # Open conflicts for this file, not the ones this run happened to create: on a
+        # re-run the disagreements found earlier are still open and still undecided, and
+        # a file that says "completed" while they wait is the kind of quiet lie D13 exists
+        # to prevent.
+        waiting = (db.query(Conflict)
+                   .filter(Conflict.source_file_id == sf.id, Conflict.status == "open").count())
+        sf.status = "awaiting_review" if ex.reviews or waiting else "completed"
         db.commit()
         return sf.stats
     except Exception as e:
