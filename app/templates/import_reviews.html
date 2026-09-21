@@ -101,7 +101,7 @@
  * ══════════════════════════════════════════════════════════════════════ */
 
 const ANSWERABLE = ['mapping', 'identity', 'comment', 'department',
-                    'unregistered_person', 'department_change',
+                    'unregistered_person', 'department_change', 'which_department',
                     'unknown_department', 'registry_value'];
 const KIND_LABEL = {cid: 'เลขบัตรประชาชนไม่ถูกต้อง', profile: 'อ่านโครงไฟล์ไม่ออก',
                     value: 'ค่าที่อ่านไม่ได้',
@@ -150,7 +150,7 @@ async function load() {
         }
     }
     // people first: each one blocks whole rows of results
-    const order = {unknown_department: 0, unregistered_person: 1, department_change: 2,
+    const order = {unknown_department: 0, unregistered_person: 1, department_change: 2, which_department: 2,
                    identity: 3, department: 4, mapping: 5, registry_value: 6, comment: 7};
     QUESTIONS.sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9));
 
@@ -175,7 +175,8 @@ function renderSkipped() {
         return `<div class="skip-row">
             <div><b>${esc(KIND_LABEL[kind] || kind)}</b> · ${rows.length} รายการ
                  <div class="muted">${ex}${rows.length > 6 ? ' …' : ''}</div></div>
-            <div class="muted">${esc(where)}</div></div>`;
+            <div class="skip-side"><div class="muted">${esc(where)}</div>
+                <button class="btn btn-sm" onclick="dismissKind('${esc(kind)}')">แก้แล้ว — ปิดรายการเหล่านี้</button></div></div>`;
     }).join('');
 }
 
@@ -245,6 +246,21 @@ const RENDER = {
                         <span>แผนกที่จะเพิ่มคนนี้เข้าไป</span>
                         <select id="snDept">${deptOptions}</select>
                     </label>
+                </div></div>`,
+        };
+    },
+
+    which_department(q) {
+        const p = q.payload;
+        return {
+            title: 'คนนี้อยู่ในทะเบียนหลายแผนก ผลตรวจในไฟล์เป็นของแผนกไหน',
+            why: `<span class="review-warn">ผลตรวจ ${Number(p.values_waiting || 0)} ค่าของคนนี้รออยู่ ไฟล์ไม่ได้บอกแผนก ระบบจึงไม่เลือกให้</span>`,
+            body: `<div class="kv"><div class="k">เลขบัตรประชาชน</div><div class="v mono">${esc(p.cid)}</div>
+                   <div class="k">อยู่ในแผนก</div><div class="v">${(p.candidates || []).map(esc).join(' · ')}</div></div>`,
+            answer: `<div class="wiz-choices"><div class="ask-form">
+                <label class="choice-field"><span>ผลตรวจในไฟล์นี้เป็นของแผนกไหน <b class="req">*</b></span>
+                <select id="pickDept"><option value="">— เลือกแผนก —</option>
+                    ${(p.candidates || []).map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('')}</select></label>
                 </div></div>`,
         };
     },
@@ -471,6 +487,10 @@ function collect() {
         const v = $('deptCode').value.trim();
         return v ? {review_id: q.id, action: 'department', code: v} : null;
     }
+    if (q.kind === 'which_department') {
+        const dept = $('pickDept').value;
+        return dept ? {review_id: q.id, action: 'choose_department', header: dept} : null;
+    }
     if (q.kind === 'unknown_department') {
         // one possible answer, so the form is the question; "ข้ามไว้ก่อน" is the other way out
         return {review_id: q.id, action: 'add_department'};
@@ -549,12 +569,14 @@ function labelOf(q) {
 const ACTION_TH = {approve: 'ยอมรับตามที่ AI เสนอ', extra: 'เก็บเป็นข้อมูลเพิ่มเติม',
     ignore: 'ไม่ใช่ข้อมูลที่ต้องเก็บ', register: 'เพิ่มเข้าทะเบียน', move_department: 'ย้ายแผนกจริง',
     use_register: 'ใช้แผนกในทะเบียน', add_department: 'เพิ่มแผนกนี้',
+    choose_department: 'เลือกแผนกแล้ว',
     keep: 'เก็บค่าเดิม', replace: 'ใช้ค่าใหม่จากไฟล์'};
 function actionTh(a) {
     if (a.action === 'set') return `ตั้งเป็น ${a.target}`;
     if (a.action === 'identity') return `คอลัมน์ ${a.header}`;
     if (a.action === 'department') return `รหัส ${a.code}`;
     if (a.action === 'comment') return a.value === 1 ? 'ปกติ' : 'ผิดปกติ';
+    if (a.action === 'choose_department') return `แผนก ${a.header}`;
     return ACTION_TH[a.action] || a.action;
 }
 
@@ -623,6 +645,25 @@ $('wizSave').addEventListener('click', async () => {
     }
     btn.disabled = false; btn.textContent = 'บันทึกคำตอบทั้งหมด';
 });
+
+// Items with no answer to give stay open until a person says the source file was fixed.
+// The system cannot tell for itself: an invalid citizen id links to nobody, so a corrected
+// file never "matches" the old item.
+async function dismissKind(kind) {
+    const rows = SKIPPED.filter(r => r.kind === kind);
+    if (!rows.length) return;
+    if (!confirm(`ยืนยันว่าแก้ไฟล์ต้นฉบับแล้ว และนำเข้าไฟล์ที่แก้แล้ว?\n` +
+                 `จะปิด “${KIND_LABEL[kind] || kind}” ${rows.length} รายการ และบันทึกว่าใครเป็นคนปิด`)) return;
+    const byFile = {};
+    rows.forEach(r => (byFile[r.source_file_id] = byFile[r.source_file_id] || []).push(
+        {review_id: r.id, action: 'dismiss'}));
+    try {
+        for (const [fid, decisions] of Object.entries(byFile))
+            await api(`/api/files/${fid}/decisions`, {method: 'POST', body: JSON.stringify({decisions, by: 'reviewer'})});
+    } catch (e) { alert(e.message); }
+    await load();
+    await loadConflicts();
+}
 
 // ── conflicts tab ─────────────────────────────────────────────────────
 async function loadConflicts() {

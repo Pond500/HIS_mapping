@@ -17,7 +17,7 @@ from app.auth import require_user
 from app.database import get_db
 from app.database import SessionLocal
 from app.graph import service
-from app.pipeline.run import process_file
+from app.pipeline.run import dismissed_keys, process_file, without_dismissed
 from app.models import (
     CheckupBatch, Department, Employee, PendingReview, SourceFile, WalkthroughSurvey,
 )
@@ -30,9 +30,11 @@ router = APIRouter(prefix="/api", tags=["reviews"])
 class Decision(BaseModel):
     review_id: int
     action: Literal["approve", "set", "extra", "ignore", "skip", "identity", "comment", "department",
-                    "register", "move_department", "use_register",
+                    "register", "move_department", "use_register", "choose_department",
                     # register-file answers (D23)
-                    "add_department", "keep", "replace"]
+                    "add_department", "keep", "replace",
+                    # "I fixed the source file" — closes an item that has no answer to give
+                    "dismiss"]
     target: str | None = None
     unit: str | None = None       # unit the values are written in (for "set"); factor computed from it
     factor: float | None = None   # explicit factor (overrides unit)
@@ -164,6 +166,11 @@ def _apply_people_decision(db: Session, sf: SourceFile, r: PendingReview, d: Dec
             already.first_name, already.last_name = first, last
         return
 
+    if r.kind == "which_department":
+        if d.header not in (r.payload.get("candidates") or []):
+            raise HTTPException(400, "เลือกได้เฉพาะแผนกที่คนนี้อยู่ในทะเบียน")
+        return
+
     # department_change
     person = (db.query(Employee).join(Department, Department.id == Employee.department_pk)
               .filter(Employee.cid == r.payload["cid"], Department.company_id == company_id).first())
@@ -190,6 +197,31 @@ def _apply_people_decision(db: Session, sf: SourceFile, r: PendingReview, d: Dec
 
 
 REGISTRY_KINDS = ("mapping", "identity", "unknown_department", "registry_value")
+
+# Items with no answer to give: the fix is in the source file. They used to stay open
+# for ever, even after a corrected file was uploaded, because nothing can tell that an
+# invalid id "was fixed" — it never links to a person. A person says so instead.
+DISMISSABLE = ("cid", "value", "profile", "row_missing_department")
+
+
+def _dismiss(r: PendingReview, d: "Decision", by: str) -> bool:
+    """True if this review was closed now. Anything but 'dismiss' or 'skip' is refused."""
+    if d.action == "skip" or r.status != "open":
+        return False
+    if d.action != "dismiss":
+        raise HTTPException(400, f"รายการ {r.id}: รายการนี้ตอบไม่ได้ ทำได้แค่ปิดเมื่อแก้ไฟล์ต้นฉบับแล้ว")
+    r.status, r.decision, r.decided_by = "dismissed", {"action": "dismiss"}, by
+    return True
+
+
+def _refresh_status(db: Session, sf: SourceFile) -> None:
+    from app.models import Conflict
+    if sf.status == "failed":
+        return
+    waiting = (db.query(PendingReview).filter(PendingReview.source_file_id == sf.id,
+                                              PendingReview.status == "open").count()
+               + db.query(Conflict).filter(Conflict.source_file_id == sf.id, Conflict.status == "open").count())
+    sf.status = "awaiting_review" if waiting else "completed"
 
 
 def _decide_registry(db: Session, sf: SourceFile, body: DecisionBody) -> dict:
@@ -220,8 +252,11 @@ def _decide_registry(db: Session, sf: SourceFile, body: DecisionBody) -> dict:
 
     for d in body.decisions:
         r = db.get(PendingReview, d.review_id)
-        if r is None or r.source_file_id != sf.id or r.kind not in REGISTRY_KINDS:
+        if r is None or r.source_file_id != sf.id or r.kind not in REGISTRY_KINDS + DISMISSABLE:
             raise HTTPException(400, f"รายการ {d.review_id} ไม่ใช่คำถามของไฟล์ทะเบียนนี้")
+        if r.kind in DISMISSABLE:
+            _dismiss(r, d, body.by)
+            continue
         if d.action == "skip" or r.status != "open":
             continue          # a re-send after a partial failure must not decide twice
 
@@ -271,6 +306,7 @@ def _decide_registry(db: Session, sf: SourceFile, body: DecisionBody) -> dict:
                                    PendingReview.status == "open").delete()
     result = import_registry(db, read_file(content, sf.file_type), sf.hospital_id,
                              sf.company_id, sf.id)
+    result.reviews = without_dismissed(result.reviews, dismissed_keys(db, sf.id))
     for item in result.reviews:
         db.add(PendingReview(source_file_id=sf.id, kind=item["kind"], payload=item["payload"],
                              field_set="registry", status="open"))
@@ -293,20 +329,31 @@ def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db), user
     body.by = user.username
     if sf.field_set == "registry":
         return _decide_registry(db, sf, body)
-    decisions, touched_people = [], False
+    decisions, touched_people, dismissed = [], False, False
     for d in body.decisions:
         r = db.get(PendingReview, d.review_id)
+        if r is not None and r.source_file_id == file_id and r.kind in DISMISSABLE:
+            dismissed = _dismiss(r, d, body.by) or dismissed
+            continue
         if r is None or r.source_file_id != file_id or r.kind not in (
                 "mapping", "identity", "comment", "department",
-                "unregistered_person", "department_change"):
+                "unregistered_person", "department_change", "which_department"):
             raise HTTPException(400, f"รายการ {d.review_id} ไม่ใช่รายการจับคู่ของไฟล์นี้")
-        if r.kind in ("unregistered_person", "department_change"):
+        if r.kind in ("unregistered_person", "department_change", "which_department"):
             if d.action == "skip" or r.status != "open":
                 continue
-            if d.action not in ("register", "move_department", "use_register"):
+            wanted = {"unregistered_person": ("register",),
+                      "department_change": ("move_department", "use_register"),
+                      "which_department": ("choose_department",)}[r.kind]
+            if d.action not in wanted:
                 raise HTTPException(400, f"รายการ {d.review_id}: ต้องเลือกว่าจะทำอย่างไรกับคนนี้")
             _apply_people_decision(db, sf, r, d, body.by)
-            r.status, r.decision, r.decided_by = "approved", {"action": d.action}, body.by
+            # the chosen department is part of the answer: the file is re-read next, and
+            # store.py finds it here rather than asking again
+            decision = {"action": d.action}
+            if d.action == "choose_department":
+                decision["department"] = d.header
+            r.status, r.decision, r.decided_by = "approved", decision, body.by
             touched_people = True
             continue
         if r.kind == "department":
@@ -333,6 +380,10 @@ def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db), user
                 raise HTTPException(400, f"รายการ {d.review_id}: ต้องเลือกคอลัมน์ให้ข้อมูลที่หาไม่พบ")
             decisions.append({"action": "identity", "role": d.role, "header": d.header, "by": body.by})
             continue
+        if d.action not in ("approve", "set", "extra", "ignore", "skip"):
+            # Anything else used to reach the agent graph, which raised ValueError inside
+            # its paused thread: a 500, and a thread left resumed halfway.
+            raise HTTPException(400, f"รายการ {d.review_id}: คำตอบ “{d.action}” ใช้กับคำถามนี้ไม่ได้")
         out = {"label": r.payload["label"], "unit": r.payload.get("unit"), "action": d.action, "by": body.by}
         if d.action == "set":
             if d.target not in RESULT_COLUMNS:
@@ -344,6 +395,15 @@ def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db), user
                 raise HTTPException(400, f"ไม่รู้จักหน่วย '{d.unit}' สำหรับ {d.target}")
             out.update(target=d.target, factor=factor)
         decisions.append(out)
+    if dismissed:
+        db.flush()
+        _refresh_status(db, sf)
+        db.commit()
+        if not decisions and not touched_people:
+            # only items were closed: nothing to re-run, and re-running would only look at
+            # the same file again
+            db.close()
+            return service.status(file_id)
     if touched_people:
         db.commit()
     # close the request's read transaction first: resuming the graph can run LLM calls

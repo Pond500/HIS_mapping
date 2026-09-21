@@ -111,7 +111,12 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
         # a results file only gets to disagree with it, and saying nothing is not a
         # disagreement. Left in, the question offered whatever text column happened to
         # be in the file — on the department's own files, the chest X-ray finding.
-        skip_roles = {"visit_date", "department_id"} if round_date is not None else set()
+        # The name is the same story: it lives in the register. A results file without
+        # a name column is normal (just an id and values), and asking for one offered the
+        # reviewer whatever text column was nearby. An unregistered person's name is asked
+        # for on that person's own question, where it is actually needed.
+        skip_roles = ({"visit_date", "department_id", "first_name", "last_name", "full_name"}
+                      if round_date is not None else set())
         missing = [r for r in spec.missing_roles if r not in skip_roles]
         if spec.layout != "skip" and missing:
             ex.reviews.append({"kind": "identity", "payload": {

@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from app.models import Department, Employee, LabMapping
+from app.models import Department, Employee, LabMapping, PendingReview
 from app.pipeline import normalize as N
 from app.pipeline.mapper import norm_label
 from app.template import REGISTRY_BY_COLUMN, REGISTRY_FIELDS, REGISTRY_LABEL_TH
@@ -183,6 +183,17 @@ def import_registry(db: Session, sheets, hospital_id: int, company_id: int,
         return res
 
     seen_bad, asked_departments = set(), set()
+
+    # "Keep the register's value" is an answer, and it has to stick. Without this the same
+    # difference was found again on every re-read of the file — which happens after every
+    # save — and the same question came back for ever.
+    settled = set()
+    if source_file_id is not None:
+        for r in (db.query(PendingReview)
+                  .filter(PendingReview.source_file_id == source_file_id,
+                          PendingReview.kind == "registry_value", PendingReview.status == "approved")):
+            if (r.decision or {}).get("action") == "keep":
+                settled.add((r.payload.get("cid"), r.payload.get("column"), r.payload.get("raw")))
     for r in range(head + 1, len(sheet.rows)):
         row = sheet.rows[r]
         if all(N.is_na(v) for v in row):
@@ -244,6 +255,10 @@ def import_registry(db: Session, sheets, hospital_id: int, company_id: int,
                 if col != "cid":
                     setattr(person, col, value)
             db.add(person)
+            # The session does not autoflush. Without this a second row for the same person
+            # in the same file did not find the first, added a duplicate, and the whole file
+            # failed on the (citizen_id, department_id) key.
+            db.flush()
             res.added += 1
             continue
 
@@ -255,6 +270,8 @@ def import_registry(db: Session, sheets, hospital_id: int, company_id: int,
             if current is None:
                 setattr(person, col, value)
                 changed = True
+            elif (cid, col, str(value)) in settled:
+                continue
             elif not N.same_value(REGISTRY_BY_COLUMN[col].kind, current, value):
                 # The stored value stands; the difference becomes a question (D13).
                 # Its own kind, because unlike the other `value` reviews this one IS

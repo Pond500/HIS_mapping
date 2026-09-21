@@ -77,11 +77,30 @@ def save(db: Session, sf: SourceFile, ex) -> dict:
     for (cid, _), e in people.items():
         by_cid.setdefault(cid, []).append(e)
     departments = {d.name: d.id for d in db.query(Department).filter(Department.company_id == company_id)}
+    dept_name = {v: k for k, v in departments.items()}
+
+    # Answers already given for THIS file. A file is re-read after every save, so without
+    # remembering them "the file is wrong, use the register" left the results unsaved and
+    # asked the same question again, for ever.
+    use_register, chosen_dept = set(), {}
+    for r in (db.query(PendingReview)
+              .filter(PendingReview.source_file_id == sf.id, PendingReview.status == "approved",
+                      PendingReview.kind.in_(("department_change", "which_department")))):
+        d = r.decision or {}
+        if d.get("action") == "use_register":
+            use_register.add(r.payload["cid"])
+        elif d.get("action") == "choose_department":
+            chosen_dept[r.payload["cid"]] = d.get("department")
 
     reported, checkups = set(), {}
 
+    # A person whose only values in this file are "extras" has no cells but does have
+    # something to keep. Skipping them dropped those values silently — and the file still
+    # said "completed", because nothing was left to ask about.
+    extra_keys = {(e["cid"], e["visit_date"]) for e in ex.extras}
+
     for (cid, vd), row in ex.rows.items():
-        if not row["cells"]:
+        if not row["cells"] and (cid, vd) not in extra_keys:
             continue                      # nothing usable for this person yet
 
         candidates = by_cid.get(cid, [])
@@ -105,25 +124,42 @@ def save(db: Session, sf: SourceFile, ex) -> dict:
 
         # Which of this person's department rows does the file mean? The register
         # decides; the file only gets to disagree, and a disagreement is a question.
-        dept_in_file = row["person"].get("department_id")
-        emp = candidates[0]
-        if dept_in_file and dept_in_file in departments:
-            match = [e for e in candidates if e.department_pk == departments[dept_in_file]]
+        # Nothing here picks a row on a guess: a name that matches no row, a person in
+        # two departments with no department in the file, and a name that is no
+        # department at all are all questions. (The first version took candidates[0] in
+        # every one of those cases, and a person in two departments was filed under the
+        # first with no one asked.)
+        dept_in_file = (row["person"].get("department_id") or "").strip() or None
+        names = sorted(dept_name[e.department_pk] for e in candidates)
+        emp = None
+        if cid in chosen_dept:                                  # the reviewer already picked
+            emp = next((e for e in candidates if dept_name[e.department_pk] == chosen_dept[cid]), None)
+        elif dept_in_file:
+            match = [e for e in candidates if dept_name[e.department_pk] == dept_in_file]
             if match:
                 emp = match[0]
-            else:
-                if cid not in reported:
-                    reported.add(cid)
-                    stats["department_change"] += 1
+            elif cid in use_register and len(candidates) == 1:  # "the file is wrong" was answered
+                emp = candidates[0]
+        elif len(candidates) == 1:
+            emp = candidates[0]
+
+        if emp is None:
+            if cid not in reported:
+                reported.add(cid)
+                stats["department_change"] += 1
+                if dept_in_file:
                     ex.reviews.append({"kind": "department_change", "payload": {
-                        "cid": cid,
-                        "department_in_register": db.get(Department, emp.department_pk).name,
-                        "department_in_file": dept_in_file,
-                        "known_departments": sorted(departments),
+                        "cid": cid, "department_in_register": ", ".join(names),
+                        "department_in_file": dept_in_file, "known_departments": sorted(departments),
                         "values_waiting": len(row["cells"]),
                         "reason": "แผนกในไฟล์ไม่ตรงกับทะเบียน — ย้ายแผนกจริง "
                                   "หรือไฟล์เขียนผิด ต้องให้คนตัดสิน"}})
-                continue
+                else:
+                    ex.reviews.append({"kind": "which_department", "payload": {
+                        "cid": cid, "candidates": names, "values_waiting": len(row["cells"]),
+                        "reason": "คนนี้อยู่ในทะเบียนหลายแผนก และไฟล์ไม่ได้บอกว่าเป็นแผนกไหน "
+                                  "— ระบบไม่เลือกให้"}})
+            continue
 
         checkup = checkups.get(emp.id)
         if checkup is None:

@@ -6,6 +6,7 @@ the agent graph in app/graph wraps this and adds mappings).
 One transaction per file: it either lands completely or not at all.
 """
 
+import json
 import os
 
 from sqlalchemy import func
@@ -31,6 +32,22 @@ def get_or_create_hospital(db: Session, code: str | None) -> Hospital:
     return h
 
 
+def _review_key(kind: str, payload: dict) -> str:
+    return json.dumps([kind, payload], sort_keys=True, ensure_ascii=False, default=str)
+
+
+def dismissed_keys(db: Session, file_id: int) -> set:
+    """Items a person closed on this file ("I fixed the source file"). A file is re-read
+    after every save, so without this a closed item was simply found again and reopened."""
+    return {_review_key(r.kind, r.payload)
+            for r in db.query(PendingReview)
+                       .filter(PendingReview.source_file_id == file_id, PendingReview.status == "dismissed")}
+
+
+def without_dismissed(reviews: list, keys: set) -> list:
+    return [r for r in reviews if _review_key(r["kind"], r["payload"]) not in keys] if keys else reviews
+
+
 def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
                  comment_evidence: dict | None = None) -> dict:
     """
@@ -51,6 +68,7 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
         batch = db.get(CheckupBatch, sf.checkup_batch_id) if sf.checkup_batch_id else None
         round_date = batch.appoint_date.isoformat() if batch else None
         ex = extract(sheets, specs, mapper, evidence, labels, comment_evidence, round_date)
+        ex.reviews = without_dismissed(ex.reviews, dismissed_keys(db, sf.id))
         db.query(PendingReview).filter(PendingReview.source_file_id == sf.id,
                                        PendingReview.status == "open").delete()
         stored = save(db, sf, ex)
@@ -76,6 +94,10 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
         # re-run the disagreements found earlier are still open and still undecided, and
         # a file that says "completed" while they wait is the kind of quiet lie D13 exists
         # to prevent.
+        # The session does not autoflush, so the conflicts save() just added are not yet
+        # visible to this query: on a file's first run it counted zero and reported
+        # "completed" with the conflicts still open. Flush first.
+        db.flush()
         waiting = (db.query(Conflict)
                    .filter(Conflict.source_file_id == sf.id, Conflict.status == "open").count())
         sf.status = "awaiting_review" if ex.reviews or waiting else "completed"

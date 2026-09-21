@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
+from app.pipeline.run import get_or_create_hospital
 from app.models import (
     CheckupBatch, CheckupType, Company, EmployeeCheckup, SourceFile, WalkthroughSurvey,
 )
@@ -141,8 +142,12 @@ def add_round(body: RoundIn, db: Session = Depends(get_db), user=Depends(require
         # the department's key for a round; a second one would split the same
         # visit's results across two rows
         raise HTTPException(409, "มีรอบตรวจของการสำรวจนี้ ประเภทนี้ และวันนัดนี้อยู่แล้ว")
+    # A round must record a hospital (the department's column is NOT NULL). The central
+    # administrator belongs to none, and used to get a 500 here: fall back to the same
+    # "unspecified" hospital that uploads have always used.
+    hospital_id = user.hospital_id or get_or_create_hospital(db, None).id
     b = CheckupBatch(survey_id=body.survey_id, checkup_type=body.checkup_type,
-                     appoint_date=body.appoint_date, hospital_id=user.hospital_id,
+                     appoint_date=body.appoint_date, hospital_id=hospital_id,
                      created_by=user.username)
     db.add(b)
     db.commit()

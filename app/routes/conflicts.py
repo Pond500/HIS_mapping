@@ -118,7 +118,9 @@ def resolve(conflict_id: int, body: Resolve, db: Session = Depends(get_db), user
     c = db.get(Conflict, conflict_id)
     if c is None:
         raise HTTPException(404, "ไม่พบข้อมูลขัดแย้ง")
-    _resolve(db, c, body.action, body.by)
+    # The name comes from the signed-in account, never from the request: the browser
+    # was trusted to say who decided, and history is the only trace of that.
+    _resolve(db, c, body.action, user.username)
     db.flush()
     _refresh_file_status(db, c.source_file_id)
     db.commit()
@@ -129,7 +131,7 @@ def resolve(conflict_id: int, body: Resolve, db: Session = Depends(get_db), user
 def accept_all(file_id: int, body: AcceptAll, db: Session = Depends(get_db), user=Depends(require_user)):
     open_ = db.query(Conflict).filter(Conflict.source_file_id == file_id, Conflict.status == "open").all()
     for c in open_:
-        _resolve(db, c, "replace", body.by)
+        _resolve(db, c, "replace", user.username)
     db.flush()
     _refresh_file_status(db, file_id)
     db.commit()
