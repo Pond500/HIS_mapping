@@ -133,9 +133,13 @@ async function load() {
     QUESTIONS = []; SKIPPED = [];
     for (const r of reviews) {
         if (!ANSWERABLE.includes(r.kind)) { SKIPPED.push(r); continue; }
-        if (r.kind === 'comment') {
-            // one question per finding text: the answer applies to everyone who has it
-            const k = r.payload.column + '|' + String(r.payload.text || '').trim().toLowerCase();
+        if (r.kind === 'comment' || r.kind === 'unregistered_person') {
+            // One question per finding text, and one per stranger: two files can each
+            // ask about the same person, and asking twice makes the reviewer wonder
+            // which answer counts. The answer is sent to every review in the group.
+            const k = r.kind === 'comment'
+                ? r.payload.column + '|' + String(r.payload.text || '').trim().toLowerCase()
+                : 'person|' + r.payload.cid + '|' + (r.payload.known_departments || []).join(',');
             if (groups[k]) { groups[k].group.push(r); continue; }
             groups[k] = Object.assign({}, r, {group: [r]});
             QUESTIONS.push(groups[k]);
@@ -217,7 +221,9 @@ const RENDER = {
             : '') || '<option value="">— ไม่มีแผนกในสถานประกอบการนี้ —</option>';
         return {
             title: 'ไฟล์มีผลตรวจของคนที่ยังไม่อยู่ในทะเบียนพนักงาน',
-            why: `<span class="review-warn">ผลตรวจ ${Number(p.values_waiting || 0)} ค่าของคนนี้ยังไม่ถูกบันทึก จนกว่าจะรู้ว่าเป็นใคร</span>`,
+            why: `<span class="review-warn">ผลตรวจของคนนี้ยังไม่ถูกบันทึก จนกว่าจะรู้ว่าเป็นใคร</span>`
+                 + (q.group && q.group.length > 1
+                    ? `<div class="muted" style="margin-top:6px;">พบคนนี้ใน ${q.group.length} ไฟล์ · ตอบครั้งเดียว ใช้กับทุกไฟล์</div>` : ''),
             body: `<div class="kv">
                 <div class="k">เลขบัตรประชาชน</div><div class="v mono">${esc(p.cid)}</div>
                 <div class="k">ชื่อที่เขียนในไฟล์</div><div class="v">${esc(p.name_in_file) || '<span class="muted">ไม่มี</span>'}</div>
@@ -536,10 +542,19 @@ $('wizSave').addEventListener('click', async () => {
         const d = Object.assign({}, a);
         const fid = d._file, group = d._group;
         delete d._file; delete d._group; delete d._role;
-        const list = byFile[fid] = byFile[fid] || [];
-        // a finding's meaning was answered once; it applies to every row with that text
-        if (d.action === 'comment' && group) group.forEach(r => list.push(Object.assign({}, d, {review_id: r.id})));
-        else list.push(d);
+        // One answer, many reviews: a finding's meaning applies to every row with that
+        // text, and a stranger's registration to every file that asked about them.
+        // Each review is sent under ITS OWN file — the server refuses a review that
+        // does not belong to the file in the URL, so sending a whole group under the
+        // first file's id would fail as soon as a group spanned two files.
+        if (group && (d.action === 'comment' || d.action === 'register')) {
+            group.forEach(r => {
+                const l = byFile[r.source_file_id] = byFile[r.source_file_id] || [];
+                l.push(Object.assign({}, d, {review_id: r.id}));
+            });
+        } else {
+            (byFile[fid] = byFile[fid] || []).push(d);
+        }
     }
     try {
         for (const [fid, decisions] of Object.entries(byFile)) {
