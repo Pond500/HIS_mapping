@@ -33,13 +33,16 @@ from app.agents import mapper as mapper_agent
 from app.agents import verifier as verifier_agent
 from app.database import SessionLocal
 from app.llm.client import LLMError
-from app.models import TARGET_EXTRA, TARGET_IGNORE, CommentLabel, LabMapping, PendingReview, SourceFile
+from app.models import (
+    TARGET_EXTRA, TARGET_EXTRA_COL_PREFIX, TARGET_IGNORE, CommentLabel, LabMapping, PendingReview,
+    SourceFile,
+)
 from app.pipeline import normalize as N
 from app.pipeline.extract import observations
 from app.pipeline.mapper import DEPT_PREFIX, IDENTITY_PREFIX, Mapper, norm_label
 from app.pipeline.profiler import file_title_date, profile_sheet
 from app.pipeline.reader import read_file
-from app.pipeline.run import process_file
+from app.pipeline.run import company_id_of, process_file
 from app.template import FIELDS_BY_COLUMN
 
 BATCH = 20
@@ -76,7 +79,7 @@ def analyze(state: FileState) -> dict:
         sf = db.get(SourceFile, state["source_file_id"])
         with open(sf.stored_path, "rb") as fh:
             sheets = read_file(fh.read(), os.path.splitext(sf.stored_path)[1])
-        mapper = Mapper(db, sf.hospital_id)
+        mapper = Mapper(db, sf.hospital_id, company_id_of(db, sf))
     known = mapper.known_labels()
     raws = defaultdict(list)
     layouts = {}
@@ -93,7 +96,10 @@ def analyze(state: FileState) -> dict:
                 layouts[(o.label, o.unit)] = spec.layout
     items = []
     for (label, unit), vals in raws.items():
-        if mapper.resolve(label, unit).target is not None:
+        res = mapper.resolve(label, unit)
+        if res.target is not None or res.company_column_conflict:
+            # a company-column unit conflict is already a fully-formed question (see
+            # extract.py) — asking the AI to guess a mapping for it would be noise
             continue
         numbers = []
         for v in vals:
@@ -222,11 +228,14 @@ def decide(state: FileState) -> dict:
     auto, pending = [], []
     with SessionLocal() as db:
         sf = db.get(SourceFile, state["source_file_id"])
+        # in a company's file an extra is a named company column (CONTEXT.md), and only
+        # a person names it; the model's bare "__extra__" would be the old nameless row
+        no_auto = {TARGET_IGNORE, "__unknown__"} | ({TARGET_EXTRA} if company_id_of(db, sf) else set())
         for it in state["items"]:
             p = state["proposals"][str(it["id"])]
             v = state["verdicts"].get(str(it["id"]), {})
             ok = (auto_accept_on() and p["confidence"] == "high" and v.get("agrees") and p.get("range_ok")
-                  and p["target"] not in (TARGET_IGNORE, "__unknown__")
+                  and p["target"] not in no_auto
                   # a column that may be the missing name/department must be answered by a human
                   and it["label"] not in set(state.get("identity_candidates", [])))
             if ok:
@@ -332,6 +341,51 @@ def save_mapping(db, hospital_id, label, unit, target, factor, origin, by):
     return m
 
 
+def resolve_company_column(db, company_id: int, label: str, unit: str | None, d: dict, by: str):
+    """The company-column half of an "extra" decision (CONTEXT.md "คอลัมน์ของบริษัท").
+    Picking an existing one (`column_id`) always wins; naming a new one reuses an
+    exact name match for this company rather than creating a near-duplicate, and
+    refuses only when that match's kind disagrees (a genuine mistake to surface, not
+    silently paper over). Either way, THIS file's (label, unit) is remembered as an
+    alias for the column, so a differently-spelled label still resolves next time —
+    company-scoped, like the column itself, never written to lab_mappings."""
+    from app.models import CompanyColumnAlias, CompanyExtraColumn
+    if d.get("column_id"):
+        col = db.get(CompanyExtraColumn, d["column_id"])
+        if col is None or col.company_id != company_id:
+            raise ValueError("ไม่พบคอลัมน์ของบริษัทนี้")
+    else:
+        name = (d.get("column_name") or "").strip()
+        kind = d.get("column_kind")
+        if not name or kind not in ("numeric", "text"):
+            raise ValueError("ต้องระบุชื่อคอลัมน์และชนิดข้อมูล (ตัวเลข/ข้อความ) หรือเลือกคอลัมน์ที่มีอยู่แล้ว")
+        col = (db.query(CompanyExtraColumn)
+              .filter(CompanyExtraColumn.company_id == company_id, CompanyExtraColumn.name == name)
+              .one_or_none())
+        if col:
+            if col.kind != kind:
+                raise ValueError(f"บริษัทนี้มีคอลัมน์ชื่อ “{name}” อยู่แล้วเป็นชนิด {col.kind} "
+                                 f"— เลือกคอลัมน์เดิมจากรายการแทนการตั้งชื่อใหม่")
+        else:
+            col = CompanyExtraColumn(company_id=company_id, name=name, kind=kind,
+                                     unit=d.get("column_unit") if kind == "numeric" else None, created_by=by)
+            db.add(col)
+            db.flush()
+
+    alias_name, alias_unit = norm_label(label), (unit or None)
+    alias = (db.query(CompanyColumnAlias)
+            .filter(CompanyColumnAlias.company_id == company_id, CompanyColumnAlias.source_name == alias_name,
+                    CompanyColumnAlias.source_unit.is_(None) if alias_unit is None
+                    else CompanyColumnAlias.source_unit == alias_unit).one_or_none())
+    if alias is None:
+        db.add(CompanyColumnAlias(company_id=company_id, source_name=alias_name, source_unit=alias_unit,
+                                  column_id=col.id))
+    else:
+        alias.column_id = col.id
+    db.flush()
+    return col
+
+
 IDENTITY_ROLES = ("first_name", "last_name", "full_name", "department_id", "visit_date")
 
 
@@ -424,8 +478,23 @@ def apply_decisions(source_file_id: int, decisions: list[dict], state: FileState
                 target, factor, origin = d.get("target") or p.get("target"), d.get("factor") or p.get("factor"), "agent_approved"
             elif action == "set":
                 target, factor, origin = d["target"], d.get("factor", 1.0), "human"
-            elif action in ("extra", "ignore"):
-                target, factor, origin = TARGET_EXTRA if action == "extra" else TARGET_IGNORE, 1.0, "human"
+            elif action == "ignore":
+                target, factor, origin = TARGET_IGNORE, 1.0, "human"
+            elif action == "extra":
+                # named company column, not the old anonymous extra_results row
+                # (CONTEXT.md "คอลัมน์ของบริษัท") — remembered per company, not per
+                # hospital, so it is never written to lab_mappings at all
+                company_id = company_id_of(db, sf)
+                if company_id is None:
+                    raise ValueError("ไฟล์นี้ยังไม่ผูกกับสถานประกอบการ จึงยังตั้งคอลัมน์ของบริษัทไม่ได้")
+                col = resolve_company_column(db, company_id, key[0], key[1], d, by)
+                for r in db.query(PendingReview).filter(PendingReview.source_file_id == source_file_id,
+                                                        PendingReview.kind == "mapping",
+                                                        PendingReview.status == "open"):
+                    if r.payload.get("label") == key[0] and r.payload.get("unit") == key[1]:
+                        r.status, r.decision, r.decided_by = ("approved",
+                            {**d, "target": f"{TARGET_EXTRA_COL_PREFIX}{col.id}"}, by)
+                continue
             else:
                 raise ValueError(f"unknown action {action}")
             if not target or target == "__unknown__" or (target in FIELDS_BY_COLUMN and factor is None):

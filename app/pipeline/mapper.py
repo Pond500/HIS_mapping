@@ -12,7 +12,10 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.models import TARGET_EXTRA, TARGET_IGNORE, LabMapping
+from app.models import (
+    TARGET_EXTRA, TARGET_EXTRA_COL_PREFIX, TARGET_IGNORE, CompanyColumnAlias, CompanyExtraColumn,
+    LabMapping,
+)
 from app.pipeline import units as U
 from app.pipeline.profiler import unit_like
 from app.template import FIELDS_BY_COLUMN, RESULT_COLUMNS
@@ -50,17 +53,21 @@ def split_unit(label: str) -> tuple[str, str | None]:
 
 @dataclass
 class Resolution:
-    target: str | None          # template column, __bp__, __extra__, __ignore__, or None = unresolved
+    target: str | None          # template column, __bp__, __extra__, __ignore__, __extracol:N, or None = unresolved
     factor: float = 1.0
     unit: str | None = None
-    source: str | None = None   # hospital / central / rule
+    source: str | None = None   # hospital / central / rule / company
     mapping_id: int | None = None
     reason: str | None = None   # why unresolved (shown to the reviewer)
     suggestion: str | None = None
+    # set only when the label matches a company column by name but this file's unit
+    # doesn't match the unit that column was first defined with (CONTEXT.md "คอลัมน์ของ
+    # บริษัท"): a question for a human, never a silent mix of two units under one name.
+    company_column_conflict: dict | None = None
 
 
 class Mapper:
-    def __init__(self, db: Session, hospital_id: int | None):
+    def __init__(self, db: Session, hospital_id: int | None, company_id: int | None = None):
         self.hospital, self.central, self.identity, self.dept = {}, {}, {}, {}
         q = db.query(LabMapping).filter((LabMapping.hospital_id == hospital_id) | LabMapping.hospital_id.is_(None))
         for m in q:
@@ -74,6 +81,23 @@ class Mapper:
                 continue
             layer = self.central if m.hospital_id is None else self.hospital
             layer[(m.source_name, (m.source_unit or "").lower() or None)] = m
+        # a company's own columns (CONTEXT.md): shared by every hospital that serves
+        # that company, same as its register of departments and employees already is.
+        # Keyed like `self.hospital` (source_name, source_unit) -> column, via aliases
+        # so a differently-spelled label a reviewer picked for an existing column
+        # ("Fe serum" for "ค่าเหล็กในเลือด") resolves to it again automatically too.
+        self.company_id = company_id
+        self.company: dict[tuple[str, str | None], CompanyExtraColumn] = {}
+        self.company_names: dict[str, CompanyExtraColumn] = {}
+        if company_id is not None:
+            cols = {c.id: c for c in
+                   db.query(CompanyExtraColumn).filter(CompanyExtraColumn.company_id == company_id)}
+            for c in cols.values():
+                self.company_names[norm_label(c.name)] = c
+            for a in db.query(CompanyColumnAlias).filter(CompanyColumnAlias.company_id == company_id):
+                col = cols.get(a.column_id)
+                if col:
+                    self.company[(a.source_name, (a.source_unit or "").lower() or None)] = col
 
     def dept_code(self, name) -> str | None:
         return self.dept.get(norm_label(name))
@@ -109,7 +133,32 @@ class Mapper:
         m, src = self._lookup(full, unit)
         if not m and base != full:
             m, src = self._lookup(base, unit)
-        if not m:
+        # an old nameless "__extra__" mapping, in a company's file: the company column
+        # it should be is the company's answer, not the hospital's (CONTEXT.md)
+        legacy_extra = bool(m) and m.target_column == TARGET_EXTRA and self.company_id is not None
+        if not m or legacy_extra:
+            unit_key = (unit or "").lower() or None
+            aliased = (self.company.get((full, unit_key)) or self.company.get((full, None))
+                      or (self.company.get((base, unit_key)) or self.company.get((base, None))
+                          if base != full else None))
+            if aliased:
+                # a person already answered for exactly this label (and, with the unit,
+                # accepted it) — asking again would never end
+                return Resolution(f"{TARGET_EXTRA_COL_PREFIX}{aliased.id}", 1.0, unit, "company")
+            col = self.company_names.get(full) or (self.company_names.get(base) if base != full else None)
+            if col:
+                col_unit = (col.unit or "").lower() or None
+                file_unit = (unit or "").lower() or None
+                if col.kind == "text" or col_unit == file_unit:
+                    return Resolution(f"{TARGET_EXTRA_COL_PREFIX}{col.id}", 1.0, unit, "company")
+                return Resolution(None, unit=unit,
+                                  reason=f"เคยตั้งคอลัมน์ “{col.name}” ของบริษัทนี้ไว้ด้วยหน่วย "
+                                         f"{col.unit or '(ไม่ระบุ)'} แต่ไฟล์นี้เขียนหน่วย {unit or '(ไม่ระบุ)'} — ไม่ตรงกัน",
+                                  company_column_conflict={"id": col.id, "name": col.name, "unit": col.unit})
+            if legacy_extra:
+                return Resolution(None, unit=unit,
+                                  reason="เคยเก็บเป็นผลตรวจนอกแบบฟอร์มแบบไม่มีชื่อ — "
+                                         "ตอนนี้ต้องตั้งเป็นคอลัมน์ของบริษัทนี้ก่อน")
             return Resolution(None, unit=unit, reason="ไม่พบชื่อนี้ในพจนานุกรม")
 
         target = m.target_column

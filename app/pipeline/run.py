@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     AgentDecision, CheckupBatch, CommentLabel, Conflict, Hospital, PendingReview, SourceFile,
+    WalkthroughSurvey,
 )
 from app.pipeline.extract import extract
 from app.pipeline.mapper import Mapper
@@ -30,6 +31,21 @@ def get_or_create_hospital(db: Session, code: str | None) -> Hospital:
         db.add(h)
         db.flush()
     return h
+
+
+def company_id_of(db: Session, sf: SourceFile) -> int | None:
+    """The company a file's labels should be checked against for company columns
+    (CONTEXT.md "คอลัมน์ของบริษัท"): a registry file names its company directly;
+    a results file only has one through its round (D23)."""
+    if sf.company_id is not None:
+        return sf.company_id
+    if sf.checkup_batch_id is None:
+        return None
+    batch = db.get(CheckupBatch, sf.checkup_batch_id)
+    if batch is None:
+        return None
+    survey = db.get(WalkthroughSurvey, batch.survey_id)
+    return survey.company_id if survey else None
 
 
 def _review_key(kind: str, payload: dict) -> str:
@@ -59,7 +75,7 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
         with open(sf.stored_path, "rb") as fh:
             data = fh.read()
         sheets = read_file(data, os.path.splitext(sf.stored_path)[1])
-        mapper = Mapper(db, sf.hospital_id)
+        mapper = Mapper(db, sf.hospital_id, company_id_of(db, sf))
         fdate = file_title_date(sheets)
         specs = [profile_sheet(s, mapper.known_labels(), mapper.identity_aliases(), fdate) for s in sheets]
         labels = {(c.column, c.text_norm): c.value for c in db.query(CommentLabel)}

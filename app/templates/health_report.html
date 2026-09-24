@@ -2,51 +2,624 @@
 {% block title %}รายงานผลตรวจสุขภาพกลุ่มเสี่ยง — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}
 
 {% block content %}
-<div class="page-head-row">
-    <div>
-        <h1 class="page-title">รายงานผลตรวจสุขภาพกลุ่มเสี่ยง</h1>
-        <p class="page-sub">
-            ตั้งแต่ทะเบียนสถานประกอบการ จนถึงไฟล์ที่ส่งเข้ากรมฯ
-            ลำดับด้านล่างคือลำดับที่ต้องทำ ข้ามขั้นไม่ได้ เพราะแต่ละขั้นเป็นของที่ขั้นถัดไปต้องใช้
-        </p>
-    </div>
-    <a class="btn" href="/">← เมนูหลัก</a>
-</div>
+<h1 class="page-title">รายงานผลตรวจสุขภาพกลุ่มเสี่ยง</h1>
+<p class="page-sub">ค้นหาสถานประกอบการ → เลือกรอบตรวจ → นำเข้าทะเบียน/ผลตรวจ → ตรวจงานที่ AI ไม่แน่ใจ → ส่งรายงาน</p>
+<div id="app"></div>
+{% endblock %}
 
-<div class="menu-grid" style="margin-top:20px;">
-    {% for step in health_steps %}
-    <a class="menu-card step-card" href="{{ step.href }}">
-        <span class="menu-icon">{{ loop.index }}</span>
-        <span>
-            <b>{{ step.label }}</b>
-            <span class="muted step-note">{{ step.note }}</span>
-        </span>
-        {# a count belongs to the card, not to its text: inside the text it fell to a line of its own #}
-        {% if step.key == 'reviews' %}<span class="pill" id="reviewPill" hidden></span>{% endif %}
-    </a>
-    {% endfor %}
-</div>
-
-<div class="card" style="margin-top:20px;">
-    <h2 style="margin-top:0;font-size:16px;">หน้าตัวอย่างตามคู่มือ</h2>
-    <p class="muted" style="margin-bottom:12px;">
-        หน้ารายงานกลุ่มเสี่ยงแบบที่คู่มือแสดง (กราฟตามปัจจัยเสี่ยงและระดับความเสี่ยง)
-        <b>ยังเป็นตัวอย่างหน้าจอ ไม่ได้ต่อฐานข้อมูล</b> — ปัจจัยเสี่ยงมาจากแบบสอบถาม Walk Through
-        ซึ่งยังเป็นม็อกอัปเช่นกัน กราฟที่วาดจากข้อมูลที่เราไม่มีจะเป็นการเดาที่ดูเหมือนข้อเท็จจริง
-    </p>
-    <a class="btn" href="/health-report-mock">เปิดตัวอย่างหน้าจอ</a>
-</div>
-
+{% block scripts %}
+<script src="/static/js/review-wizard.js"></script>
 <script>
-    // The one number worth showing on a hub: how much is waiting for a person.
-    fetch('/api/reviews?status=open&limit=5000')
-        .then(r => r.ok ? r.json() : [])
-        .then(rows => {
-            const pill = document.getElementById('reviewPill');
-            if (!pill || !Array.isArray(rows) || !rows.length) return;
-            pill.textContent = rows.length;
-            pill.hidden = false;
-        })
-        .catch(() => { /* a hub that cannot count is still a hub */ });
+const IS_SUPERADMIN = {{ 'true' if user.role == 'superadmin' else 'false' }};
+const app = document.getElementById('app');
+
+// ─────────────────────────────────────────────────────────────────────────
+// ข้อมูลความเสี่ยงรายแผนกจาก Walkthrough Survey — ยังเป็น mockup ตามที่บอกไว้ตรงๆ
+// บนหน้าจอ ไม่ใช่ของจริงจากฐานข้อมูล เพราะแบบสอบถามตัวจริงยังไม่ได้ต่อระบบ
+// ─────────────────────────────────────────────────────────────────────────
+const MOCK_RISK_POOL = [
+    ['Lead - ตะกั่ว', 'สูงมาก', 'top'], ['Silicosis - ฝุ่นซิลิกา', 'ต่ำ', 'low'],
+    ['Pesticides - สารกำจัดศัตรูพืช', 'ปานกลาง', 'mid'], ['Confined - อับอากาศ', 'ต่ำ', 'low'],
+];
+const MOCK_CHECKLIST_POOL = ['Chest X-ray - เอกซเรย์ปอด', 'Venous blood lead', 'Complete blood count',
+    'Creatinine', 'EKG', 'Choline Esterase', 'Spirometry', 'Hearing ability - assessment/Audiogram'];
+function mockRiskFor(deptName) {
+    // deterministic per name, so the same department always shows the same mock — not
+    // reshuffled every render, which would look like real data changing on its own
+    let h = 0; for (const c of deptName) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return { risks: [MOCK_RISK_POOL[h % 4], MOCK_RISK_POOL[(h + 1) % 4]],
+             checklist: MOCK_CHECKLIST_POOL.filter((_, i) => (h >> i) % 2 === 0).slice(0, 5) };
+}
+
+let view = 'search';
+let company = null;       // full /api/companies/{id}
+let departments = [];
+let rounds = [];
+let roundId = null;
+let tab = 'ภาพรวม';
+let peoplePage = 1, peopleSearch = '';
+
+function render() {
+    if (view === 'search') renderSearch();
+    else if (view === 'company') renderCompany();
+    else renderDashboard();
+}
+
+const thaiDate = iso => iso
+    ? new Date(iso + 'T00:00:00').toLocaleDateString('th-TH', {day: 'numeric', month: 'short', year: 'numeric'})
+    : '—';
+
+function donut(parts) {
+    let acc = 0;
+    const stops = parts.map(([, pct, color]) => { const from = acc; acc += pct; return `${color} ${from}% ${acc}%`; });
+    if (acc < 100) stops.push(`#e9edf5 ${acc}% 100%`);
+    return `<div class="donut" style="background:conic-gradient(${stops.join(',')});"><span>${Math.round(acc)}%</span></div>`;
+}
+
+// ── ค้นหาบริษัท ─────────────────────────────────────────────────────────
+async function renderSearch() {
+    app.innerHTML = `
+        <div class="card">
+            <div class="band" style="margin-top:0;">ค้นหาบริษัท</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                <label class="field" style="flex:1 1 320px;margin:0;"><span>เลขนิติบุคคล หรือชื่อบริษัท</span>
+                    <input id="q" placeholder="พิมพ์เพื่อค้นหา"></label>
+            </div>
+            <div id="results" style="margin-top:14px;"></div>
+            <p class="muted" style="margin-top:12px;">
+                ไม่พบบริษัทที่ต้องการ? <a href="/workplaces">เพิ่มสถานประกอบการใหม่</a> ก่อน แล้วกลับมาค้นหาอีกครั้ง
+            </p>
+        </div>`;
+    async function search() {
+        const q = document.getElementById('q').value.trim();
+        const list = await api('/api/companies' + (q ? '?search=' + encodeURIComponent(q) : ''));
+        document.getElementById('results').innerHTML = list.length ? list.map(c => `
+            <div class="doc-item" style="margin-bottom:8px;">
+                <span>🏢 ${esc(c.name)}${c.branch_name ? ' — ' + esc(c.branch_name) : ''}
+                    <span class="muted">${esc(c.juristic_id)} · ${c.departments} แผนก · ${c.people} คนในทะเบียน</span></span>
+                <button class="btn btn-sm btn-primary" data-pick="${c.id}">เลือก</button>
+            </div>`).join('') : `<p class="no-data">${q ? 'ไม่พบบริษัทที่ค้นหา' : 'ยังไม่มีสถานประกอบการในระบบ'}</p>`;
+        document.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => openCompany(Number(b.dataset.pick))));
+    }
+    document.getElementById('q').addEventListener('input', search);
+    search();
+}
+
+async function openCompany(id) {
+    view = 'company';
+    company = await api('/api/companies/' + id);
+    departments = await api(`/api/companies/${id}/departments`);
+    rounds = await api('/api/rounds?company_id=' + id);
+    render();
+}
+
+// ── หน้าภาพรวมบริษัท ────────────────────────────────────────────────────
+function renderCompany() {
+    app.innerHTML = `
+        <button class="btn btn-sm" id="backBtn" style="margin-bottom:14px;">← กลับไปค้นหาบริษัท</button>
+        <div class="card">
+            <h2 style="font-size:20px;font-weight:700;margin-top:0;">${esc(company.name)}${company.branch_name ? ' — ' + esc(company.branch_name) : ''}</h2>
+
+            <div class="band">ส่วนที่ 1 : ข้อมูลทั่วไป</div>
+            <div class="kv" style="max-width:640px;">
+                <div class="k">เลขนิติบุคคล</div><div class="v">${esc(company.juristic_id)}</div>
+                <div class="k">ประเภทอุตสาหกรรม</div><div class="v">${esc(company.industry_group) || '—'}</div>
+                <div class="k">ที่อยู่</div><div class="v">${esc(company.address) || '—'}</div>
+                <div class="k">จำนวนพนักงานในทะเบียน</div><div class="v">${company.people} คน</div>
+            </div>
+
+            <div class="band">ส่วนที่ 2 : ข้อมูลความเสี่ยงของแต่ละแผนก (Walkthrough Survey)</div>
+            <p class="muted" style="margin-top:-6px;margin-bottom:10px;">
+                <b>ตารางนี้ยังเป็นข้อมูลสมมติ</b> — แบบสอบถาม Walk Through ตัวจริงยังไม่ได้ต่อระบบ
+            </p>
+            ${departments.length ? `<div class="table-wrap"><table>
+                <thead><tr><th>แผนก</th><th>ความเสี่ยง</th><th>รายการตรวจ</th></tr></thead>
+                <tbody>${departments.map(d => {
+                    const m = mockRiskFor(d.name);
+                    return `<tr><td><b>${esc(d.name)}</b><div class="muted">${d.people} คน</div></td>
+                        <td>${m.risks.map(([n, lvl, cls]) => `<span class="chip ${cls}" style="margin:2px 4px 2px 0;">${esc(n)} ${esc(lvl)}</span>`).join('')}</td>
+                        <td class="muted">${m.checklist.join(' · ')}</td></tr>`;
+                }).join('')}</tbody></table></div>`
+                : `<p class="no-data">บริษัทนี้ยังไม่มีแผนก — เพิ่มได้ที่ <a href="/workplaces">ทะเบียนสถานประกอบการ</a></p>`}
+
+            <div class="band">รอบการตรวจสุขภาพ</div>
+            ${rounds.length ? `<div class="table-wrap"><table>
+                <thead><tr><th>ประเภทการตรวจ</th><th>วันนัดตรวจ</th><th>คนที่มีผล</th><th>การรับรอง</th><th></th></tr></thead>
+                <tbody>${rounds.map(r => `<tr>
+                    <td><b>${esc(r.checkup_type_name)}</b></td>
+                    <td>${thaiDate(r.appoint_date)}</td>
+                    <td>${r.people} / ${company.people} คน</td>
+                    <td>${r.is_approved ? '<span class="chip ok">รับรองแล้ว</span>' : '<span class="muted">ยังไม่รับรอง</span>'}</td>
+                    <td><button class="btn btn-sm btn-primary" data-open-round="${r.id}">เปิดรอบนี้</button></td>
+                </tr>`).join('')}</tbody></table></div>`
+                : `<p class="no-data">บริษัทนี้ยังไม่มีรอบตรวจ — กด “เพิ่มรอบข้อมูล” เพื่อเริ่ม</p>`}
+            <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+                <button class="btn btn-primary" id="newRoundBtn" ${departments.length ? '' : 'disabled title="ต้องมีแผนกก่อน"'}>+ เพิ่มรอบข้อมูล</button>
+            </div>
+        </div>
+
+        <!-- สร้างรอบใหม่ -->
+        <div class="modal-back" id="newRoundModal" hidden>
+            <div class="modal">
+                <div class="modal-head"><span>เพิ่มรอบข้อมูลใหม่</span><button class="close" data-close="newRoundModal">×</button></div>
+                <form id="newRoundForm">
+                    <div class="modal-body">
+                        <div class="form-row">
+                            <label class="field"><span>ประเภทการตรวจ <b class="req">*</b></span>
+                                <select id="newRoundType" required></select></label>
+                            <label class="field"><span>วันที่นัดตรวจ <b class="req">*</b></span>
+                                <input id="newRoundDate" type="date" required value="${new Date().toISOString().slice(0, 10)}"></label>
+                        </div>
+                        <p class="muted" style="margin:4px 0 0;">
+                            วันนัดนี้จะกลายเป็นวันที่ตรวจของทุกคนในรอบ ถ้าไฟล์มีวันที่รายคนมาด้วย ระบบจะใช้วันที่ในไฟล์แทน
+                        </p>
+                    </div>
+                    <div class="modal-foot">
+                        <button type="button" class="btn" data-close="newRoundModal">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary">สร้างรอบ</button>
+                    </div>
+                </form>
+            </div>
+        </div>`;
+
+    document.getElementById('backBtn').addEventListener('click', () => { view = 'search'; render(); });
+    document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => document.getElementById(b.dataset.close).hidden = true));
+    document.querySelectorAll('[data-open-round]').forEach(b => b.addEventListener('click', () => openRound(Number(b.dataset.openRound))));
+    document.getElementById('newRoundBtn').addEventListener('click', async () => {
+        const types = await api('/api/checkup-types');
+        document.getElementById('newRoundType').innerHTML = types.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+        document.getElementById('newRoundModal').hidden = false;
+    });
+    document.getElementById('newRoundForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        try {
+            // A round needs a Walk Through survey to hang off (D23) — the questionnaire
+            // itself is still a mockup, so reuse today's survey for this company if one
+            // already exists this session, otherwise record a bare header.
+            let surveys = await api('/api/surveys?company_id=' + company.id);
+            let survey = surveys[0];
+            if (!survey) survey = await api('/api/surveys', {method: 'POST',
+                body: JSON.stringify({company_id: company.id, survey_date: document.getElementById('newRoundDate').value})});
+            const r = await api('/api/rounds', {method: 'POST', body: JSON.stringify({
+                survey_id: survey.id, checkup_type: Number(document.getElementById('newRoundType').value),
+                appoint_date: document.getElementById('newRoundDate').value})});
+            document.getElementById('newRoundModal').hidden = true;
+            openRound(r.id);
+        } catch (err) { alert(err.message); }
+    });
+}
+
+async function openRound(id) {
+    roundId = id; tab = 'ภาพรวม'; view = 'dashboard';
+    render();
+}
+
+// ── หน้ารอบตรวจ (dashboard) ─────────────────────────────────────────────
+let summaryData = null, reviewCount = 0;
+
+async function loadDashboardData() {
+    const [s, reviews] = await Promise.all([
+        api('/api/summary?round_id=' + roundId),
+        api('/api/reviews?status=open&limit=5000&round_id=' + roundId),
+    ]);
+    summaryData = s;
+    reviewCount = reviews.length;
+}
+
+async function renderDashboard() {
+    await loadDashboardData();
+    const s = summaryData;
+    app.innerHTML = `
+        <button class="btn btn-sm" id="backBtn" style="margin-bottom:14px;">← กลับไปภาพรวมบริษัท</button>
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">
+                <div>
+                    <h2 style="font-size:20px;font-weight:700;">${esc(company.name)}</h2>
+                    <div class="muted">
+                        รอบการตรวจ: ${esc(s.round.checkup_type)} วันที่ ${thaiDate(s.round.appoint_date)} · เลขทะเบียน ${esc(company.juristic_id)}
+                        ${s.last_submission ? ` · <span class="chip ok">ส่งรายงานล่าสุด ${esc(new Date(s.last_submission.submitted_at).toLocaleString('th-TH'))}</span>` : ''}
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    ${reviewCount ? `<button class="btn btn-sm" id="reviewBtn" style="border-color:#f0a202;">🔔 งานที่ต้องตรวจ (${reviewCount})</button>` : ''}
+                    <a class="btn btn-sm" href="/api/registry/template">Template ทะเบียน</a>
+                    <a class="btn btn-sm" href="/api/results/template">Template ผลตรวจ</a>
+                    <button class="btn btn-sm" id="addPeopleBtn">+ รายชื่อพนักงาน</button>
+                    <button class="btn btn-sm btn-primary" id="addResultBtn">+ ผลตรวจสุขภาพ</button>
+                </div>
+            </div>
+
+            <div class="tabs" style="margin-top:16px;">
+                ${['ภาพรวม', 'รายบุคคล'].map(t => `<button class="tab ${t === tab ? 'on' : ''}" data-tab="${t}">${t}</button>`).join('')}
+            </div>
+
+            <div id="tabBody">${tab === 'ภาพรวม' ? overviewHtml(s) : ''}</div>
+        </div>
+
+        <!-- อัปโหลดรายชื่อพนักงาน -->
+        <div class="modal-back" id="peopleModal" hidden>
+            <div class="modal">
+                <div class="modal-head"><span>เพิ่มไฟล์รายชื่อพนักงานตรวจสุขภาพ</span><button class="close" data-close="peopleModal">×</button></div>
+                <div class="modal-body">
+                    <div class="upload-zone" id="peopleZone">
+                        <div class="upload-title">ลากไฟล์มาวาง หรือ <span class="link" id="peopleUploadBtn">เลือกไฟล์</span></div>
+                        <div class="upload-subtitle">CSV · XLSX · XLS — บันทึกเข้าทะเบียนของบริษัทนี้</div>
+                        <input type="file" class="file-input" id="peopleFile" accept=".csv,.xlsx,.xls" hidden>
+                    </div>
+                    <div id="peopleResult"></div>
+                </div>
+                <div class="modal-foot"><button class="btn" data-close="peopleModal">ปิด</button></div>
+            </div>
+        </div>
+
+        <!-- อัปโหลดผลตรวจ -->
+        <div class="modal-back" id="resultModal" hidden>
+            <div class="modal">
+                <div class="modal-head"><span>เพิ่มไฟล์ผลตรวจสุขภาพพนักงาน</span><button class="close" data-close="resultModal">×</button></div>
+                <div class="modal-body">
+                    <div class="upload-zone" id="resultZone">
+                        <div class="upload-title">ลากไฟล์มาวาง หรือ <span class="link" id="resultUploadBtn">เลือกไฟล์</span></div>
+                        <div class="upload-subtitle">CSV · XLSX · XLS — ค่าที่ระบบไม่แน่ใจจะถามให้ตอบทันทีที่นำเข้าเสร็จ</div>
+                        <input type="file" class="file-input" id="resultFile" accept=".csv,.xlsx,.xls" hidden>
+                    </div>
+                    <div id="resultResult"></div>
+                </div>
+                <div class="modal-foot"><button class="btn" data-close="resultModal">ปิด</button></div>
+            </div>
+        </div>
+
+        <!-- งานที่ต้องตรวจ -->
+        <div class="modal-back" id="reviewModal" hidden>
+            <div class="modal modal-wide">
+                <div class="modal-head"><span>งานที่ต้องตรวจ</span><button class="close" data-close="reviewModal">×</button></div>
+                <div class="modal-body" id="reviewRoot"></div>
+                <div class="modal-foot"><button class="btn btn-primary" data-close="reviewModal">ปิด (เปิดใหม่ได้ตลอดจากปุ่ม 🔔)</button></div>
+            </div>
+        </div>
+
+        <!-- รายละเอียดพนักงาน -->
+        <div class="modal-back" id="personModal" hidden>
+            <div class="modal modal-wide">
+                <div class="modal-head"><span id="personName"></span><button class="close" data-close="personModal">×</button></div>
+                <div class="modal-body" id="personBody"></div>
+                <div class="modal-foot"><button class="btn" data-close="personModal">ปิด</button></div>
+            </div>
+        </div>
+
+        <!-- ส่งรายงาน -->
+        <div class="modal-back" id="sendModal" hidden>
+            <div class="modal">
+                <div class="modal-head"><span>ยืนยันการส่งรายงานผลตรวจ</span><button class="close" data-close="sendModal">×</button></div>
+                <div class="modal-body" id="sendBody"></div>
+                <div class="modal-foot"><button class="btn" data-close="sendModal">ยกเลิก</button>
+                    <button class="btn btn-primary" id="confirmSend">ยืนยันและบันทึกการส่ง</button></div>
+            </div>
+        </div>`;
+
+    wireDashboard();
+}
+
+function overviewHtml(s) {
+    const checkedPct = s.people ? Math.round(100 * (s.completeness.complete + s.completeness.partial) / s.people) : 0;
+    const male = s.gender.male, female = s.gender.female;
+    const genderTotal = male + female + s.gender.unknown;
+    const risk = s.risk;
+    const LEVEL_CLASS = {'ยอมรับได้': 'ok', 'ต่ำ': 'low', 'ปานกลาง': 'mid', 'สูง': 'high', 'สูงมาก': 'top'};
+    return `
+        <div class="tile-grid">
+            <div class="tile">
+                <div class="muted">จำนวนพนักงาน (คน)</div>
+                <div style="font-size:34px;font-weight:700;">${company.people}</div>
+                <div class="no-data">มีผลตรวจในรอบนี้ ${s.people} คน</div>
+            </div>
+            <div class="tile">
+                <div class="muted" style="margin-bottom:10px;">สถานะผลตรวจร่างกาย</div>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    ${donut([['ตรวจแล้ว', checkedPct, '#2f6fed']])}
+                    <div class="legend-list">
+                        <div><i style="background:#2f6fed"></i> ตรวจแล้ว ${s.completeness.complete + s.completeness.partial} คน</div>
+                        <div><i style="background:#e9edf5"></i> ไม่พบข้อมูล ${company.people - (s.completeness.complete + s.completeness.partial)} คน</div>
+                    </div>
+                </div>
+                ${s.people === 0 ? `<div class="no-data" style="margin-top:8px;">ยังไม่มีผลตรวจในรอบนี้</div>` : ''}
+            </div>
+            <div class="tile">
+                <div class="muted" style="margin-bottom:10px;">เพศ</div>
+                ${genderTotal ? `<div style="display:flex;align-items:center;gap:14px;">
+                    ${donut([['ชาย', Math.round(100 * male / genderTotal), '#2f6fed'], ['หญิง', Math.round(100 * female / genderTotal), '#6d28d9']])}
+                    <div class="legend-list">
+                        <div><i style="background:#2f6fed"></i> ชาย ${male} คน</div>
+                        <div><i style="background:#6d28d9"></i> หญิง ${female} คน</div>
+                    </div></div>` : `<div class="no-data">ยังไม่มีผลตรวจในรอบนี้</div>`}
+            </div>
+            <div class="tile">
+                <div class="muted" style="margin-bottom:10px;">จำนวนคนแต่ละแผนก (มีผล/ทั้งหมด)</div>
+                ${departments.map(d => {
+                    const found = s.departments.find(x => x.department === d.name);
+                    return `<div class="summary-row" style="border:0;padding:6px 0;"><span>${esc(d.name)}</span><b>${found ? found.with_results : 0}/${d.people}</b></div>`;
+                }).join('')}
+            </div>
+            <div class="tile">
+                <div class="muted" style="margin-bottom:10px;">ประเภทความเสี่ยง (จากแผนก — Walkthrough mock)</div>
+                <div class="legend-list">
+                    ${departments.flatMap(d => mockRiskFor(d.name).risks).map(([n, , cls]) =>
+                        `<div><span class="chip ${cls}" style="margin-right:6px;">${esc(n)}</span></div>`).join('')}
+                </div>
+            </div>
+            <div class="tile wide">
+                <div class="muted" style="margin-bottom:10px;">
+                    ระดับความเสี่ยง (คำนวณจริงจากสัดส่วนผลตรวจ “ผิดปกติ” ของแต่ละคน — ไม่ใช่ Walkthrough)
+                </div>
+                ${risk.scored_people === 0 ? `<div class="no-data">ยังไม่มีผลตรวจแบบปกติ/ผิดปกติในรอบนี้ จึงยังคำนวณระดับความเสี่ยงไม่ได้</div>`
+                    : Object.entries(risk.levels).map(([name, n]) => {
+                        const pct = Math.round(100 * n / risk.scored_people);
+                        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                            <span class="chip ${LEVEL_CLASS[name]}" style="min-width:86px;text-align:center;">${esc(name)}</span>
+                            <div class="bar" style="flex:1;"><i style="width:${pct}%"></i></div>
+                            <b style="width:100px;text-align:right;">${n} คน (${pct}%)</b></div>`;
+                    }).join('')}
+            </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button class="btn btn-primary" id="sendBtn">ส่งรายงานผลตรวจ →</button>
+        </div>`;
+}
+
+async function peopleHtml() {
+    const res = await api(`/api/employees?company_id=${company.id}&round_id=${roundId}&page=${peoplePage}&per_page=20&search=${encodeURIComponent(peopleSearch)}`);
+    const rows = res.data || [];
+    return `
+        <div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;">
+            <input id="peopleSearchInput" placeholder="ค้นหาชื่อพนักงาน" style="max-width:280px;" value="${esc(peopleSearch)}">
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>ชื่อ-นามสกุล</th><th>เพศ</th><th>แผนก</th><th>ตำแหน่ง</th><th>สถานะ</th><th></th></tr></thead>
+                <tbody>${rows.length ? rows.map(e => `
+                    <tr>
+                        <td><b>${esc([e.first_name, e.last_name].filter(Boolean).join(' ')) || '—'}</b><div class="muted">เลขบัตรประชาชน: ${esc(e.cid)}</div></td>
+                        <td>${e.gender === 'male' ? 'ชาย' : e.gender === 'female' ? 'หญิง' : '—'}</td>
+                        <td>${esc(e.department) || '—'}</td>
+                        <td>${esc(e.position) || '—'}</td>
+                        <td><span class="chip ${e.checked_this_round ? 'ok' : 'doing'}">${e.checked_this_round ? 'ตรวจแล้ว' : 'ไม่พบข้อมูล'}</span></td>
+                        <td class="row-actions"><button class="btn btn-sm" data-person="${e.id}">รายละเอียด</button></td>
+                    </tr>`).join('') : `<tr><td colspan="6" class="muted" style="padding:24px;text-align:center;">ยังไม่มีพนักงานในทะเบียน</td></tr>`}
+                </tbody>
+            </table>
+        </div>
+        <div class="pagination" style="margin-top:14px;">
+            <button class="btn btn-sm" id="peoplePrev" ${res.page <= 1 ? 'disabled' : ''}>←</button>
+            <span class="muted">หน้า ${res.page} / ${Math.max(1, res.total_pages)} · ${res.total} คน</span>
+            <button class="btn btn-sm" id="peopleNext" ${res.page >= res.total_pages ? 'disabled' : ''}>→</button>
+        </div>`;
+}
+
+async function switchTab(t) {
+    tab = t;
+    document.querySelectorAll('#app .tab').forEach(x => x.classList.toggle('on', x.dataset.tab === t));
+    const body = document.getElementById('tabBody');
+    if (t === 'ภาพรวม') { body.innerHTML = overviewHtml(summaryData); wireOverview(); }
+    else { body.innerHTML = await peopleHtml(); wirePeople(); }
+}
+
+function wireOverview() {
+    const send = document.getElementById('sendBtn');
+    if (send) send.addEventListener('click', openSend);
+}
+
+function wirePeople() {
+    document.getElementById('peopleSearchInput').addEventListener('input', e => {
+        peopleSearch = e.target.value; peoplePage = 1; switchTab('รายบุคคล');
+    });
+    document.getElementById('peoplePrev')?.addEventListener('click', () => { peoplePage--; switchTab('รายบุคคล'); });
+    document.getElementById('peopleNext')?.addEventListener('click', () => { peoplePage++; switchTab('รายบุคคล'); });
+    document.querySelectorAll('[data-person]').forEach(b => b.addEventListener('click', () => openPerson(Number(b.dataset.person))));
+}
+
+const GROUP_TH = {toxicology: 'สารพิษ', cbc: 'ความสมบูรณ์ของเม็ดเลือด (CBC)', kidney: 'ไต', liver: 'ตับ',
+    metabolic: 'เมตาบอลิก', xray: 'เอกซเรย์ทรวงอก', cholinesterase: 'โคลีนเอสเทอเรส', ekg: 'คลื่นไฟฟ้าหัวใจ',
+    vitals: 'สัญญาณชีพ', spirometry: 'สมรรถภาพปอด', hearing: 'สมรรถภาพการได้ยิน', vision: 'สมรรถภาพการมองเห็น'};
+let personFields = null;
+
+async function openPerson(id) {
+    if (!personFields) personFields = await api('/api/template/columns?all=true');
+    const e = await api('/api/employees/' + id);
+    document.getElementById('personName').textContent = [e.first_name, e.last_name].filter(Boolean).join(' ') || e.cid;
+    const rnd = (e.rounds || []).find(r => r.checkup_batch_id === roundId);
+    const groups = {};
+    personFields.filter(f => f.group !== 'person').forEach(f => (groups[f.group] = groups[f.group] || []).push(f));
+    const cell = (f, v) => {
+        if (v == null || v === '') return '<span class="muted">—</span>';
+        if (f.kind === 'categorical') return v === 0 ? '<span class="tag ok">ปกติ</span>' : v === 1 ? '<span class="tag bad">ผิดปกติ</span>' : '—';
+        if (f.kind === 'numeric') return `${Number(v).toLocaleString()}${f.unit ? ' <span class="muted">' + esc(f.unit) + '</span>' : ''}`;
+        return esc(v);
+    };
+    const results = rnd
+        ? Object.entries(groups).map(([g, fs]) => {
+            const has = fs.filter(f => rnd[f.column] != null && rnd[f.column] !== '').length;
+            if (!has) return '';
+            return `<div class="kv-head muted">${esc(GROUP_TH[g] || g)} — ${has} จาก ${fs.length} ช่อง</div>
+                <div class="kv">${fs.map(f => `<div class="k">${esc(f.header)}</div><div class="v">${cell(f, rnd[f.column])}</div>`).join('')}</div>`;
+        }).join('')
+        : '<p class="muted">ยังไม่มีผลตรวจของคนนี้ในรอบนี้</p>';
+    const extras = (rnd && rnd.extras) || [];
+    const extrasHtml = extras.length ? `
+        <div class="band">ผลตรวจเพิ่มเติมของบริษัท</div>
+        <div class="kv">${extras.map(x => `<div class="k">${esc(x.name)}</div>
+            <div class="v">${x.value == null ? '<span class="muted">—</span>'
+                : x.kind === 'numeric' ? `${Number(x.value).toLocaleString()}${x.unit ? ' <span class="muted">' + esc(x.unit) + '</span>' : ''}`
+                : esc(x.value)}</div>`).join('')}</div>` : '';
+    document.getElementById('personBody').innerHTML = `
+        <div class="summary" style="margin-bottom:14px;">
+            <div class="summary-row"><span>แผนก</span><b>${esc(e.department) || '—'}</b></div>
+            <div class="summary-row"><span>ตำแหน่ง</span><b>${esc(e.position) || '—'}</b></div>
+            <div class="summary-row"><span>ความเสี่ยงของแผนก</span><b>${
+                mockRiskFor(e.department || '').risks.map(([n, lvl, cls]) => `${esc(n)} <span class="chip ${cls}">${esc(lvl)}</span>`).join(' ')}</b></div>
+        </div>
+        <div class="band" style="margin-top:0;">ผลตรวจในรอบนี้</div>
+        ${results}
+        ${extrasHtml}
+        <div id="personReviewsNote"></div>`;
+    // คำถามค้างของคนนี้ในรอบนี้ — ตอบได้จากตรงนี้เลย (ผ่านพาเนล "งานที่ต้องตรวจ" เดียวกับปุ่ม 🔔)
+    const openReviews = await api('/api/reviews?status=open&limit=5000&round_id=' + roundId);
+    const mine = openReviews.filter(r => (r.payload || {}).cid === e.cid);
+    if (mine.length) {
+        document.getElementById('personReviewsNote').innerHTML = `
+            <div class="band">คำถามค้างของคนนี้</div>
+            <p class="review-warn">มี ${mine.length} คำถามค้างของคนนี้ในรอบนี้
+                <button class="btn btn-sm btn-primary" id="goAnswer" style="margin-left:8px;">ไปตอบเลย →</button></p>`;
+        document.getElementById('goAnswer').addEventListener('click', () => {
+            document.getElementById('personModal').hidden = true;
+            openReviewPanel();
+        });
+    }
+    document.getElementById('personModal').hidden = false;
+}
+
+async function openReviewPanel() {
+    const root = document.getElementById('reviewRoot');
+    document.getElementById('reviewModal').hidden = false;
+    if (!root.dataset.mounted) {
+        root.dataset.mounted = '1';
+        mountReviewWizard(root, {extraQuery: 'round_id=' + roundId, onChange: refreshBadges}).refresh();
+    } else {
+        await mountReviewWizard(root, {extraQuery: 'round_id=' + roundId, onChange: refreshBadges}).refresh();
+    }
+}
+
+async function refreshBadges() {
+    // after answering something, the header badge and (if visible) the overview tab's
+    // numbers should catch up without a full page reload
+    const reviews = await api('/api/reviews?status=open&limit=5000&round_id=' + roundId);
+    reviewCount = reviews.length;
+    const btn = document.getElementById('reviewBtn');
+    if (btn) btn.textContent = `🔔 งานที่ต้องตรวจ (${reviewCount})`;
+    if (btn && !reviewCount) btn.remove();
+    if (tab === 'ภาพรวม') { await loadDashboardData(); switchTab('ภาพรวม'); }
+}
+
+function wireDashboard() {
+    document.getElementById('backBtn').addEventListener('click', () => { view = 'company'; render(); });
+    document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => document.getElementById(b.dataset.close).hidden = true));
+    document.querySelectorAll('#app .tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+    wireOverview();
+    document.getElementById('addPeopleBtn').addEventListener('click', () => document.getElementById('peopleModal').hidden = false);
+    document.getElementById('addResultBtn').addEventListener('click', () => document.getElementById('resultModal').hidden = false);
+    const reviewBtn = document.getElementById('reviewBtn');
+    if (reviewBtn) reviewBtn.addEventListener('click', openReviewPanel);
+
+    wireUpload('peopleZone', 'peopleFile', 'peopleUploadBtn', 'peopleResult', sendRegistry);
+    wireUpload('resultZone', 'resultFile', 'resultUploadBtn', 'resultResult', sendResults);
+}
+
+function wireUpload(zoneId, fileId, btnId, resultId, handler) {
+    const zone = document.getElementById(zoneId), fileInput = document.getElementById(fileId);
+    document.getElementById(btnId).addEventListener('click', () => fileInput.click());
+    zone.addEventListener('click', () => fileInput.click());
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handler(e.dataTransfer.files[0], resultId); });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) handler(fileInput.files[0], resultId); fileInput.value = ''; });
+}
+
+async function sendRegistry(file, resultId) {
+    const box = document.getElementById(resultId);
+    box.innerHTML = '<p class="muted">กำลังนำเข้า…</p>';
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('company_id', company.id);
+    const res = await fetch('/api/upload/registry', {method: 'POST', body: fd});
+    const data = await res.json();
+    if (!data.success) { box.innerHTML = `<div class="review-warn">${esc(data.error)}</div>`; return; }
+    box.innerHTML = `<div class="tile-grid">
+        <div class="tile"><div class="big">${data.rows}</div><div class="muted">แถวในไฟล์</div></div>
+        <div class="tile"><div class="big">${data.added}</div><div class="muted">เพิ่มเข้าทะเบียน</div></div>
+        <div class="tile"><div class="big">${data.updated}</div><div class="muted">เติมข้อมูลที่ขาด</div></div>
+        <div class="tile"><div class="big">${data.reviews}</div><div class="muted">รอเจ้าหน้าที่ตัดสิน</div></div>
+    </div>`;
+    company = await api('/api/companies/' + company.id);           // people count changed
+    departments = await api(`/api/companies/${company.id}/departments`);
+    if (data.reviews) { document.getElementById('peopleModal').hidden = true; openReviewPanel(); }
+}
+
+async function sendResults(file, resultId) {
+    const box = document.getElementById(resultId);
+    box.innerHTML = '<p class="muted">กำลังอ่านไฟล์และให้ AI ช่วยจับคู่ชื่อที่ไม่รู้จัก (อาจใช้เวลาครึ่งนาที)…</p>';
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('round_id', roundId);
+    const res = await fetch('/api/upload', {method: 'POST', body: fd});
+    const data = await res.json();
+    if (!data.success) { box.innerHTML = `<div class="review-warn">${esc(data.error || 'เกิดข้อผิดพลาด')}</div>`; return; }
+    box.innerHTML = `
+        ${data.stats && data.stats.approval_revoked ? `<div class="review-warn"><b>การรับรองรอบนี้ถูกปลดแล้ว</b> เพราะไฟล์นี้เพิ่มผลตรวจใหม่เข้ามา</div>` : ''}
+        <div class="result-stats">
+            <div class="result-stat">ทั้งหมด <strong>${Number(data.total_rows) || 0}</strong> แถว</div>
+            <div class="result-stat">บันทึกแล้ว <strong>${Number(data.success_rows) || 0}</strong></div>
+            <div class="result-stat">มีปัญหา <strong>${Number(data.error_rows) || 0}</strong></div>
+        </div>`;
+    await loadDashboardData();
+    document.getElementById('resultModal').hidden = true;
+    if (data.status === 'awaiting_review' || reviewCount) { openReviewPanel(); } else { switchTab(tab); }
+    const badge = document.getElementById('reviewBtn');
+    if (!badge && reviewCount) { /* header will pick it up on next full render */ }
+}
+
+// ── ส่งรายงานผลตรวจ ─────────────────────────────────────────────────────
+function pendingWarning(inModal) {
+    const w = summaryData.open_work;
+    if (!w || (!w.reviews_total && !w.conflicts && !w.incomplete_registry)) return '';
+    const blocking = (w.reviews_total || 0) + (w.conflicts || 0) > 0;
+    const bits = [];
+    if (w.incomplete_registry) bits.push(`<li><b>${w.incomplete_registry} คนทะเบียนไม่ครบ</b></li>`);
+    for (const [kind, n] of Object.entries(w.reviews || {})) bits.push(`<li>${esc(kind)}: ${n} รายการ</li>`);
+    if (w.conflicts) bits.push(`<li>ข้อมูลขัดแย้งที่ยังไม่ตัดสิน: ${w.conflicts} รายการ</li>`);
+    return `<div class="review-warn" style="margin-top:14px;">
+        <b>ยังมีงานค้างอยู่</b><ul style="margin:8px 0 8px 18px;">${bits.join('')}</ul>
+        ${blocking ? `<b>ระบบไม่ให้ส่งจนกว่าจะเคลียร์</b> เว้นแต่ยืนยันว่าส่งทั้งที่ยังค้าง
+            ${inModal ? `<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:600;">
+                <input type="checkbox" id="sendAnyway" style="width:auto;margin-top:4px;">
+                <span>ฉันรับทราบว่ายังมีงานค้าง และต้องการส่งทั้งที่ยังค้าง</span></label>` : ''}` : 'ส่งได้ปกติ'}
+    </div>`;
+}
+
+function openSend() {
+    document.getElementById('sendBody').innerHTML = `
+        <div class="kv">
+            <div class="k">สถานประกอบการ</div><div class="v">${esc(company.name)}</div>
+            <div class="k">รอบตรวจ</div><div class="v">${esc(summaryData.round.checkup_type)} · นัด ${thaiDate(summaryData.round.appoint_date)}</div>
+            <div class="k">จำนวนคนมีผล</div><div class="v">${summaryData.people} คน</div>
+            <div class="k">ผู้ส่ง</div><div class="v">{{ user.name }} {{ user.surname }}</div>
+        </div>
+        <p class="muted" style="margin-top:10px;">ส่งแล้วรอบนี้ยังไม่ปิด — อัปโหลดไฟล์เพิ่มหรือแก้ไขข้อมูลต่อได้ตามปกติ</p>
+        ${pendingWarning(true)}`;
+    document.getElementById('sendModal').hidden = false;
+    const w = summaryData.open_work || {};
+    const blocking = ((w.reviews_total || 0) + (w.conflicts || 0)) > 0;
+    document.getElementById('confirmSend').disabled = blocking;
+    const anyway = document.getElementById('sendAnyway');
+    if (anyway) anyway.addEventListener('change', e => { document.getElementById('confirmSend').disabled = !e.target.checked; });
+}
+
+document.addEventListener('click', e => {
+    // send button is created fresh per render, wired via id="confirmSend" below
+});
+
+app.addEventListener('click', async e => {
+    if (e.target.id === 'confirmSend') {
+        const btn = e.target;
+        btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
+        try {
+            await api('/api/summary/submit', {method: 'POST', body: JSON.stringify({
+                round_id: roundId, confirm_open_work: !!document.getElementById('sendAnyway')?.checked})});
+            document.getElementById('sendModal').hidden = true;
+            await loadDashboardData();
+            switchTab('ภาพรวม');
+        } catch (err) { alert(err.message); }
+        btn.disabled = false; btn.textContent = 'ยืนยันและบันทึกการส่ง';
+    }
+});
+
+render();
 </script>
 {% endblock %}

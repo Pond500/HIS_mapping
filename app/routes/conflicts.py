@@ -106,12 +106,15 @@ def _refresh_file_status(db: Session, file_id: int):
 
 
 @router.get("/conflicts")
-def list_conflicts(status: str = "open", file_id: int | None = None, limit: int = 5000,
-                   db: Session = Depends(get_db), user=Depends(require_user)):
+def list_conflicts(status: str = "open", file_id: int | None = None, round_id: int | None = None,
+                   limit: int = 5000, db: Session = Depends(get_db), user=Depends(require_user)):
     """Same cap story as list_reviews: an unseen conflict is an undecided conflict."""
     q = db.query(Conflict).filter(Conflict.status == status)
     if file_id is not None:
         q = q.filter(Conflict.source_file_id == file_id)
+    if round_id is not None:
+        q = q.join(SourceFile, SourceFile.id == Conflict.source_file_id).filter(
+            SourceFile.checkup_batch_id == round_id)
     return [_conflict_dict(db, c) for c in q.order_by(Conflict.id).limit(max(1, limit))]
 
 

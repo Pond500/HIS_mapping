@@ -4,6 +4,8 @@
 {% block content %}
 <div class="mock-banner">
     <b>ตัวอย่างหน้าจอ (mockup)</b> ยังไม่ต่อฐานข้อมูล ข้อมูลในหน้านี้เป็นข้อมูลสมมติ กดปุ่มดูการทำงานได้ แต่ยังไม่บันทึกจริง
+    — ปรับตามการคุยรอบล่าสุด (ดู <a href="https://github.com" onclick="return false;">CONTEXT.md</a> ในโค้ด): มีหน้าภาพรวมบริษัทก่อนเข้ารอบ,
+    เลือก/สร้างรอบตรวจได้หลายรอบ, งานที่ต้องตรวจเปิดได้ตลอดเวลาไม่ใช่แค่ตอนอัปโหลดเสร็จ, ส่งรายงานแล้วยังอัปโหลดต่อได้
 </div>
 
 <h1 class="page-title">Health Report</h1>
@@ -16,27 +18,56 @@
 <script>
     /* ตัวอย่างข้อมูล — ของจริงจะมาจากฐานข้อมูลและไฟล์ที่อัปโหลด */
     const COMPANY = {
-        name: 'ห้างหุ้นส่วนจำกัด พงษ์ศรา คอนกรีต', tax: '0503539001102', round: 'ประจำปี', year: 2568,
-        employees: 46, checked: 0, departments: [['ผลิต 1', 0, 25], ['ประกันคุณภาพ', 0, 21]],
-        risks: [['Lead - ตะกั่ว', 27.17, '#2f6fed'], ['Silicosis - ฝุ่นซิลิกา', 22.83, '#f0a202'],
-                ['Pesticides - สารกำจัดศัตรูพืช', 27.17, '#6d28d9'], ['Confined - อับอากาศ', 22.83, '#14a37f']],
-        levels: [['ยอมรับได้', 0], ['ต่ำ', 27.17], ['ปานกลาง', 0], ['สูง', 22.83], ['สูงมาก', 50]],
-        sex: [['ชาย', 68], ['หญิง', 32]],
+        name: 'ห้างหุ้นส่วนจำกัด พงษ์ศรา คอนกรีต', tax: '0503539001102', fid: '0503539001102-1',
+        address: '123 ถ.สุขภาพดี ต.ในเมือง อ.เมือง จ.ขอนแก่น 40000', industry: 'การผลิตคอนกรีตผสมเสร็จ',
+        year: 2568, departments: ['ผลิต 1', 'ประกันคุณภาพ'],
+        deptRisks: {
+            'ผลิต 1': [['Silicosis - ฝุ่นซิลิกา', 'ต่ำ', 'low'], ['Lead - ตะกั่ว', 'สูงมาก', 'top']],
+            'ประกันคุณภาพ': [['Pesticides - สารกำจัดศัตรูพืช', 'ปานกลาง', 'mid'], ['Confined - อับอากาศ', 'ต่ำ', 'low']],
+        },
+        deptChecklist: {
+            'ผลิต 1': ['Chest X-ray - เอกซเรย์ปอด', 'Venous blood lead', 'Complete blood count', 'Creatinine'],
+            'ประกันคุณภาพ': ['EKG', 'Choline Esterase', 'Complete blood count', 'Chest X-ray - เอกซเรย์ปอด',
+                              'Health check', 'Spirometry', 'Hearing ability - assessment/Audiogram', 'Far vision test'],
+        },
     };
+    // รอบตรวจของบริษัทนี้ — มีได้หลายรอบ ไม่ใช่รอบเดียวตายตัว
+    const ROUNDS = [
+        { id: 1, label: 'ประจำปี', date: '2569-02-24', employees: 46, checked: 0,
+          departments: [['ผลิต 1', 0, 25], ['ประกันคุณภาพ', 0, 21]], sex: [['ชาย', 68], ['หญิง', 32]],
+          submittedAt: null, hasFile: false },
+        { id: 2, label: 'ก่อนเข้าทำงาน', date: '2569-05-10', employees: 12, checked: 12,
+          departments: [['ผลิต 1', 12, 12]], sex: [['ชาย', 75], ['หญิง', 25]],
+          submittedAt: '24/04/2569 09:10 น.', hasFile: true },
+    ];
+    // งานที่ต้องตรวจของรอบ id=2 — ตัวอย่างว่ามีคำถามค้างแม้ส่งรายงานไปแล้ว (เพราะไฟล์ใหม่เข้ามาทีหลัง)
+    const REVIEWS = {
+        2: [
+            { id: 101, person: 'วงพต เสิศล้ำ', kind: 'mapping', label: 'ค่าที่ยังไม่แน่ใจ',
+              detail: 'คอลัมน์ "Pb-B" ในไฟล์ — AI เดาว่าคือ Venous blood lead (มั่นใจ 82%)', options: ['ใช่ Venous blood lead', 'ไม่ใช่ ให้เลือกเอง'] },
+            { id: 102, person: 'ศิริพร จันทร์สว่าง', kind: 'value', label: 'ค่าผิดช่วงปกติมาก',
+              detail: 'RBC ChE = 240 %  (ช่วงปกติ 50–150%) — พิมพ์ผิดหรือหน่วยไม่ตรง?', options: ['ใช้ค่านี้ตามไฟล์', 'ข้ามไว้ก่อน ให้คนดูทีหลัง'] },
+        ],
+    };
+    const STATUS_CLASS = { 'ตรวจแล้ว': 'ok', 'ไม่มาตรวจ': 'wait', 'ไม่พบข้อมูล': 'doing' };
+
+    let view = 'search';          // search -> company -> dashboard
+    let tab = 'ภาพรวม';
+    let roundId = null;
+    const app = document.getElementById('app');
+
+    function round() { return ROUNDS.find(r => r.id === roundId); }
+    function openReviews() { return REVIEWS[roundId] || []; }
+
     const PEOPLE = [
         ['ภาณุวัฒน์ จำไพ', '5738921656478', 'ชาย', 'ผลิต 1', 'วิศวกรฝ่ายผลิต', 8, 'ไม่พบข้อมูล'],
         ['วงพต เสิศล้ำ', '6638126579285', 'ชาย', 'ผลิต 1', 'วิศวกรฝ่ายผลิต', 31, 'ตรวจแล้ว'],
-        ['ศิริพร จันทร์สว่าง', '3657391648587', 'หญิง', 'ผลิต 1', 'วิศวกรฝ่ายผลิต', 20, 'ไม่พบข้อมูล'],
-        ['ปิ่นมณ ษญูอุ', '6174920384756', 'หญิง', 'ผลิต 1', 'ผู้จัดการฝ่ายผลิต', 13, 'ไม่มาตรวจ'],
+        ['ศิริพร จันทร์สว่าง', '3657391648587', 'หญิง', 'ผลิต 1', 'วิศวกรฝ่ายผลิต', 20, 'ตรวจแล้ว'],
+        ['ปิ่นมณ ษญูอุ', '6174920384756', 'หญิง', 'ผลิต 1', 'ผู้จัดการฝ่ายผลิต', 13, 'ไม่พบข้อมูล'],
         ['ฉมบศักดิ์ ถวงวัต', '3255640710259', 'ชาย', 'ผลิต 1', 'ผู้จัดการฝ่ายผลิต', 13, 'ไม่พบข้อมูล'],
         ['ธีมวา พบสุข', '8741052439874', 'ชาย', 'ประกันคุณภาพ', 'หัวหน้าฝ่ายผลิต', 11, 'ไม่พบข้อมูล'],
         ['ภาณุวัฒน์ อัครเดช', '1528394062714', 'ชาย', 'ประกันคุณภาพ', 'วิศวกรฝ่ายผลิต', 11, 'ตรวจแล้ว'],
     ];
-    const STATUS_CLASS = { 'ตรวจแล้ว': 'ok', 'ไม่มาตรวจ': 'wait', 'ไม่พบข้อมูล': 'doing' };
-
-    let view = 'search';      // search -> dashboard
-    let tab = 'ภาพรวม';
-    const app = document.getElementById('app');
 
     function donut(parts) {
         let acc = 0;
@@ -48,7 +79,11 @@
         return `<div class="donut" style="background:conic-gradient(${stops.join(',')});"><span>${Math.round(acc)}%</span></div>`;
     }
 
-    function render() { view === 'search' ? renderSearch() : renderDashboard(); }
+    function render() {
+        if (view === 'search') renderSearch();
+        else if (view === 'company') renderCompany();
+        else renderDashboard();
+    }
 
     function renderSearch() {
         app.innerHTML = `
@@ -67,20 +102,91 @@
                     บริษัทที่ยังไม่ผ่าน Walkthrough Survey จะไม่สามารถรายงานผลตรวจสุขภาพได้ และหน่วยบริการต้องขึ้นทะเบียนก่อน
                 </p>
             </div>`;
-        document.getElementById('pickBtn').addEventListener('click', () => { view = 'dashboard'; render(); });
+        document.getElementById('pickBtn').addEventListener('click', () => { view = 'company'; render(); });
         document.getElementById('searchBtn').addEventListener('click', () => alert('ตัวอย่างหน้าจอ: ค้นหาจากเลขนิติบุคคลหรือชื่อบริษัท'));
     }
 
-    function renderDashboard() {
+    // ---- หน้าภาพรวมบริษัท: ข้อมูลทั่วไป + ความเสี่ยงรายแผนก (จาก Walkthrough mock) + รายการรอบตรวจ ----
+    function renderCompany() {
         app.innerHTML = `
             <button class="btn btn-sm" id="backBtn" style="margin-bottom:14px;">← กลับไปค้นหาบริษัท</button>
+            <div class="card">
+                <h2 style="font-size:20px;font-weight:700;margin-top:0;">${esc(COMPANY.name)}</h2>
+
+                <div class="band">ส่วนที่ 1 : ข้อมูลทั่วไป</div>
+                <div class="summary">
+                    <div class="summary-row"><span>เลขนิติบุคคล</span><b>${esc(COMPANY.tax)}</b></div>
+                    <div class="summary-row"><span>ประเภทอุตสาหกรรม</span><b>${esc(COMPANY.industry)}</b></div>
+                    <div class="summary-row"><span>ที่อยู่</span><b>${esc(COMPANY.address)}</b></div>
+                </div>
+
+                <div class="band">ส่วนที่ 2 : ข้อมูลความเสี่ยงของแต่ละแผนก (จาก Walkthrough Survey ปี ${COMPANY.year})</div>
+                <p class="muted" style="margin-top:-6px;margin-bottom:10px;">
+                    <b>ตารางนี้ยังเป็นข้อมูลสมมติ</b> — แบบสอบถาม Walk Through ตัวจริงยังไม่ได้ต่อระบบ
+                </p>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>แผนก</th><th>ความเสี่ยง</th><th>รายการตรวจ</th></tr></thead>
+                        <tbody>${COMPANY.departments.map(d => `
+                            <tr>
+                                <td><b>${esc(d)}</b></td>
+                                <td>${(COMPANY.deptRisks[d] || []).map(([n, lvl, cls]) =>
+                                    `<span class="chip ${cls}" style="margin:2px 4px 2px 0;">${esc(n)} ${esc(lvl)}</span>`).join('')}</td>
+                                <td class="muted">${(COMPANY.deptChecklist[d] || []).join(' · ')}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+                    <button class="btn btn-sm" id="printBtn">สรุปผล Walkthrough (print)</button>
+                </div>
+
+                <div class="band">รอบการตรวจสุขภาพ</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>รอบตรวจ</th><th>วันที่</th><th>ตรวจแล้ว</th><th>สถานะส่งรายงาน</th><th></th></tr></thead>
+                        <tbody>${ROUNDS.map(r => `
+                            <tr>
+                                <td><b>${esc(r.label)}</b></td>
+                                <td>${esc(r.date)}</td>
+                                <td>${r.checked}/${r.employees} คน</td>
+                                <td>${r.submittedAt
+                                    ? `<span class="chip ok">ส่งแล้วล่าสุด ${esc(r.submittedAt)}</span>`
+                                    : `<span class="muted">ยังไม่เคยส่ง</span>`}</td>
+                                <td><button class="btn btn-sm btn-primary" data-open-round="${r.id}">เปิดรอบนี้</button></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+                    <button class="btn btn-primary" id="newRoundBtn">+ เพิ่มรอบข้อมูล</button>
+                </div>
+            </div>`;
+
+        document.getElementById('backBtn').addEventListener('click', () => { view = 'search'; render(); });
+        document.getElementById('printBtn').addEventListener('click', () => alert('ตัวอย่างหน้าจอ: เปิดหน้าต่างพิมพ์สรุปผล Walkthrough'));
+        document.getElementById('newRoundBtn').addEventListener('click', () => showModal('newRoundModal'));
+        document.querySelectorAll('[data-open-round]').forEach(b => b.addEventListener('click', () => {
+            roundId = Number(b.dataset.openRound); tab = 'ภาพรวม'; view = 'dashboard'; render();
+        }));
+    }
+
+    function renderDashboard() {
+        const r = round();
+        const reviews = openReviews();
+        app.innerHTML = `
+            <button class="btn btn-sm" id="backBtn" style="margin-bottom:14px;">← กลับไปภาพรวมบริษัท</button>
             <div class="card">
                 <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">
                     <div>
                         <h2 style="font-size:20px;font-weight:700;">${esc(COMPANY.name)}</h2>
-                        <div class="muted">รอบการตรวจ: ${esc(COMPANY.round)} ปี ${COMPANY.year} · เลขทะเบียน ${esc(COMPANY.tax)}</div>
+                        <div class="muted">
+                            รอบการตรวจ: ${esc(r.label)} วันที่ ${esc(r.date)} · เลขทะเบียน ${esc(COMPANY.tax)}
+                            ${r.submittedAt ? ` · <span class="chip ok">ส่งรายงานล่าสุด ${esc(r.submittedAt)}</span>` : ''}
+                        </div>
                     </div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        ${reviews.length ? `<button class="btn btn-sm" id="reviewBtn" style="border-color:#f0a202;">🔔 งานที่ต้องตรวจ (${reviews.length})</button>` : ''}
                         <button class="btn btn-sm" id="dashBtn">ดาวน์โหลด Dashboard</button>
                         <button class="btn btn-sm" id="tplBtn">Template ผลตรวจ</button>
                         <button class="btn btn-sm" id="addPeopleBtn">+ รายชื่อพนักงาน</button>
@@ -92,70 +198,76 @@
                     ${['ภาพรวม', 'รายบุคคล'].map(t => `<button class="tab ${t === tab ? 'on' : ''}" data-tab="${t}">${t}</button>`).join('')}
                 </div>
 
-                ${tab === 'ภาพรวม' ? overview() : people()}
+                ${tab === 'ภาพรวม' ? overview(r) : people()}
             </div>`;
 
-        document.getElementById('backBtn').addEventListener('click', () => { view = 'search'; render(); });
+        document.getElementById('backBtn').addEventListener('click', () => { view = 'company'; render(); });
         document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
         document.getElementById('addPeopleBtn').addEventListener('click', () => showModal('peopleModal'));
         document.getElementById('addResultBtn').addEventListener('click', () => showModal('resultModal'));
-        document.getElementById('dashBtn').addEventListener('click', () => alert('ตัวอย่างหน้าจอ: ดาวน์โหลดภาพสรุปแดชบอร์ดเป็นไฟล์'));
+        document.getElementById('dashBtn').addEventListener('click', () => alert('ตัวอย่างหน้าจอ: ดาวน์โหลดภาพสรุปแดชบอร์ดเป็นไฟล์ (ยังไม่เปิดใช้งานจริง)'));
         document.getElementById('tplBtn').addEventListener('click', () => alert('ตัวอย่างหน้าจอ: ดาวน์โหลดไฟล์ Template สำหรับกรอกผลตรวจ (.xlsx)'));
+        const reviewBtn = document.getElementById('reviewBtn');
+        if (reviewBtn) reviewBtn.addEventListener('click', () => renderReviewModal());
         const send = document.getElementById('sendBtn');
         if (send) send.addEventListener('click', () => showModal('sendModal'));
     }
 
-    function overview() {
+    function overview(r) {
         return `
             <div class="tile-grid">
                 <div class="tile">
                     <div class="muted">จำนวนพนักงาน (คน)</div>
-                    <div style="font-size:34px;font-weight:700;">${COMPANY.employees}</div>
-                    <div class="no-data">นำเข้ารายชื่อแล้ว ${COMPANY.employees} คน</div>
+                    <div style="font-size:34px;font-weight:700;">${r.employees}</div>
+                    <div class="no-data">นำเข้ารายชื่อแล้ว ${r.employees} คน</div>
                 </div>
                 <div class="tile">
                     <div class="muted" style="margin-bottom:10px;">สถานะผลตรวจร่างกาย</div>
                     <div style="display:flex;align-items:center;gap:14px;">
-                        ${donut([['ตรวจแล้ว', COMPANY.checked, '#2f6fed']])}
+                        ${donut([['ตรวจแล้ว', Math.round(100 * r.checked / r.employees), '#2f6fed']])}
                         <div class="legend-list">
                             <div><i style="background:#2f6fed"></i> ตรวจแล้ว</div>
-                            <div><i style="background:#f26b52"></i> ไม่มาตรวจ</div>
                             <div><i style="background:#e9edf5"></i> ไม่พบข้อมูล</div>
                         </div>
                     </div>
-                    ${COMPANY.checked === 0 ? `<div class="no-data" style="margin-top:8px;">ยังไม่มีผลตรวจในรอบนี้</div>` : ''}
+                    <div class="muted" style="margin-top:8px;font-size:12px;">
+                        (มีแค่ 2 สถานะตอนนี้ — ยังไม่มีการทำเครื่องหมาย "ไม่มาตรวจ" แยกต่างหาก)
+                    </div>
+                    ${r.checked === 0 ? `<div class="no-data" style="margin-top:8px;">ยังไม่มีผลตรวจในรอบนี้</div>` : ''}
                 </div>
                 <div class="tile">
                     <div class="muted" style="margin-bottom:10px;">เพศ</div>
                     <div style="display:flex;align-items:center;gap:14px;">
-                        ${donut([['ชาย', COMPANY.sex[0][1], '#2f6fed'], ['หญิง', COMPANY.sex[1][1], '#6d28d9']])}
+                        ${donut([['ชาย', r.sex[0][1], '#2f6fed'], ['หญิง', r.sex[1][1], '#6d28d9']])}
                         <div class="legend-list">
-                            <div><i style="background:#2f6fed"></i> ชาย ${COMPANY.sex[0][1]}%</div>
-                            <div><i style="background:#6d28d9"></i> หญิง ${COMPANY.sex[1][1]}%</div>
+                            <div><i style="background:#2f6fed"></i> ชาย ${r.sex[0][1]}%</div>
+                            <div><i style="background:#6d28d9"></i> หญิง ${r.sex[1][1]}%</div>
                         </div>
                     </div>
                 </div>
                 <div class="tile">
                     <div class="muted" style="margin-bottom:10px;">จำนวนคนแต่ละแผนก (ตรวจแล้ว/ทั้งหมด)</div>
-                    ${COMPANY.departments.map(([name, done, total]) =>
+                    ${r.departments.map(([name, done, total]) =>
                         `<div class="summary-row" style="border:0;padding:6px 0;"><span>${esc(name)}</span><b>${done}/${total}</b></div>`).join('')}
                 </div>
 
                 <div class="tile">
-                    <div class="muted" style="margin-bottom:10px;">ประเภทความเสี่ยง</div>
-                    <div style="display:flex;align-items:center;gap:14px;">
-                        ${donut(COMPANY.risks.map(([n, p, c]) => [n, p, c]))}
-                        <div class="legend-list">
-                            ${COMPANY.risks.map(([n, p, c]) => `<div><i style="background:${c}"></i> ${esc(n)} ${p}%</div>`).join('')}
-                        </div>
+                    <div class="muted" style="margin-bottom:10px;">ประเภทความเสี่ยง (จากแผนก — Walkthrough mock)</div>
+                    <div class="legend-list">
+                        ${COMPANY.departments.flatMap(d => COMPANY.deptRisks[d] || []).map(([n, , cls]) =>
+                            `<div><span class="chip ${cls}" style="margin-right:6px;">${esc(n)}</span></div>`).join('')}
                     </div>
                 </div>
                 <div class="tile wide">
-                    <div class="muted" style="margin-bottom:10px;">ระดับความเสี่ยง</div>
-                    ${COMPANY.levels.map(([name, pct]) => `
+                    <div class="muted" style="margin-bottom:10px;">
+                        ระดับความเสี่ยง (คำนวณจริงจาก % ค่าผิดปกติของแต่ละคนที่ตรวจแล้ว — ไม่ใช่ Walkthrough)
+                    </div>
+                    ${r.checked === 0
+                        ? `<div class="no-data">ยังไม่มีผลตรวจในรอบนี้ จึงยังคำนวณระดับความเสี่ยงไม่ได้</div>`
+                        : [['ยอมรับได้', 'ok', 20], ['ต่ำ', 'low', 30], ['ปานกลาง', 'mid', 20], ['สูง', 'high', 20], ['สูงมาก', 'top', 10]]
+                            .map(([name, cls, pct]) => `
                         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                            <span class="chip ${({ 'ยอมรับได้': 'ok', 'ต่ำ': 'low', 'ปานกลาง': 'mid', 'สูง': 'high', 'สูงมาก': 'top' })[name]}"
-                                  style="min-width:86px;text-align:center;">${esc(name)}</span>
+                            <span class="chip ${cls}" style="min-width:86px;text-align:center;">${esc(name)}</span>
                             <div class="bar" style="flex:1;"><i style="width:${pct}%"></i></div>
                             <b style="width:56px;text-align:right;">${pct}%</b>
                         </div>`).join('')}
@@ -171,7 +283,7 @@
         return `
             <div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;">
                 <input placeholder="ค้นหาชื่อพนักงาน" style="max-width:280px;">
-                <select style="width:auto;"><option>สถานะทั้งหมด</option><option>ตรวจแล้ว</option><option>ไม่มาตรวจ</option><option>ไม่พบข้อมูล</option></select>
+                <select style="width:auto;"><option>สถานะทั้งหมด</option><option>ตรวจแล้ว</option><option>ไม่พบข้อมูล</option></select>
             </div>
             <div class="table-wrap">
                 <table>
@@ -180,18 +292,40 @@
                         <tr>
                             <td><b>${esc(name)}</b><div class="muted">เลขบัตรประชาชน: ${esc(cid)}</div></td>
                             <td>${esc(sex)}</td><td>${esc(dept)}</td><td>${esc(role)}</td><td>${years}</td>
-                            <td><span class="chip ${STATUS_CLASS[status]}">${esc(status)}</span></td>
+                            <td><span class="chip ${STATUS_CLASS[status]}">${esc(status)}</span>
+                                ${openReviews().some(x => x.person === name) ? `<span class="chip mid" style="margin-left:4px;">มีคำถามค้าง</span>` : ''}</td>
                             <td class="row-actions">
                                 <button class="btn btn-sm" data-person="${esc(name)}">รายละเอียด</button>
-                                <button class="btn btn-sm">แก้ไข</button>
                             </td>
                         </tr>`).join('')}
                     </tbody>
                 </table>
             </div>
             <div class="pagination" style="margin-top:14px;">
-                <button class="btn btn-sm">←</button><span class="muted">หน้า 1 / 5 · 46 คน</span><button class="btn btn-sm">→</button>
+                <button class="btn btn-sm">←</button><span class="muted">หน้า 1 / 5 · ${PEOPLE.length} คน</span><button class="btn btn-sm">→</button>
             </div>`;
+    }
+
+    // ---- งานที่ต้องตรวจ: เปิดได้ทั้งจากปุ่ม 🔔 บน dashboard และอัตโนมัติหลังอัปโหลดผลตรวจ ----
+    function renderReviewModal() {
+        const items = openReviews();
+        document.getElementById('reviewBody').innerHTML = items.length ? items.map(it => `
+            <div class="doc-item" style="display:block;">
+                <div style="display:flex;justify-content:space-between;">
+                    <b>${esc(it.person)}</b><span class="chip mid">${esc(it.label)}</span>
+                </div>
+                <p class="muted" style="margin:6px 0;">${esc(it.detail)}</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${it.options.map(o => `<button class="btn btn-sm" data-answer="${it.id}">${esc(o)}</button>`).join('')}
+                </div>
+            </div>`).join('') : `<p class="no-data">ไม่มีงานค้างในรอบนี้แล้ว</p>`;
+        showModal('reviewModal');
+        document.querySelectorAll('[data-answer]').forEach(b => b.addEventListener('click', () => {
+            const id = Number(b.dataset.answer);
+            REVIEWS[roundId] = (REVIEWS[roundId] || []).filter(x => x.id !== id);
+            renderReviewModal();     // ตอบแล้วเอาออกจากรายการทันที เหลือเท่าไหร่ก็ยังเปิดพาเนลนี้ซ้ำได้เสมอ
+            render();                // อัปเดตป้ายจำนวนบน dashboard และตาราง "รายบุคคล" ด้วย
+        }));
     }
 
     function showModal(id) { document.getElementById(id).hidden = false; }
@@ -199,13 +333,33 @@
         const close = e.target.closest('[data-close]');
         if (close) document.getElementById(close.dataset.close).hidden = true;
         const person = e.target.closest('[data-person]');
-        if (person) showModal('personModal');
+        if (person) renderPersonModal(person.dataset.person);
     });
+
+    function renderPersonModal(name) {
+        const mine = openReviews().filter(x => x.person === name);
+        document.getElementById('personReviews').innerHTML = mine.length ? `
+            <div class="band" style="margin-top:14px;">คำถามค้างของคนนี้ — ตอบได้จากตรงนี้เลย</div>
+            ${mine.map(it => `
+                <div class="doc-item" style="display:block;">
+                    <p class="muted" style="margin:4px 0;">${esc(it.detail)}</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        ${it.options.map(o => `<button class="btn btn-sm" data-answer="${it.id}">${esc(o)}</button>`).join('')}
+                    </div>
+                </div>`).join('')}` : '';
+        showModal('personModal');
+        document.querySelectorAll('#personReviews [data-answer]').forEach(b => b.addEventListener('click', () => {
+            const id = Number(b.dataset.answer);
+            REVIEWS[roundId] = (REVIEWS[roundId] || []).filter(x => x.id !== id);
+            renderPersonModal(name);
+            render();
+        }));
+    }
 
     render();
 </script>
 
-<!-- อัปโหลดรายชื่อพนักงาน -->
+<!-- อัปโหลดรายชื่อพนักงาน (รวมเลือก/สร้างรอบไว้ในนี้ด้วย) -->
 <div class="modal-back" id="peopleModal" hidden>
     <div class="modal">
         <div class="modal-head"><span>เพิ่มไฟล์รายชื่อพนักงานตรวจสุขภาพ</span><button class="close" data-close="peopleModal">×</button></div>
@@ -227,6 +381,22 @@
     </div>
 </div>
 
+<!-- สร้างรอบใหม่ (จากหน้าภาพรวมบริษัท) -->
+<div class="modal-back" id="newRoundModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>เพิ่มรอบข้อมูลใหม่</span><button class="close" data-close="newRoundModal">×</button></div>
+        <div class="modal-body">
+            <div class="form-row">
+                <label class="field"><span>ประเภทการตรวจ <b class="req">*</b></span>
+                    <select><option>ประจำปี</option><option>ก่อนเข้าทำงาน</option><option>ก่อนกลับเข้าทำงาน</option></select></label>
+                <label class="field"><span>วันที่นัดตรวจ <b class="req">*</b></span><input type="date"></label>
+            </div>
+        </div>
+        <div class="modal-foot"><button class="btn" data-close="newRoundModal">ยกเลิก</button>
+            <button class="btn btn-primary" data-close="newRoundModal">สร้างรอบ</button></div>
+    </div>
+</div>
+
 <!-- อัปโหลดผลตรวจ -->
 <div class="modal-back" id="resultModal" hidden>
     <div class="modal">
@@ -240,10 +410,20 @@
             </div>
             <p class="muted" style="margin-top:12px;">
                 ไฟล์ผลตรวจจะถูกส่งเข้าตัวแปลงข้อมูลของระบบ (HIS Mapping) ค่าที่ระบบไม่แน่ใจจะขึ้นให้เจ้าหน้าที่ตรวจก่อนบันทึก
+                แล้วพาเนล "งานที่ต้องตรวจ" จะเปิดขึ้นเองทันทีที่นำเข้าเสร็จ
             </p>
         </div>
         <div class="modal-foot"><button class="btn" data-close="resultModal">ยกเลิก</button>
-            <button class="btn btn-primary" data-close="resultModal">นำเข้าผลตรวจ</button></div>
+            <button class="btn btn-primary" id="importBtn" data-close="resultModal">นำเข้าผลตรวจ</button></div>
+    </div>
+</div>
+
+<!-- งานที่ต้องตรวจ -->
+<div class="modal-back" id="reviewModal" hidden>
+    <div class="modal">
+        <div class="modal-head"><span>งานที่ต้องตรวจ</span><button class="close" data-close="reviewModal">×</button></div>
+        <div class="modal-body" id="reviewBody"></div>
+        <div class="modal-foot"><button class="btn btn-primary" data-close="reviewModal">ปิด (เปิดใหม่ได้ตลอดจากปุ่ม 🔔)</button></div>
     </div>
 </div>
 
@@ -259,7 +439,6 @@
             </div>
             <div class="band" style="margin-top:0;">ผลตรวจ</div>
             <div class="summary">
-                ${''}
                 <div class="summary-row"><span>RBC ChE</span><b>1 %</b></div>
                 <div class="summary-row"><span>Plasma ChE (BChE)</span><b>1 %</b></div>
                 <div class="summary-row"><span>Chest X-ray</span><b>ปกติ</b></div>
@@ -267,6 +446,7 @@
                 <div class="summary-row"><span>SGPT / ALT</span><b>28 U/L</b></div>
                 <div class="summary-row"><span>Total Bilirubin</span><b>0.9 mg/dL</b></div>
             </div>
+            <div id="personReviews"></div>
         </div>
         <div class="modal-foot"><button class="btn btn-primary" data-close="personModal">ปิด</button></div>
     </div>
@@ -283,6 +463,9 @@
                 <div class="summary-row"><span>วันที่ส่งผล</span><b>24/02/2568 เวลา 23:17 น.</b></div>
                 <div class="summary-row"><span>ผู้ส่งข้อมูล</span><b>{{ user.name }} {{ user.surname }}</b></div>
             </div>
+            <p class="muted" style="margin-top:10px;">
+                ส่งแล้วรอบนี้ยังไม่ปิด — อัปโหลดไฟล์ผลตรวจเพิ่มหรือแก้ไขข้อมูลต่อได้ตามปกติ
+            </p>
         </div>
         <div class="modal-foot"><button class="btn" data-close="sendModal">ยกเลิก</button>
             <button class="btn btn-primary" data-close="sendModal">ยืนยัน</button></div>

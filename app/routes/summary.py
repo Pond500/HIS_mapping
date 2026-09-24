@@ -32,9 +32,9 @@ from sqlalchemy.orm import Session
 from app.auth import require_user
 from app.database import get_db
 from app.models import (
-    AppUser, CheckupBatch, CheckupType, Company, Conflict, Department, Employee,
-    EmployeeCheckup, Hospital, PendingReview, ReportSubmission, SourceFile,
-    WalkthroughSurvey,
+    AppUser, CheckupBatch, CheckupType, Company, CompanyExtraColumn, Conflict, Department,
+    Employee, EmployeeCheckup, ExtraResult, Hospital, PendingReview, ReportSubmission,
+    SourceFile, WalkthroughSurvey,
 )
 from app.template import REGISTRY_FIELDS, TEMPLATE_FIELDS
 
@@ -108,6 +108,14 @@ def summary(round_id: int, db: Session = Depends(get_db),
     filled_total = 0
     by_department: dict[str, dict] = {}
     incomplete_registry = 0
+    gender = {"male": 0, "female": 0, "unknown": 0}
+    # ระดับความเสี่ยง (CONTEXT.md): per person, abnormal ÷ answered CATEGORICAL fields
+    # only — a numeric field's plausible range (template.py lo/hi) catches a unit or
+    # mapping mistake, not a clinical abnormality, so it must not feed this score.
+    RISK_BUCKETS = [("ยอมรับได้", 0, 0), ("ต่ำ", 0, 25), ("ปานกลาง", 25, 50),
+                    ("สูง", 50, 75), ("สูงมาก", 75, 101)]
+    risk_levels = {name: 0 for name, _, _ in RISK_BUCKETS}
+    risk_pcts = []
 
     for checkup, person, dept in rows:
         got = sum(1 for f in RESULT_FIELDS if getattr(checkup, f.column) is not None)
@@ -125,6 +133,17 @@ def summary(round_id: int, db: Session = Depends(get_db),
             row["with_results"] += 1
         if not person.registry_complete:
             incomplete_registry += 1
+        gender[person.gender if person.gender in gender else "unknown"] += 1
+
+        cat_values = [getattr(checkup, col) for col in CATEGORICAL]
+        cat_answered = [v for v in cat_values if v is not None]
+        if cat_answered:
+            pct_abnormal = 100 * sum(1 for v in cat_answered if v == 1) / len(cat_answered)
+            risk_pcts.append(pct_abnormal)
+            for name, lo, hi in RISK_BUCKETS:
+                if (lo == 0 and pct_abnormal == 0) or lo < pct_abnormal <= hi:
+                    risk_levels[name] += 1
+                    break
 
     findings = []
     for col in CATEGORICAL:
@@ -161,6 +180,12 @@ def summary(round_id: int, db: Session = Depends(get_db),
         "completeness": {"complete": complete, "partial": partial, "none": none},
         "departments": sorted(by_department.values(), key=lambda r: r["department"]),
         "findings": findings,
+        "gender": gender,
+        # See CONTEXT.md "ระดับความเสี่ยง": only people with an answered categorical
+        # value count toward this — someone with results but no categorical field
+        # filled yet has nothing to score.
+        "risk": {"levels": risk_levels, "scored_people": len(risk_pcts),
+                 "company_pct": round(sum(risk_pcts) / len(risk_pcts), 1) if risk_pcts else None},
         "open_work": {"reviews": open_reviews, "reviews_total": sum(open_reviews.values()),
                       "conflicts": open_conflicts,
                       "incomplete_registry": incomplete_registry},
@@ -218,6 +243,28 @@ def build_submission_file(db: Session, b: CheckupBatch) -> bytes:
             v = getattr(checkup, f.column)
             line.append(float(v) if f.kind == "numeric" and v is not None else v)
         ws2.append(line)
+
+    # A third sheet only when this company has any of its own columns (CONTEXT.md
+    # "คอลัมน์ของบริษัท" / "ไฟล์ที่ส่งกรมควบคุมโรค") — the department sees them, but
+    # the two sheets above never change shape company to company.
+    survey = db.get(WalkthroughSurvey, b.survey_id)
+    company_id = survey.company_id if survey else None
+    columns = (db.query(CompanyExtraColumn).filter(CompanyExtraColumn.company_id == company_id)
+               .order_by(CompanyExtraColumn.name).all()) if company_id else []
+    if columns:
+        extras = (db.query(ExtraResult, Employee)
+                  .join(EmployeeCheckup, EmployeeCheckup.id == ExtraResult.checkup_id)
+                  .join(Employee, Employee.id == EmployeeCheckup.employee_id)
+                  .filter(EmployeeCheckup.checkup_batch_id == b.id, ExtraResult.column_id.isnot(None)).all())
+        by_cid: dict[str, dict[int, object]] = {}
+        for extra, person in extras:
+            by_cid.setdefault(person.cid, {})[extra.column_id] = (
+                float(extra.value_num) if extra.value_num is not None else extra.value_text)
+        ws3 = wb.create_sheet("company_columns")
+        ws3.append(["citizen_id"] + [c.name for c in columns])
+        for _, person, _ in rows:
+            cell = by_cid.get(person.cid, {})
+            ws3.append([person.cid] + [cell.get(c.id) for c in columns])
 
     buf = io.BytesIO()
     wb.save(buf)

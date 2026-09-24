@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import get_db
-from app.models import Company, Department, Employee
+from app.models import Company, CompanyExtraColumn, Department, Employee
 
 router = APIRouter(prefix="/api", tags=["workplaces"])
 
@@ -88,6 +88,17 @@ def _company_dict(c: Company, departments: int = 0, people: int = 0) -> dict:
             "created_at": c.created_at.isoformat() if c.created_at else None}
 
 
+@router.get("/companies/{company_id}")
+def get_company(company_id: int, db: Session = Depends(get_db), user=Depends(require_user)):
+    c = db.get(Company, company_id)
+    if c is None:
+        raise HTTPException(404, "ไม่พบสถานประกอบการ")
+    departments = db.query(func.count(Department.id)).filter(Department.company_id == c.id).scalar() or 0
+    people = (db.query(func.count(Employee.id)).join(Department, Department.id == Employee.department_pk)
+              .filter(Department.company_id == c.id).scalar() or 0)
+    return _company_dict(c, departments, people)
+
+
 @router.get("/companies")
 def list_companies(search: str | None = None, db: Session = Depends(get_db),
                    user=Depends(require_user)):
@@ -132,6 +143,16 @@ def edit_company(company_id: int, body: CompanyPatch, db: Session = Depends(get_
         setattr(c, k, v)
     db.commit()
     return _company_dict(c)
+
+
+@router.get("/companies/{company_id}/extra-columns")
+def list_extra_columns(company_id: int, db: Session = Depends(get_db), user=Depends(require_user)):
+    """This company's own result columns (CONTEXT.md "คอลัมน์ของบริษัท") — the
+    "reuse or make a new one" picker on a "mapping" review's "extra" answer."""
+    if db.get(Company, company_id) is None:
+        raise HTTPException(404, "ไม่พบสถานประกอบการ")
+    return [c.to_dict() for c in db.query(CompanyExtraColumn)
+            .filter(CompanyExtraColumn.company_id == company_id).order_by(CompanyExtraColumn.name)]
 
 
 @router.get("/companies/{company_id}/departments")

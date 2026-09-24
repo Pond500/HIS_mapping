@@ -187,8 +187,9 @@ class FileProfile(Base):
 # ---------------------------------------------------------------------------
 
 # Special target_column values besides template columns
-TARGET_EXTRA = "__extra__"    # real lab with no template column -> extra_results
+TARGET_EXTRA = "__extra__"    # real lab with no template column -> extra_results, unnamed (legacy rows only)
 TARGET_IGNORE = "__ignore__"  # not a result at all (e.g. row numbers, order ids)
+TARGET_EXTRA_COL_PREFIX = "__extracol:"   # + CompanyExtraColumn.id -> a named company column (CONTEXT.md)
 
 
 class LabMapping(Base):
@@ -476,9 +477,60 @@ class ValueProvenance(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class CompanyExtraColumn(Base):
+    """A result column a company defined for itself — a real value with no seat
+    among the 40 template columns (CONTEXT.md "คอลัมน์ของบริษัท"). Scoped per
+    COMPANY, not per hospital like every other learned thing here (LabMapping,
+    department codes, identity columns): a template column's meaning is
+    universal, but a company's own extra test panel is not, and two hospitals
+    serving the same company share the one register of it — same as they
+    already share that company's departments and employees (D20)."""
+    __tablename__ = "company_extra_columns"
+    __table_args__ = (UniqueConstraint("company_id", "name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(10))          # numeric / text
+    # the unit the first file that defined this column wrote, kept as-is: there is no
+    # conversion table for a column nobody defined in advance (unlike the 40 standard
+    # ones), so a later file naming a different unit is a question for a human, not a
+    # silent mix of two units under one name.
+    unit: Mapped[str | None] = mapped_column(String(50))
+    created_by: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    def to_dict(self):
+        return {"id": self.id, "company_id": self.company_id, "name": self.name,
+                "kind": self.kind, "unit": self.unit, "created_by": self.created_by,
+                "created_at": self.created_at.isoformat() if self.created_at else None}
+
+
+class CompanyColumnAlias(Base):
+    """A label a file used for a company column — the company-scoped twin of
+    LabMapping's (hospital_id, source_name, source_unit) key. Lets a reviewer pick
+    an existing column for a *differently spelled* label ("Fe serum" for the
+    company column named "ค่าเหล็กในเลือด") and have THAT SAME LABEL resolve to it
+    again automatically next time, without writing anything into the hospital-
+    scoped lab_mappings table (CONTEXT.md "คอลัมน์ของบริษัท" is company-scoped)."""
+    __tablename__ = "company_column_aliases"
+    __table_args__ = (
+        UniqueConstraint("company_id", "source_name", "source_unit",
+                         postgresql_nulls_not_distinct=True),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    source_name: Mapped[str] = mapped_column(String(200))    # normalized: lower + stripped
+    source_unit: Mapped[str | None] = mapped_column(String(50))
+    column_id: Mapped[int] = mapped_column(ForeignKey("company_extra_columns.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class ExtraResult(Base):
     """Real results with no column in the department's table (FBS, cholesterol,
-    …). Kept, not dropped (D12)."""
+    …). Kept, not dropped (D12). `column_id` set = a named company column;
+    NULL = a legacy row from before that existed (never written for new ones)."""
     __tablename__ = "extra_results"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -490,6 +542,7 @@ class ExtraResult(Base):
     unit: Mapped[str | None] = mapped_column(String(50))
     sheet: Mapped[str | None] = mapped_column(String(200))
     cell: Mapped[str | None] = mapped_column(String(20))
+    column_id: Mapped[int | None] = mapped_column(ForeignKey("company_extra_columns.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

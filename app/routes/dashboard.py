@@ -15,9 +15,10 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_roles, require_user
 from app.database import get_db
-from app.models import (AgentDecision, CheckupBatch, Company, Conflict, Department, Employee,
-                        EmployeeCheckup, LabMapping, PendingReview, SourceFile, ValueHistory,
-                        ValueProvenance, WalkthroughSurvey)
+from app.models import (AgentDecision, CheckupBatch, Company, CompanyExtraColumn, Conflict,
+                        Department, Employee, EmployeeCheckup, ExtraResult, LabMapping,
+                        PendingReview, SourceFile, ValueHistory, ValueProvenance,
+                        WalkthroughSurvey)
 from app.template import COLUMNS, HEADERS
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
@@ -58,6 +59,7 @@ def get_employees(
     search: str = Query("", max_length=100),
     incomplete: bool = False,
     company_id: int | None = None,
+    round_id: int | None = None,
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
@@ -70,6 +72,10 @@ def get_employees(
     `incomplete` lists the people whose registry fields the department requires but
     a lab file cannot supply. They are a queue to be filled from a register file,
     not damaged records, and their results are stored either way.
+
+    `round_id` adds `checked_this_round` (CONTEXT.md "สถานะผลตรวจร่างกาย"): there
+    are only two states today, ตรวจแล้ว and ไม่พบข้อมูล — no way yet for a person to
+    be marked absent.
     """
     query = (db.query(Employee, Department, Company)
              .join(Department, Department.id == Employee.department_pk)
@@ -94,6 +100,10 @@ def get_employees(
             .offset((page - 1) * per_page).limit(per_page).all())
     counts = dict(db.query(EmployeeCheckup.employee_id, func.count(EmployeeCheckup.id))
                   .group_by(EmployeeCheckup.employee_id).all())
+    checked_round: set[int] = set()
+    if round_id is not None:
+        checked_round = {eid for (eid,) in db.query(EmployeeCheckup.employee_id)
+                         .filter(EmployeeCheckup.checkup_batch_id == round_id)}
 
     return {
         "total": total,
@@ -101,7 +111,8 @@ def get_employees(
         "per_page": per_page,
         "total_pages": (total + per_page - 1) // per_page,
         "data": [{**e.to_dict(), "department": d.name, "company": c.name,
-                  "company_id": c.id, "checkups": counts.get(e.id, 0)}
+                  "company_id": c.id, "checkups": counts.get(e.id, 0),
+                  **({"checked_this_round": e.id in checked_round} if round_id is not None else {})}
                  for e, d, c in rows],
     }
 
@@ -119,9 +130,18 @@ def get_employee(employee_id: int, db: Session = Depends(get_db), user=Depends(r
               .filter(EmployeeCheckup.employee_id == emp.id)
               .order_by(desc(EmployeeCheckup.id))):
         batch = db.get(CheckupBatch, c.checkup_batch_id)
+        # ผลตรวจเพิ่มเติมของบริษัท (CONTEXT.md "คอลัมน์ของบริษัท") — only the named
+        # ones; a legacy unnamed extra_results row (column_id NULL) has no place to
+        # show a label, so it stays out of this person view same as before.
+        extras = [{"name": col.name, "kind": col.kind, "unit": col.unit,
+                   "value": float(x.value_num) if x.value_num is not None else x.value_text}
+                 for x, col in (db.query(ExtraResult, CompanyExtraColumn)
+                                .join(CompanyExtraColumn, CompanyExtraColumn.id == ExtraResult.column_id)
+                                .filter(ExtraResult.checkup_id == c.id))]
         rounds.append({**c.to_dict(),
                        "appoint_date": batch.appoint_date.isoformat() if batch else None,
-                       "is_approved": batch.is_approved if batch else False})
+                       "is_approved": batch.is_approved if batch else False,
+                       "extras": extras})
     return {**emp.to_dict(), "department": dept.name if dept else None,
             "company": company.name if company else None,
             "missing_registry_fields": [c for c in Employee.REQUIRED_BY_DDC
@@ -191,6 +211,36 @@ def export_excel(round_id: int | None = None, db: Session = Depends(get_db),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=export_result.xlsx"},
     )
+
+
+def _blank_template(headers: list[str], sheet_title: str) -> StreamingResponse:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = sheet_title
+    ws.append(headers)
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{sheet_title}.xlsx"'})
+
+
+@router.get("/registry/template")
+def registry_template(user=Depends(require_user)):
+    """A blank file with the register's own column names (Thai), for a hospital to
+    fill in and upload back through /api/upload/registry. Headers only — the column
+    order does not matter to the reader, which resolves labels by content, but a
+    reviewer filling one in benefits from names they recognise."""
+    from app.template import REGISTRY_FIELDS, REGISTRY_LABEL_TH
+    headers = [REGISTRY_LABEL_TH.get(f.column, f.header) for f in REGISTRY_FIELDS]
+    return _blank_template(headers, "ทะเบียนพนักงาน")
+
+
+@router.get("/results/template")
+def results_template(user=Depends(require_user)):
+    """A blank file with the standard 45-column template's own headers."""
+    return _blank_template(list(HEADERS), "ผลตรวจ")
 
 
 AUTO_ORIGINS = ("seed", "agent_auto")          # mapping_id NULL = template/rule match, also automatic

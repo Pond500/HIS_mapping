@@ -27,7 +27,10 @@ _TO_CANON = {
     "spirometry_fev1": {"l": 1, "ml": 0.001},
     "bmi": {"kg/m²": 1, "kg/m2": 1},
     "sgot_ast": {"u/l": 1, "iu/l": 1}, "sgpt_alt": {"u/l": 1, "iu/l": 1}, "alp": {"u/l": 1, "iu/l": 1},
-    "rbc_che": {"u/l": 1, "iu/l": 1}, "plasma_che_bche": {"u/l": 1, "iu/l": 1},
+    # ChE is also commonly reported per mL, not per L (1 U/mL = 1000 U/L; KU/L is the
+    # same number written as kilounits instead of unit-prefixing the volume)
+    "rbc_che": {"u/l": 1, "iu/l": 1, "u/ml": 1000, "ku/l": 1000},
+    "plasma_che_bche": {"u/l": 1, "iu/l": 1, "u/ml": 1000, "ku/l": 1000},
     "bp_systolic": {"mmhg": 1}, "bp_diastolic": {"mmhg": 1}, "pulse_rate": {"bpm": 1, "/min": 1, "ครั้ง/นาที": 1},
 }
 for _c in ("neutrophil", "lymphocyte", "monocyte", "eosinophil", "basophil", "spirometry_fev1_fvc"):

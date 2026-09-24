@@ -11,7 +11,7 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
-from app.models import TARGET_EXTRA, TARGET_IGNORE
+from app.models import TARGET_EXTRA, TARGET_EXTRA_COL_PREFIX, TARGET_IGNORE
 from app.pipeline import normalize as N
 from app.pipeline.mapper import TARGET_BP, Mapper, Resolution
 from app.pipeline.profiler import SheetSpec
@@ -220,12 +220,17 @@ def extract(sheets: list[Sheet], specs: list[SheetSpec], mapper: Mapper,
             review("mapping", label=label, unit=unit, reason=res.reason, suggestion=res.suggestion,
                    samples=[N.text(o.raw) for o in obs[:SAMPLES]], count=len(obs),
                    **({"maybe_identity": True} if label in id_headers else {}),
-                   **(evidence or {}).get((label, unit), {}))
+                   # a company-column unit conflict is already answered by the comparison
+                   # itself (CONTEXT.md) — no AI proposal belongs on this question
+                   **({"company_column_conflict": res.company_column_conflict}
+                      if res.company_column_conflict else (evidence or {}).get((label, unit), {})))
             ex.stats["cells_unmapped"] += len(obs)
             continue
         if res.target == TARGET_IGNORE:
             continue
-        if res.target not in (TARGET_BP, TARGET_EXTRA) and FIELDS_BY_COLUMN[res.target].kind == "numeric":
+        if (res.target not in (TARGET_BP, TARGET_EXTRA)
+                and not res.target.startswith(TARGET_EXTRA_COL_PREFIX)
+                and FIELDS_BY_COLUMN[res.target].kind == "numeric"):
             if _range_suspect(res, obs):
                 f = FIELDS_BY_COLUMN[res.target]
                 review("mapping", label=label, unit=unit, suggestion=res.target,
@@ -287,14 +292,17 @@ def _convert(o: Obs, res: Resolution, key, person, put, ex: Extraction, review, 
             put(key, person, "bp_systolic", bp[0], o, res)
             put(key, person, "bp_diastolic", bp[1], o, res)
         return
-    if res.target == TARGET_EXTRA:
+    if res.target == TARGET_EXTRA or res.target.startswith(TARGET_EXTRA_COL_PREFIX):
         try:
             num, u = N.parse_number(o.raw)
             val_num, val_text = num, None
         except N.Unparseable:
             val_num, val_text, u = None, N.text(o.raw), None
+        column_id = (int(res.target[len(TARGET_EXTRA_COL_PREFIX):])
+                    if res.target.startswith(TARGET_EXTRA_COL_PREFIX) else None)
         ex.extras.append({"cid": key[0], "visit_date": key[1], "source_name": o.label, "value_num": val_num,
-                          "value_text": val_text, "unit": o.unit or u, "sheet": o.sheet, "cell": o.cell})
+                          "value_text": val_text, "unit": o.unit or u, "sheet": o.sheet, "cell": o.cell,
+                          "column_id": column_id})
         return
     f = FIELDS_BY_COLUMN[res.target]
     if f.kind == "numeric":

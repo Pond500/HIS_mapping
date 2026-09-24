@@ -223,7 +223,7 @@ def save(db: Session, sf: SourceFile, ex) -> dict:
         db.add(ExtraResult(checkup_id=holder.id, source_file_id=sf.id,
                            source_name=e["source_name"], value_num=e["value_num"],
                            value_text=e["value_text"], unit=e["unit"],
-                           sheet=e["sheet"], cell=e["cell"]))
+                           sheet=e["sheet"], cell=e["cell"], column_id=e.get("column_id")))
         stats["extras"] += 1
 
     # New values in a round someone has already approved: the approval described results
@@ -233,6 +233,12 @@ def save(db: Session, sf: SourceFile, ex) -> dict:
 
     stats["reviews"] = len(ex.reviews)
     for r in ex.reviews:
-        db.add(PendingReview(source_file_id=sf.id, kind=r["kind"], payload=r["payload"],
+        payload = r["payload"]
+        # a "mapping" question's "extra" answer needs the company to look up or
+        # create a company column against (CONTEXT.md) — carried on the review
+        # itself so the reviewer screen never has to guess it from elsewhere
+        if r["kind"] == "mapping":
+            payload = {**payload, "company_id": company_id}
+        db.add(PendingReview(source_file_id=sf.id, kind=r["kind"], payload=payload,
                              field_set=sf.field_set or "result", status="open"))
     return stats

@@ -19,7 +19,7 @@ from app.database import SessionLocal
 from app.graph import service
 from app.pipeline.run import dismissed_keys, process_file, without_dismissed
 from app.models import (
-    CheckupBatch, Department, Employee, PendingReview, SourceFile, WalkthroughSurvey,
+    TARGET_EXTRA, CheckupBatch, Department, Employee, PendingReview, SourceFile, WalkthroughSurvey,
 )
 from app.pipeline import units as U
 from app.template import COLUMNS, FIELDS_BY_COLUMN, RESULT_COLUMNS
@@ -44,6 +44,12 @@ class Decision(BaseModel):
     code: str | None = None       # department review: the code for this department name (D18)
     first_name: str | None = None  # unregistered_person: the name to file them under
     last_name: str | None = None
+    # "extra" (CONTEXT.md "คอลัมน์ของบริษัท"): either column_id (pick an existing company
+    # column) or column_name + column_kind (name a new one; column_unit for numeric)
+    column_id: int | None = None
+    column_name: str | None = None
+    column_kind: Literal["numeric", "text"] | None = None
+    column_unit: str | None = None
 
 
 class DecisionBody(BaseModel):
@@ -88,18 +94,32 @@ def registry_columns(user=Depends(require_user)):
 
 
 @router.get("/reviews")
-def list_reviews(status: str = "open", file_id: int | None = None, limit: int = 5000,
-                 db: Session = Depends(get_db), user=Depends(require_user)):
+def list_reviews(status: str = "open", file_id: int | None = None, round_id: int | None = None,
+                 limit: int = 5000, db: Session = Depends(get_db), user=Depends(require_user)):
     """
     The cap used to be a silent 500. Reviews are the only way an item waiting for a
     human is visible at all, so anything past the cap waited forever with nothing on
     the screen to say so: on 2026-09-16 one database held 521 open reviews and the page
     showed 3 of the 24 mapping questions. Callers now choose the cap and can tell they
     hit it, because the answer comes back exactly `limit` long.
+
+    `round_id` scopes to one round's "งานที่ต้องตรวจ" panel: its own results files,
+    plus its company's registry files (a registry file has no round of its own, but a
+    reviewer looking at one round still needs to see "this company's department is
+    unknown" — leaving it out would look like nothing is waiting when something is).
     """
     q = db.query(PendingReview).filter(PendingReview.status == status)
     if file_id is not None:
         q = q.filter(PendingReview.source_file_id == file_id)
+    if round_id is not None:
+        b = db.get(CheckupBatch, round_id)
+        if b is None:
+            raise HTTPException(404, "ไม่พบรอบตรวจ")
+        survey = db.get(WalkthroughSurvey, b.survey_id)
+        file_ids = [fid for (fid,) in db.query(SourceFile.id).filter(
+            (SourceFile.checkup_batch_id == round_id)
+            | (SourceFile.company_id == (survey.company_id if survey else -1)))]
+        q = q.filter(PendingReview.source_file_id.in_(file_ids))
     return [_review_dict(r) for r in q.order_by(desc(PendingReview.id)).limit(max(1, limit))]
 
 
@@ -384,6 +404,12 @@ def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db), user
             # Anything else used to reach the agent graph, which raised ValueError inside
             # its paused thread: a 500, and a thread left resumed halfway.
             raise HTTPException(400, f"รายการ {d.review_id}: คำตอบ “{d.action}” ใช้กับคำถามนี้ไม่ได้")
+        if (d.action == "approve" and r.payload.get("company_id")
+                and (r.payload.get("proposal") or {}).get("target") == TARGET_EXTRA):
+            # agreeing to the model's bare "__extra__" would store a nameless row again;
+            # in a company's file that answer is a company column a person names
+            raise HTTPException(400, f"รายการ {d.review_id}: เลือก “เป็นผลตรวจจริง แต่ไม่มีช่องในแบบฟอร์ม” "
+                                     f"แล้วเลือกหรือตั้งชื่อคอลัมน์ของบริษัท")
         out = {"label": r.payload["label"], "unit": r.payload.get("unit"), "action": d.action, "by": body.by}
         if d.action == "set":
             if d.target not in RESULT_COLUMNS:
@@ -394,6 +420,13 @@ def decide(file_id: int, body: DecisionBody, db: Session = Depends(get_db), user
             if factor is None:
                 raise HTTPException(400, f"ไม่รู้จักหน่วย '{d.unit}' สำหรับ {d.target}")
             out.update(target=d.target, factor=factor)
+        if d.action == "extra":
+            # a company column (CONTEXT.md): pick an existing one, or name a new one
+            if not d.column_id and not (d.column_name and d.column_kind):
+                raise HTTPException(400, f"รายการ {d.review_id}: เลือกคอลัมน์ที่มีอยู่แล้ว "
+                                         f"หรือตั้งชื่อ+ชนิดข้อมูลของคอลัมน์ใหม่")
+            out.update(column_id=d.column_id, column_name=d.column_name,
+                      column_kind=d.column_kind, column_unit=d.column_unit)
         decisions.append(out)
     if dismissed:
         db.flush()

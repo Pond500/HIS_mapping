@@ -366,18 +366,89 @@ def l08(s):
     assert again and again[0]["payload"].get("range_suspect") is True, again
 
 
-@case("L09", "คอลัมน์ไม่รู้จัก: ตอบเก็บเป็นข้อมูลเพิ่มเติม")
+@case("L09", "คอลัมน์ไม่รู้จัก: ตอบเก็บเป็นข้อมูลเพิ่มเติม (คอลัมน์ของบริษัท)")
 def l09(s):
-    """คอลัมน์ 'ค่าเหล็กในเลือด' (AI ใช้ไม่ได้) → ถามคน ตอบ extra → ค่าอยู่ใน extra_results ไม่ทิ้ง ไม่ถามอีก"""
+    """คอลัมน์ 'ค่าเหล็กในเลือด' (AI ใช้ไม่ได้) → ถามคน ตอบ extra ตั้งชื่อคอลัมน์ใหม่ของบริษัท →
+    ค่าอยู่ใน extra_results ผูกกับ company_extra_columns ไม่ทิ้ง ไม่ถามอีก แม้ต่างรอบ (รอบเดียวกันบริษัทเดียวกัน)"""
     with_people(s)
     rows = lab(["ค่าเหล็กในเลือด"], (1, [120]), (2, [98]))
     s.results(rows)
     q = s.reviews(s.fid)
     assert [x["kind"] for x in q] == ["mapping"], s.kinds(s.fid)
-    s.decide(s.fid, [{"review_id": q[0]["id"], "action": "extra"}])
-    assert s.h.scalar("select count(*) from extra_results") == 2
+    assert q[0]["payload"].get("company_id") == s.co, q[0]["payload"]
+    s.decide(s.fid, [{"review_id": q[0]["id"], "action": "extra",
+                      "column_name": "ค่าเหล็กในเลือด", "column_kind": "numeric"}])
+    assert s.h.scalar("select count(*) from extra_results where column_id is not null") == 2
+    assert s.h.scalar("select count(*) from company_extra_columns where company_id=:c", c=s.co) == 1
     s.results(rows, name="ซ้ำ.csv", round_id=s.r2)
-    assert not s.reviews(), "extra must be remembered"
+    assert not s.reviews(), "a company column must be remembered, not asked again"
+
+
+@case("L09b", "คอลัมน์ของบริษัท: อีกคอลัมน์หนึ่งเลือกใช้คอลัมน์เดิมที่เคยตั้งไว้ ไม่สร้างซ้ำ")
+def l09b(s):
+    """ตั้งคอลัมน์ของบริษัทจากคอลัมน์แรก แล้วอีกไฟล์หนึ่งมีชื่อคอลัมน์คนละชื่อ (แต่ความหมายเดียวกัน)
+    เลือกคอลัมน์เดิมด้วย column_id → ไม่มีคอลัมน์ใหม่ถูกสร้าง ค่าทั้งสองผูกกับคอลัมน์เดียวกัน"""
+    with_people(s)
+    s.results(lab(["ค่าเหล็กในเลือด"], (1, [120])))
+    q = s.reviews(s.fid)[0]
+    s.decide(s.fid, [{"review_id": q["id"], "action": "extra",
+                      "column_name": "ค่าเหล็กในเลือด", "column_kind": "numeric"}])
+    col_id = s.h.scalar("select id from company_extra_columns where company_id=:c", c=s.co)
+
+    s.results(lab(["Fe serum"], (2, [98])), name="อีกไฟล์.csv")
+    q2 = s.reviews(s.fid)[0]
+    assert q2["kind"] == "mapping"
+    s.decide(s.fid, [{"review_id": q2["id"], "action": "extra", "column_id": col_id}])
+    assert s.h.scalar("select count(*) from company_extra_columns where company_id=:c", c=s.co) == 1
+    assert s.h.scalar("select count(*) from extra_results where column_id=:i", i=col_id) == 2
+
+
+@case("L09c", "คอลัมน์ของบริษัท: ไฟล์ถัดไปเขียนหน่วยไม่ตรงกับที่เคยตั้งไว้ → ถามคนใหม่")
+def l09c(s):
+    """ตั้งคอลัมน์ตัวเลขพร้อมหน่วย mg/L แล้วไฟล์ถัดไปเขียนหน่วยอื่น (µg/L) สำหรับชื่อเดียวกัน →
+    ต้องไม่เงียบๆ ผสมหน่วยกัน ถามคนก่อนเสมอ ตอบเลือกคอลัมน์เดิมได้ (รับทราบว่าหน่วยไม่ตรง)"""
+    with_people(s)
+    s.results(lab(["ค่าตะกั่วพิเศษ (mg/L)"], (1, [5])))
+    q = s.reviews(s.fid)[0]
+    s.decide(s.fid, [{"review_id": q["id"], "action": "extra",
+                      "column_name": "ค่าตะกั่วพิเศษ", "column_kind": "numeric", "column_unit": "mg/L"}])
+    col_id = s.h.scalar("select id from company_extra_columns where company_id=:c", c=s.co)
+
+    s.results(lab(["ค่าตะกั่วพิเศษ (µg/L)"], (2, [12])), name="หน่วยอื่น.csv")
+    q2 = s.reviews(s.fid)[0]
+    assert q2["kind"] == "mapping" and q2["payload"].get("company_column_conflict", {}).get("id") == col_id, q2
+    s.decide(s.fid, [{"review_id": q2["id"], "action": "extra", "column_id": col_id}])
+    assert s.h.scalar("select count(*) from extra_results where column_id=:i", i=col_id) == 2
+    assert s.h.scalar("select count(*) from company_extra_columns where company_id=:c", c=s.co) == 1
+
+
+@case("L09d", "คอลัมน์ของบริษัท: mapping 'extra ไม่มีชื่อ' เก่าของโรงพยาบาล → ถามคนให้ตั้งชื่อ")
+def l09d(s):
+    """โรงพยาบาลเคยจำ 'far_lateral_phoria' เป็น __extra__ (แบบเก่า ไม่มีชื่อ AI รับเองได้) →
+    ไฟล์ของบริษัทต้องไม่เก็บเป็นแถวไม่มีชื่ออีก: ถามคน ตอบ 'อนุมัติตาม AI' ที่เสนอ __extra__ ถูกปฏิเสธ
+    ตั้งชื่อคอลัมน์แล้วค่าผูกกับคอลัมน์ ไม่มีแถว extra ไม่มีชื่อเลย"""
+    from app.database import SessionLocal
+    from app.graph.flow import save_mapping
+    with SessionLocal() as db:
+        hosp = s.h.scalar("select id from hospitals where code='H01'")
+        save_mapping(db, hosp, "far_lateral_phoria", None, "__extra__", 1.0, "agent_auto", "old auto")
+        db.commit()
+    with_people(s)
+    s.results(lab(["far_lateral_phoria"], (1, [1]), (2, [2])))
+    q = s.reviews(s.fid)
+    assert [x["kind"] for x in q] == ["mapping"], s.kinds(s.fid)
+    assert s.h.scalar("select count(*) from extra_results") == 0, "stored as a nameless extra"
+    # the review carries the model's bare __extra__, as the live graph's would
+    from sqlalchemy import text
+    with s.h.engine.begin() as c:
+        c.execute(text("update pending_reviews set payload = (payload::jsonb || "
+                       "'{\"proposal\": {\"target\": \"__extra__\", \"factor\": 1.0}}')::json where id=:i"),
+                  {"i": q[0]["id"]})
+    s.decide(s.fid, [{"review_id": q[0]["id"], "action": "approve"}], expect=400)
+    s.decide(s.fid, [{"review_id": q[0]["id"], "action": "extra",
+                      "column_name": "ตาเหล่แนวนอน", "column_kind": "numeric"}])
+    assert s.h.scalar("select count(*) from extra_results where column_id is null") == 0
+    assert s.h.scalar("select count(*) from extra_results where column_id is not null") == 2
 
 
 @case("L10", "คอลัมน์ไม่รู้จัก: ตอบ 'ไม่ใช่ผลตรวจ' ค่าไม่ถูกเก็บ และไม่ถามอีก")
