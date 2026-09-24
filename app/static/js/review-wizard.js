@@ -356,6 +356,14 @@ function mountReviewWizard(root, opts) {
 
         mapping(q) {
             const p = q.payload, prop = p.proposal || {}, ver = p.verification || {};
+            // a wide file's header carries its unit in brackets ("ค่าเหล็กในเลือด (µg/dL)") and
+            // the payload's unit is empty then: a new company column should start from that
+            // unit and the bare name, or it is saved as "no unit" and every later unit check
+            // compares against nothing
+            const lm = /^(.*?)\s*[(\[]\s*([^()\[\]]+?)\s*[)\]]\s*$/.exec(String(p.label || ''));
+            const looksUnit = lm && (/[\/%µμ]/.test(lm[2]) || /^[A-Za-z0-9^.·\s]+$/.test(lm[2]));
+            const fileUnit = String(p.unit || (looksUnit ? lm[2] : '')).trim();
+            const colName = looksUnit ? lm[1] : p.label;
             // the model's bare "__extra__" can't be agreed to as is: a company's extra is a
             // column someone names (CONTEXT.md), so it only preselects that answer
             const propExtra = prop.target === '__extra__' && !!p.company_id;
@@ -404,7 +412,7 @@ function mountReviewWizard(root, opts) {
                          ระบบคาดว่าน่าจะเป็นเรื่องหน่วย: แบบฟอร์มเก็บเป็น <b>${esc(p.canonical_unit || '')}</b>
                          (ช่วง ${esc(p.lo)}–${esc(p.hi)}) แต่ค่าตัวอย่างข้างล่างอยู่คนละสเกล<br>
                          ดูตัวเลขแล้ว <b>เลือกหน่วยที่ตรงกับตัวเลขเหล่านั้น</b> ที่ช่อง “หน่วยของค่าในไฟล์” ระบบจะแปลงให้เอง</div>`
-                    : `<span class="muted">มี ${Number(p.count || 0)} ค่าในคอลัมน์นี้${p.unit ? ' · หน่วยที่เขียนในไฟล์ ' + esc(p.unit) : ''}</span>`,
+                    : `<span class="muted">มี ${Number(p.count || 0)} ค่าในคอลัมน์นี้${fileUnit ? ' · หน่วยที่เขียนในไฟล์ ' + esc(fileUnit) : ''}</span>`,
                 body: `<div class="muted">ค่าตัวอย่างในไฟล์</div>
                        <div class="sample-strip">${samples(p.samples, 8)}</div>
                        ${hasProp ? `<div class="ai-box">AI เสนอว่าเป็น <b>${esc(prop.target)}</b>${prop.unit ? ' หน่วย ' + esc(prop.unit) : ''}
@@ -437,7 +445,7 @@ function mountReviewWizard(root, opts) {
                         </select>
                         <div id="rwExtraNewFields" hidden style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
                             <label class="choice-field"><span>ชื่อคอลัมน์ใหม่</span>
-                                <input id="rwExtraName" placeholder="เช่น ${esc(p.label)}" value="${esc(p.label)}"></label>
+                                <input id="rwExtraName" placeholder="เช่น ${esc(colName)}" value="${esc(colName)}"></label>
                             <label class="choice-field"><span>ชนิดข้อมูล</span>
                                 <select id="rwExtraKind">
                                     <option value="numeric">ตัวเลข</option>
@@ -445,7 +453,7 @@ function mountReviewWizard(root, opts) {
                                 </select></label>
                             <label class="choice-field" id="rwExtraUnitField">
                                 <span>หน่วย (ถ้ามี — เก็บตามที่พิมพ์ ไม่แปลง)</span>
-                                <input id="rwExtraUnit" placeholder="${p.unit ? 'เช่น ' + esc(p.unit) : 'เช่น mg/dL — เว้นว่างได้'}" value="${esc(p.unit || '')}"></label>
+                                <input id="rwExtraUnit" placeholder="${fileUnit ? 'เช่น ' + esc(fileUnit) : 'เช่น mg/dL — เว้นว่างได้'}" value="${esc(fileUnit)}"></label>
                         </div>
                         <div id="rwExtraUnitWarn" class="review-warn" style="margin-top:8px;" hidden></div>
                     </div>
@@ -478,7 +486,6 @@ function mountReviewWizard(root, opts) {
                         $('rwExtraNewFields').hidden = picked !== '__new__';
                         const warn = $('rwExtraUnitWarn');
                         const col = currentCompanyCols.find(c => String(c.id) === picked);
-                        const fileUnit = (p.unit || '').trim();
                         if (col && col.kind === 'numeric' && fileUnit && (col.unit || '') !== fileUnit) {
                             warn.hidden = false;
                             warn.textContent = `หน่วยของไฟล์นี้ (${fileUnit}) ไม่ตรงกับที่ตั้งไว้ตอนแรก `
