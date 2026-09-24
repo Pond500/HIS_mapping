@@ -31,6 +31,7 @@ from langgraph.types import interrupt
 from app.agents import comments as comment_agent
 from app.agents import mapper as mapper_agent
 from app.agents import verifier as verifier_agent
+from app.graph import progress
 from app.database import SessionLocal
 from app.llm.client import LLMError
 from app.models import (
@@ -75,11 +76,15 @@ def auto_accept_on() -> bool:
 
 
 def analyze(state: FileState) -> dict:
+    fid = state["source_file_id"]
+    progress.step(fid, "read")
     with SessionLocal() as db:
-        sf = db.get(SourceFile, state["source_file_id"])
+        sf = db.get(SourceFile, fid)
         with open(sf.stored_path, "rb") as fh:
             sheets = read_file(fh.read(), os.path.splitext(sf.stored_path)[1])
         mapper = Mapper(db, sf.hospital_id, company_id_of(db, sf))
+    progress.note(fid, "read", f"{len(sheets)} ชีต")
+    progress.step(fid, "match")
     known = mapper.known_labels()
     raws = defaultdict(list)
     layouts = {}
@@ -94,9 +99,10 @@ def analyze(state: FileState) -> dict:
             if o.label and not N.is_na(o.raw) and len(raws[(o.label, o.unit)]) < MAX_VALUES:
                 raws[(o.label, o.unit)].append(o.raw)
                 layouts[(o.label, o.unit)] = spec.layout
-    items = []
+    items, known_n = [], 0
     for (label, unit), vals in raws.items():
         res = mapper.resolve(label, unit)
+        known_n += res.target is not None
         if res.target is not None or res.company_column_conflict:
             # a company-column unit conflict is already a fully-formed question (see
             # extract.py) — asking the AI to guess a mapping for it would be noise
@@ -112,6 +118,8 @@ def analyze(state: FileState) -> dict:
         items.append({"id": len(items), "label": label, "unit": unit, "layout": layouts[(label, unit)],
                       "samples": [N.text(v) for v in vals[:6]], "values": numbers,
                       "texts": [N.text(v) for v in vals[:40]]})
+    progress.note(fid, "match", f"รู้จักแล้ว {known_n} จาก {len(raws)} ชื่อผลตรวจ"
+                                + (f" · ส่งให้ AI {len(items)} ชื่อ" if items else " · ไม่ต้องใช้ AI"))
     return {"items": items, "file_labels": sorted({k[0] for k in raws})[:120], "proposals": {},
             "verdicts": {}, "revision": 0, "auto": [], "pending": [], "human_done": False,
             "identity_candidates": sorted(cands)}
@@ -132,6 +140,8 @@ def mapper_node(state: FileState) -> dict:
     revising = bool(verdicts)
     todo = [it for it in state["items"]
             if not revising or not verdicts.get(str(it["id"]), {}).get("agrees")]
+    progress.step(state["source_file_id"], "ai_propose",
+                  f"{len(todo)} ชื่อ" + (" · รอบแก้ไขตามที่ AI ตัวที่สองแย้ง" if revising else ""))
     if revising:   # second round: show the reviewer's objection
         todo = [{**it, "reviewer_note": {"target": verdicts.get(str(it["id"]), {}).get("target"),
                                          "unit": verdicts.get(str(it["id"]), {}).get("unit"),
@@ -199,6 +209,8 @@ def verifier_node(state: FileState) -> dict:
             if state["proposals"][str(it["id"])]["target"] != "__unknown__"
             and not verdicts.get(str(it["id"]), {}).get("agrees")]
     props = {it["id"]: state["proposals"][str(it["id"])] for it in todo}
+    progress.step(state["source_file_id"], "ai_verify",
+                  f"{len(todo)} ชื่อ" if todo else "AI ตัวแรกไม่ได้เสนอคำตอบ จึงไม่มีอะไรให้ตรวจ")
 
     def run(batch):
         with SessionLocal() as db:
@@ -249,6 +261,7 @@ def decide(state: FileState) -> dict:
 
 
 def store(state: FileState) -> dict:
+    progress.step(state["source_file_id"], "store")
     with SessionLocal() as db:
         sf = db.get(SourceFile, state["source_file_id"])
         process_file(db, sf, evidence=_evidence(state), comment_evidence=_comment_evidence(state))
@@ -280,6 +293,7 @@ def comments_node(state: FileState) -> dict:
         distinct.setdefault(key, r.payload.get("text", ""))
     items = [{"id": i, "column": k[0], "text": text} for i, (k, text) in enumerate(distinct.items())]
     keys = list(distinct)
+    progress.step(state["source_file_id"], "comments", f"{len(items)} ข้อความ")
 
     def run(agent):
         def one(batch):

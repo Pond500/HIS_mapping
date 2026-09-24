@@ -15,7 +15,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from app.database import SessionLocal
-from app.graph import flow
+from app.graph import flow, progress
 from app.models import SourceFile
 from app.pipeline.run import process_file
 
@@ -65,6 +65,7 @@ def run_upload(file_id: int) -> dict:
     try:
         graph().invoke({"source_file_id": file_id}, _cfg(file_id))
     finally:
+        progress.finish(file_id)
         with SessionLocal() as db:   # system time per file, shown on the dashboard (D5)
             sf = db.get(SourceFile, file_id)
             if sf is not None:

@@ -27,6 +27,9 @@ async def lifespan(_app: FastAPI):
     # Checkpointer tables/indexes are created here, before any request can hold a
     # transaction open (setup() uses CREATE INDEX CONCURRENTLY, which waits for them).
     service.init()
+    # A background upload from the Health Report page that a restart cut off would
+    # otherwise stay "processing" and the page would wait on it forever.
+    upload.resume_unfinished()
     # api_v1.resume_unfinished() — see the note on the mount below (D19-หนี้)
     yield
 

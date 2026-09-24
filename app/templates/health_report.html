@@ -546,27 +546,79 @@ async function sendRegistry(file, resultId) {
     if (data.reviews) { document.getElementById('peopleModal').hidden = true; openReviewPanel(); }
 }
 
+// What the upload is doing, step by step, from the server's own record of it
+// (app/graph/progress.py). The bar only counts finished steps: the AI steps have
+// no honest percentage of their own, so they show time spent instead.
+function progressHtml(p, filename) {
+    const steps = (p && p.steps) || [];
+    const finished = steps.filter(s => s.state === 'done' || s.state === 'skipped').length;
+    const doing = steps.find(s => s.state === 'doing');
+    const pct = steps.length ? Math.round(100 * (finished + (doing ? 0.5 : 0)) / steps.length) : 5;
+    const icon = s => s.state === 'done' ? '<span class="pg-icon ok">✓</span>'
+        : s.state === 'doing' ? '<span class="pg-icon spin"></span>'
+        : s.state === 'skipped' ? '<span class="pg-icon muted">–</span>' : '<span class="pg-icon muted">○</span>';
+    return `
+        <div class="pg">
+            <div class="pg-title">กำลังนำเข้า <b>${esc(filename)}</b></div>
+            <div class="wiz-progress"><div class="wiz-progress-fill" style="width:${pct}%"></div></div>
+            <div class="muted pg-count">${doing ? `ขั้นที่ ${steps.indexOf(doing) + 1} จาก ${steps.length}`
+                : steps.length && finished === steps.length ? 'เสร็จแล้ว' : 'กำลังเริ่ม…'}
+                · ผ่านไป ${Math.round((p && p.elapsed_s) || 0)} วินาที</div>
+            <ul class="pg-steps">${steps.map(s => `
+                <li class="pg-${s.state}">${icon(s)}
+                    <span>${esc(s.label)}${s.state === 'skipped' ? ' <span class="muted">(ไม่ต้องทำ)</span>' : ''}
+                    ${s.detail ? `<span class="muted"> · ${esc(s.detail)}</span>` : ''}
+                    ${s.state === 'doing' && s.elapsed_s >= 5 ? `<span class="muted"> · ${Math.round(s.elapsed_s)} วินาที</span>` : ''}</span>
+                </li>`).join('')}</ul>
+            ${doing && doing.key.startsWith('ai') ? `<p class="muted pg-note">ส่งให้ AI เฉพาะชื่อคอลัมน์และค่าตัวอย่าง ไม่มีชื่อหรือเลขบัตรประชาชน</p>` : ''}
+        </div>`;
+}
+
 async function sendResults(file, resultId) {
     const box = document.getElementById(resultId);
-    box.innerHTML = '<p class="muted">กำลังอ่านไฟล์และให้ AI ช่วยจับคู่ชื่อที่ไม่รู้จัก (อาจใช้เวลาครึ่งนาที)…</p>';
+    const zone = document.getElementById('resultZone');
+    box.innerHTML = progressHtml(null, file.name);
+    zone.hidden = true;                       // one file at a time: no second drop while this runs
     const fd = new FormData();
     fd.append('file', file);
     fd.append('round_id', roundId);
-    const res = await fetch('/api/upload', {method: 'POST', body: fd});
-    const data = await res.json();
+    fd.append('background', 'true');
+    let data;
+    try {
+        data = await (await fetch('/api/upload', {method: 'POST', body: fd})).json();
+    } catch (err) { data = {success: false, error: 'ส่งไฟล์ไม่สำเร็จ: ' + err.message}; }
+    let misses = 0;
+    while (data.success && data.status === 'processing') {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+            const res = await fetch(`/api/upload/${data.upload_id}/progress`);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            data = await res.json();
+            misses = 0;
+        } catch (err) {
+            // a blip (the app restarting resumes the file by itself): keep asking a while
+            if (++misses >= 30) { data = {success: false, error: 'ติดต่อระบบไม่ได้ — ไฟล์ยังประมวลผลต่อเบื้องหลัง ลองรีเฟรชหน้านี้ภายหลัง'}; break; }
+            continue;
+        }
+        if (data.status === 'processing') box.innerHTML = progressHtml(data.progress, file.name);
+    }
+    zone.hidden = false;
     if (!data.success) { box.innerHTML = `<div class="review-warn">${esc(data.error || 'เกิดข้อผิดพลาด')}</div>`; return; }
+    const questions = Number(data.error_rows) || 0;
     box.innerHTML = `
+        ${progressHtml(data.progress, file.name)}
         ${data.stats && data.stats.approval_revoked ? `<div class="review-warn"><b>การรับรองรอบนี้ถูกปลดแล้ว</b> เพราะไฟล์นี้เพิ่มผลตรวจใหม่เข้ามา</div>` : ''}
         <div class="result-stats">
-            <div class="result-stat">ทั้งหมด <strong>${Number(data.total_rows) || 0}</strong> แถว</div>
-            <div class="result-stat">บันทึกแล้ว <strong>${Number(data.success_rows) || 0}</strong></div>
-            <div class="result-stat">มีปัญหา <strong>${Number(data.error_rows) || 0}</strong></div>
-        </div>`;
-    await loadDashboardData();
+            <div class="result-stat">บันทึกแล้ว <strong>${Number(data.success_rows) || 0}</strong> ค่า</div>
+            <div class="result-stat">ผลตรวจเพิ่มเติมของบริษัท <strong>${Number(data.stats && data.stats.extras) || 0}</strong> ค่า</div>
+            <div class="result-stat">คำถามรอตอบ <strong>${questions}</strong> ข้อ</div>
+        </div>
+        <p class="muted" style="margin-top:8px;">${questions ? 'กำลังเปิดหน้าตอบคำถาม…' : 'เสร็จแล้ว ไม่มีคำถาม'}</p>`;
+    await new Promise(r => setTimeout(r, 1800));   // long enough to read the numbers
     document.getElementById('resultModal').hidden = true;
-    if (data.status === 'awaiting_review' || reviewCount) { openReviewPanel(); } else { switchTab(tab); }
-    const badge = document.getElementById('reviewBtn');
-    if (!badge && reviewCount) { /* header will pick it up on next full render */ }
+    box.innerHTML = '';
+    await renderDashboard();                        // header badge, numbers and tabs all catch up
+    if (reviewCount) openReviewPanel();
 }
 
 // ── ส่งรายงานผลตรวจ ─────────────────────────────────────────────────────

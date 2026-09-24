@@ -7,20 +7,23 @@ POST /api/upload — keep the original file, then run the agent graph
 """
 
 import hashlib
+import logging
 import os
+import threading
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.auth import require_user
 from app.database import SessionLocal
-from app.graph import service
+from app.graph import progress, service
 from app.models import AppUser, CheckupBatch, Company, Hospital, SourceFile
 from app.models import PendingReview
 from app.pipeline import registry
 from app.pipeline.reader import read_file
 from app.pipeline.run import get_or_create_hospital
 
+log = logging.getLogger(__name__)
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ALLOWED = ("csv", "xlsx", "xls")
 
@@ -83,12 +86,62 @@ def list_hospitals(user: AppUser = Depends(require_user)):
         return {"hospitals": [{"code": h.code, "name": h.name} for h in rows]}
 
 
+def _result(file_id: int, st: dict) -> dict:
+    stats = st["stats"] or {}
+    return {
+        "success": True,
+        "upload_id": file_id,
+        "status": st["status"],
+        "waiting_for_human": st["waiting_for_human"],
+        "format_detected": ", ".join(f"{s['name']}({s['layout']})" for s in stats.get("sheets", [])),
+        "total_rows": stats.get("total_rows", 0),
+        "success_rows": stats.get("success_rows", 0),
+        "error_rows": stats.get("error_rows", 0),
+        "stats": stats,
+        "errors": [f"รอตรวจ {k}: {n} รายการ" for k, n in stats.get("reviews_by_kind", {}).items()],
+    }
+
+
+# Background runs share the API's limit: each one holds LLM calls and a DB pool slot.
+_slots = threading.BoundedSemaphore(int(os.environ.get("API_MAX_PARALLEL", "2")))
+
+
+def _process(file_id: int) -> None:
+    with _slots:
+        try:
+            service.run_upload(file_id)
+        except Exception as e:
+            log.exception("upload %s failed", file_id)
+            with SessionLocal() as db:   # process_file marks its own failures; this catches the rest
+                sf = db.get(SourceFile, file_id)
+                if sf is not None and sf.status == "processing":
+                    sf.status, sf.errors = "failed", [f"{type(e).__name__}: {e}"]
+                    db.commit()
+
+
+def resume_unfinished() -> None:
+    """Files still 'processing' at startup lost their run with the last process (a restart
+    or deploy while a background upload was working). Run them again: re-processing a
+    file is idempotent. Without this the page would wait on them forever."""
+    with SessionLocal() as db:
+        ids = [i for (i,) in db.query(SourceFile.id).filter(SourceFile.status == "processing")]
+    for i in ids:
+        threading.Thread(target=_process, args=(i,), daemon=True).start()
+    if ids:
+        log.warning("resuming %d unfinished file(s): %s", len(ids), ids)
+
+
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...), hospital: str = Form(""),
-                      round_id: int = Form(0),
+                      round_id: int = Form(0), background: bool = Form(False),
                       user: AppUser = Depends(require_user)):
     """A results file. It must name the round it belongs to (D23): that is where its
-    date comes from, and which workplace's register its people are looked up in."""
+    date comes from, and which workplace's register its people are looked up in.
+
+    `background=true` (the Health Report page) answers at once with the file id and
+    runs the graph in a thread; the page follows it at /api/upload/{id}/progress. The
+    default still waits for the whole run and answers with the result, which is what
+    every other caller (scenarios, evaluation) relies on."""
     filename = file.filename or "unknown"
     if filename.rsplit(".", 1)[-1].lower() not in ALLOWED:
         return {"success": False, "error": "รองรับเฉพาะไฟล์ .csv .xlsx และ .xls"}
@@ -106,23 +159,34 @@ async def upload_file(file: UploadFile = File(...), hospital: str = Form(""),
         if db.get(CheckupBatch, round_id) is None:
             return {"success": False, "error": "ไม่พบรอบตรวจที่เลือก"}
         file_id = register_file(db, filename, content, code, checkup_batch_id=round_id).id
+    if background:
+        progress.start(file_id, filename)
+        threading.Thread(target=_process, args=(file_id,), daemon=True).start()
+        return {"success": True, "upload_id": file_id, "status": "processing"}
     try:
         st = service.run_upload(file_id)
     except Exception as e:  # process_file already rolled back and marked the file failed
         return {"success": False, "upload_id": file_id, "error": f"{type(e).__name__}: {e}"}
-    stats = st["stats"] or {}
-    return {
-        "success": True,
-        "upload_id": file_id,
-        "status": st["status"],
-        "waiting_for_human": st["waiting_for_human"],
-        "format_detected": ", ".join(f"{s['name']}({s['layout']})" for s in stats.get("sheets", [])),
-        "total_rows": stats.get("total_rows", 0),
-        "success_rows": stats.get("success_rows", 0),
-        "error_rows": stats.get("error_rows", 0),
-        "stats": stats,
-        "errors": [f"รอตรวจ {k}: {n} รายการ" for k, n in stats.get("reviews_by_kind", {}).items()],
-    }
+    return _result(file_id, st)
+
+
+@router.get("/upload/{file_id}/progress")
+def upload_progress(file_id: int, user: AppUser = Depends(require_user)):
+    """Where a background upload is: its steps while it runs (progress.py), then the
+    same answer a waiting upload gives. Steps may be gone (the app restarted and
+    resumed the file), in which case only the status is known — said as such."""
+    with SessionLocal() as db:
+        sf = db.get(SourceFile, file_id)
+        if sf is None:
+            raise HTTPException(404, "ไม่พบไฟล์")
+        status_, errors = sf.status, list(sf.errors or [])
+    p = progress.get(file_id)
+    if status_ == "processing":
+        return {"success": True, "upload_id": file_id, "status": "processing", "progress": p}
+    if status_ == "failed":
+        return {"success": False, "upload_id": file_id, "status": "failed", "progress": p,
+                "error": "; ".join(errors) or "ประมวลผลไม่สำเร็จ"}
+    return {**_result(file_id, service.status(file_id)), "progress": p}
 
 
 @router.post("/upload/registry")

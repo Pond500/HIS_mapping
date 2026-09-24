@@ -336,6 +336,25 @@ tr.clickable { cursor: pointer; }
 .wiz-bar { display: flex; align-items: center; gap: 14px; margin: 18px 0 10px; }
 .wiz-progress { flex: 1; height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; }
 .wiz-progress-fill { height: 100%; background: var(--blue); border-radius: 999px; transition: width .2s; }
+
+/* upload progress (health_report.html: what a results upload is doing right now) */
+.pg { margin-top: 14px; }
+.pg-title { margin-bottom: 8px; }
+.pg .wiz-progress { height: 8px; }
+.pg .wiz-progress-fill { transition: width .6s ease; }
+.pg-count { margin: 6px 0 10px; font-size: 13px; }
+.pg-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pg-steps li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.5; }
+.pg-steps li.pg-todo, .pg-steps li.pg-skipped { color: var(--muted, #8a94a6); }
+.pg-steps li.pg-doing { font-weight: 600; }
+.pg-icon { flex: 0 0 18px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+           margin-top: 2px; font-size: 13px; }
+.pg-icon.ok { color: #1f9d55; font-weight: 700; }
+.pg-icon.spin { border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%;
+                width: 14px; height: 14px; flex-basis: 14px; margin: 4px 2px 0; animation: pg-spin .8s linear infinite; }
+@keyframes pg-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pg-icon.spin { animation: none; } }
+.pg-note { margin-top: 10px; font-size: 13px; }
 .wiz-count { white-space: nowrap; }
 .wiz-card { padding: 28px 30px; }
 .wiz-source { font-size: 12.5px; }

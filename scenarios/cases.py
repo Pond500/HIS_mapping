@@ -1102,6 +1102,39 @@ def u08(s):
     assert out["success"] is False, out
 
 
+def _poll(s, fid, seconds=60):
+    import time
+    end = time.time() + seconds
+    while time.time() < end:
+        j = s.sa.get(f"/api/upload/{fid}/progress").json()
+        if j["status"] != "processing":
+            return j
+        time.sleep(0.2)
+    raise AssertionError(f"file {fid} still processing after {seconds}s")
+
+
+@case("U09", "อัปโหลดแบบเบื้องหลัง (หน้ารายงาน): ตอบทันที บอกความคืบหน้าทุกขั้น ผลเหมือนแบบรอ")
+def u09(s):
+    """background=true → ได้เลขไฟล์ทันทีสถานะ processing → ถาม /progress จนจบ →
+    ขั้นอ่านไฟล์/จับคู่บอกตัวเลขจริง (รู้จัก 1 จาก 2), ขั้น AI ถูกนับ, จบแล้วคำตอบเหมือนอัปแบบรอ:
+    hb เก็บ, ชื่อที่ไม่รู้จักเป็นคำถาม · เลขไฟล์ที่ไม่มีอยู่ → 404"""
+    with_people(s)
+    content = csv_bytes(lab(["hb", "ค่าแปลกๆ"], (1, [13.1, 5]), (2, [12.4, 6])))
+    r = s.sa.post("/api/upload", files={"file": ("เบื้องหลัง.csv", content)},
+                  data={"round_id": s.r1, "hospital": "H01", "background": "true"})
+    j = r.json()
+    assert r.status_code == 200 and j["success"] and j["status"] == "processing", j
+    done = _poll(s, j["upload_id"])
+    assert done["success"] and done["status"] == "awaiting_review", done
+    steps = {x["key"]: x for x in done["progress"]["steps"]}
+    assert all(x["state"] in ("done", "skipped") for x in steps.values()), steps
+    assert steps["read"]["state"] == steps["match"]["state"] == steps["store"]["state"] == "done", steps
+    assert "รู้จักแล้ว 1 จาก 2" in steps["match"]["detail"], steps["match"]
+    assert steps["ai_propose"]["state"] == "done", steps["ai_propose"]
+    assert done["error_rows"] == 1 and s.checkup(1)["hb"] is not None, done
+    assert s.sa.get("/api/upload/999999/progress").status_code == 404
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # M — กรอกผลตรวจทีละคน
 # ═══════════════════════════════════════════════════════════════════════════
