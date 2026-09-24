@@ -22,7 +22,7 @@ from app.models import (
     TARGET_EXTRA, CheckupBatch, Department, Employee, PendingReview, SourceFile, WalkthroughSurvey,
 )
 from app.pipeline import units as U
-from app.template import COLUMNS, FIELDS_BY_COLUMN, RESULT_COLUMNS
+from app.template import COLUMNS, FIELDS_BY_COLUMN, RESULT_COLUMNS, ddc_unit
 
 router = APIRouter(prefix="/api", tags=["reviews"])
 
@@ -79,7 +79,10 @@ def template_columns(all: bool = False, user=Depends(require_user)):
         row = {"column": c, "kind": f.kind, "unit": f.unit, "desc": DESC.get(c, f.header),
                "units": U.accepted_units(c) if f.kind == "numeric" else []}
         if all:
-            row.update(header=f.header, group=f.group)
+            # stored_unit: the unit employee_checkups holds it in (D23, the department's
+            # form) — what a page showing stored values must label them with, e.g. wbc
+            # 4.7 is 10^3/uL there, not cells/µL
+            row.update(header=f.header, group=f.group, stored_unit=ddc_unit(c))
         out.append(row)
     return out
 

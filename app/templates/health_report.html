@@ -217,7 +217,8 @@ async function renderDashboard() {
                     <h2 style="font-size:20px;font-weight:700;">${esc(company.name)}</h2>
                     <div class="muted">
                         รอบการตรวจ: ${esc(s.round.checkup_type)} วันที่ ${thaiDate(s.round.appoint_date)} · เลขทะเบียน ${esc(company.juristic_id)}
-                        ${s.last_submission ? ` · <span class="chip ok">ส่งรายงานล่าสุด ${esc(new Date(s.last_submission.submitted_at).toLocaleString('th-TH'))}</span>` : ''}
+                        ${s.last_submission ? ` · <span class="chip ok">ส่งรายงานล่าสุด ${esc(new Date(s.last_submission.submitted_at).toLocaleString('th-TH'))}</span>
+                            <a id="downloadSubmission" href="/api/summary/download/${Number(s.last_submission.id)}">ดาวน์โหลดไฟล์ที่ส่ง</a>` : ''}
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -431,7 +432,8 @@ async function openPerson(id) {
     const cell = (f, v) => {
         if (v == null || v === '') return '<span class="muted">—</span>';
         if (f.kind === 'categorical') return v === 0 ? '<span class="tag ok">ปกติ</span>' : v === 1 ? '<span class="tag bad">ผิดปกติ</span>' : '—';
-        if (f.kind === 'numeric') return `${Number(v).toLocaleString()}${f.unit ? ' <span class="muted">' + esc(f.unit) + '</span>' : ''}`;
+        const unit = f.stored_unit || f.unit;   // stored values are in the department's units (D23)
+        if (f.kind === 'numeric') return `${Number(v).toLocaleString()}${unit ? ' <span class="muted">' + esc(unit) + '</span>' : ''}`;
         return esc(v);
     };
     const results = rnd
@@ -499,7 +501,9 @@ async function refreshBadges() {
 }
 
 function wireDashboard() {
-    document.getElementById('backBtn').addEventListener('click', () => { view = 'company'; render(); });
+    // reload, not re-render: the rounds list and people counts were fetched when the
+    // company was opened, before this round (and its results) existed
+    document.getElementById('backBtn').addEventListener('click', () => openCompany(company.id));
     document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => document.getElementById(b.dataset.close).hidden = true));
     document.querySelectorAll('#app .tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
     wireOverview();
@@ -566,13 +570,19 @@ async function sendResults(file, resultId) {
 }
 
 // ── ส่งรายงานผลตรวจ ─────────────────────────────────────────────────────
+const KIND_TH = {mapping: 'ชื่อผลตรวจที่ยังไม่รู้จัก', identity: 'คอลัมน์ชื่อ/แผนก/วันที่ที่ยังไม่ยืนยัน',
+    department: 'รหัสแผนกที่ยังไม่ตอบ', comment: 'ข้อความผลตรวจที่ยังไม่ตัดสิน', value: 'ค่าที่อ่านไม่ได้',
+    cid: 'เลขบัตรประชาชนไม่ผ่าน', profile: 'ไฟล์ที่อ่านโครงสร้างไม่ได้',
+    unregistered_person: 'คนที่ไม่อยู่ในทะเบียน', department_change: 'แผนกไม่ตรงกับทะเบียน',
+    which_department: 'คนที่ต้องเลือกแผนก'};
+
 function pendingWarning(inModal) {
     const w = summaryData.open_work;
     if (!w || (!w.reviews_total && !w.conflicts && !w.incomplete_registry)) return '';
     const blocking = (w.reviews_total || 0) + (w.conflicts || 0) > 0;
     const bits = [];
     if (w.incomplete_registry) bits.push(`<li><b>${w.incomplete_registry} คนทะเบียนไม่ครบ</b></li>`);
-    for (const [kind, n] of Object.entries(w.reviews || {})) bits.push(`<li>${esc(kind)}: ${n} รายการ</li>`);
+    for (const [kind, n] of Object.entries(w.reviews || {})) bits.push(`<li>${esc(KIND_TH[kind] || kind)}: ${n} รายการ</li>`);
     if (w.conflicts) bits.push(`<li>ข้อมูลขัดแย้งที่ยังไม่ตัดสิน: ${w.conflicts} รายการ</li>`);
     return `<div class="review-warn" style="margin-top:14px;">
         <b>ยังมีงานค้างอยู่</b><ul style="margin:8px 0 8px 18px;">${bits.join('')}</ul>
@@ -612,9 +622,10 @@ app.addEventListener('click', async e => {
         try {
             await api('/api/summary/submit', {method: 'POST', body: JSON.stringify({
                 round_id: roundId, confirm_open_work: !!document.getElementById('sendAnyway')?.checked})});
-            document.getElementById('sendModal').hidden = true;
-            await loadDashboardData();
-            switchTab('ภาพรวม');
+            // the whole dashboard, not just the tab: the header carries "sent" and the download link
+            tab = 'ภาพรวม';
+            await renderDashboard();
+            return;
         } catch (err) { alert(err.message); }
         btn.disabled = false; btn.textContent = 'ยืนยันและบันทึกการส่ง';
     }
