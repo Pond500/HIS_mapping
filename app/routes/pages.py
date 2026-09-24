@@ -12,6 +12,7 @@ The staff web pages, styled after the Env-Occ manual in docs/:
 Every page except /login needs a session; without one the browser is sent to /login.
 """
 
+import hashlib
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -24,7 +25,29 @@ from app.auth import get_db
 from app.models import AppUser, Hospital
 
 router = APIRouter(tags=["pages"])
-templates = Jinja2Templates(directory=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"))
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+templates = Jinja2Templates(directory=os.path.join(APP_DIR, "templates"))
+
+
+def asset(path: str) -> str:
+    """`/static/<path>?v=<content hash>`. The static files are served with no cache
+    rules, so a browser kept the old stylesheet after a deploy and drew a new page
+    with it (the upload panel came out as plain unstyled text). A link that changes
+    when the file does is fetched again; one that doesn't stays cached."""
+    full = os.path.join(APP_DIR, "static", path)
+    try:
+        st = os.stat(full)
+    except OSError:
+        return f"/static/{path}"
+    key = (full, st.st_mtime_ns, st.st_size)
+    if _asset_cache.get(full, (None,))[0] != key:
+        with open(full, "rb") as fh:
+            _asset_cache[full] = (key, hashlib.sha256(fh.read()).hexdigest()[:10])
+    return f"/static/{path}?v={_asset_cache[full][1]}"
+
+
+_asset_cache: dict[str, tuple] = {}
+templates.env.globals["asset"] = asset
 
 # The main menu is the manual's, and only the manual's: three cards plus the
 # staff section (หน้าเมนูหลัก, p.4). Everything this project added lives inside

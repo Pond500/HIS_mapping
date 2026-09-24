@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/review-wizard.js"></script>
+<script src="{{ asset('js/review-wizard.js') }}"></script>
 <script>
 const IS_SUPERADMIN = {{ 'true' if user.role == 'superadmin' else 'false' }};
 const app = document.getElementById('app');
@@ -584,7 +584,7 @@ function renderProgress(box, p, filename, result) {
     const elapsed = Math.round((p && p.elapsed_s) || 0);
     $f('status').textContent = finished ? 'นำเข้าเสร็จแล้ว'
         : doing ? (PG_TEXT[doing.key] || [, doing.label])[1] : p ? 'กำลังเริ่ม' : 'กำลังส่งไฟล์';
-    const meta = finished ? `${pgNum(elapsed)} วินาที`
+    const meta = finished ? (elapsed < 1 ? 'ไม่ถึง 1 วินาที' : `${pgNum(elapsed)} วินาที`)
         : p ? `${doing && doing.detail ? esc(doing.detail) + ' · ' : ''}${pgNum(elapsed)} วินาที` : '';
     if ($f('meta').innerHTML !== meta) $f('meta').innerHTML = meta;
     steps.forEach(s => {

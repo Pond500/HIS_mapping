@@ -18,7 +18,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/review-wizard.js"></script>
+<script src="{{ asset('js/review-wizard.js') }}"></script>
 <script>
     mountReviewWizard(document.getElementById('reviewRoot'), {}).refresh();
 </script>
