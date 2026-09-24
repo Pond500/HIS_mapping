@@ -141,7 +141,7 @@ def mapper_node(state: FileState) -> dict:
     todo = [it for it in state["items"]
             if not revising or not verdicts.get(str(it["id"]), {}).get("agrees")]
     progress.step(state["source_file_id"], "ai_propose",
-                  f"{len(todo)} ชื่อ" + (" · รอบแก้ไขตามที่ AI ตัวที่สองแย้ง" if revising else ""))
+                  f"แก้ไขอีกรอบ {len(todo)} ชื่อตามที่ AI ตัวที่สองแย้ง" if revising else f"{len(todo)} ชื่อ")
     if revising:   # second round: show the reviewer's objection
         todo = [{**it, "reviewer_note": {"target": verdicts.get(str(it["id"]), {}).get("target"),
                                          "unit": verdicts.get(str(it["id"]), {}).get("unit"),
@@ -210,7 +210,8 @@ def verifier_node(state: FileState) -> dict:
             and not verdicts.get(str(it["id"]), {}).get("agrees")]
     props = {it["id"]: state["proposals"][str(it["id"])] for it in todo}
     progress.step(state["source_file_id"], "ai_verify",
-                  f"{len(todo)} ชื่อ" if todo else "AI ตัวแรกไม่ได้เสนอคำตอบ จึงไม่มีอะไรให้ตรวจ")
+                  (f"ตรวจซ้ำ {len(todo)} ชื่อ" if state["revision"] else f"{len(todo)} ชื่อ") if todo
+                  else "AI ตัวแรกไม่ได้เสนอคำตอบ จึงไม่มีอะไรให้ตรวจ")
 
     def run(batch):
         with SessionLocal() as db:

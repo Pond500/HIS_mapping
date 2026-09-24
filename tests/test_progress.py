@@ -17,14 +17,31 @@ def test_revision_round_leaves_one_step_in_progress():
     progress.start(fid, "f.xlsx")
     for key in ("read", "match", "ai_propose", "ai_verify"):
         progress.step(fid, key)
-    progress.step(fid, "ai_propose", "2 ชื่อ · รอบแก้ไข")     # the verifier objected: back to the mapper
+    progress.note(fid, "ai_propose", "10 ชื่อ")
+    progress.step(fid, "ai_propose", "แก้ไขอีกรอบ 2 ชื่อ")     # the verifier objected: back to the mapper
     st = states(fid)
     assert [k for k, v in st.items() if v == "doing"] == ["ai_propose"], st
     assert st["ai_verify"] == "done" and st["store"] == "todo"
+    ai = next(s for s in progress.get(fid)["steps"] if s["key"] == "ai_propose")
+    assert ai["detail"] == "10 ชื่อ · แก้ไขอีกรอบ 2 ชื่อ", ai   # the first run's count is kept
     progress.step(fid, "ai_verify")
     progress.step(fid, "store")
     progress.finish(fid)
     assert set(states(fid).values()) == {"done"}
+
+
+def test_time_of_a_step_run_twice_is_added_up(monkeypatch):
+    clock = iter([0, 0, 10, 40, 50, 55, 60, 60])        # start, read, verify, back to propose, verify, finish, get
+    monkeypatch.setattr(progress.time, "time", lambda: next(clock))
+    fid = 10_004
+    progress.start(fid, "f.xlsx")
+    progress.step(fid, "read")
+    progress.step(fid, "ai_verify")         # t=10 … 40: 30 s
+    progress.step(fid, "ai_propose")        # t=40 … 50
+    progress.step(fid, "ai_verify")         # t=50 … 55: 5 s more
+    progress.finish(fid)
+    verify = next(s for s in progress.get(fid)["steps"] if s["key"] == "ai_verify")
+    assert verify["elapsed_s"] == 35, verify
 
 
 def test_no_unknown_columns_skips_the_ai_steps():

@@ -549,35 +549,95 @@ async function sendRegistry(file, resultId) {
 // What the upload is doing, step by step, from the server's own record of it
 // (app/graph/progress.py). The bar only counts finished steps: the AI steps have
 // no honest percentage of their own, so they show time spent instead.
-function progressHtml(p, filename) {
-    const steps = (p && p.steps) || [];
+// The panel is built once and then updated in place each second, so the spinner and
+// the bar's shine keep moving instead of restarting on every poll.
+const PG_STEPS = [   // same order and labels as app/graph/progress.py, shown before the first answer
+    ['read', 'อ่านไฟล์'], ['match', 'จับคู่ชื่อคอลัมน์ที่ระบบรู้จักแล้ว'],
+    ['ai_propose', 'AI หาความหมายของคอลัมน์ที่ไม่รู้จัก'], ['ai_verify', 'AI ตัวที่สองตรวจคำตอบ'],
+    ['store', 'บันทึกค่าและเตรียมคำถาม'],
+].map(([key, label]) => ({key, label, state: 'todo', detail: null, elapsed_s: null}));
+const PG_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const PG_SHIELD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>';
+const secs = s => `${Math.max(0, Math.round(s || 0))} วิ`;
+
+function renderProgress(box, p, filename, result) {
+    const steps = (p && p.steps && p.steps.length) ? p.steps : PG_STEPS;
+    const sig = steps.map(s => s.key).join('|');
+    let root = box.querySelector('.pg');
+    if (!root || root.dataset.sig !== sig) {
+        const ext = (String(filename).split('.').pop() || '').toUpperCase().slice(0, 4);
+        box.innerHTML = `
+            <div class="pg pg-running" data-sig="${esc(sig)}">
+                <div class="pg-head">
+                    <div class="pg-file">${esc(ext)}</div>
+                    <div class="pg-head-text">
+                        <div class="pg-name" title="${esc(filename)}">${esc(filename)}</div>
+                        <div class="pg-sub" data-f="sub">กำลังส่งไฟล์…</div>
+                    </div>
+                    <div class="pg-counter" data-f="counter"></div>
+                </div>
+                <div class="pg-bar"><div class="pg-bar-fill" data-f="fill"></div></div>
+                <ol class="pg-steps">${steps.map((s, i) => `
+                    <li class="pg-step pg-s-todo" data-step="${esc(s.key)}" data-n="${i + 1}">
+                        <div class="pg-dot">${i + 1}</div>
+                        <div class="pg-body">
+                            <div class="pg-label"><span>${esc(s.label)}</span><span class="pg-time" hidden></span></div>
+                            <div class="pg-detail"></div>
+                        </div>
+                    </li>`).join('')}</ol>
+                <div class="pg-note">${PG_SHIELD}<span>ส่งให้ AI เฉพาะชื่อคอลัมน์และค่าตัวอย่าง ไม่มีชื่อหรือเลขบัตรประชาชน</span></div>
+                <div data-f="result"></div>
+            </div>`;
+        root = box.querySelector('.pg');
+    }
+    const $f = k => root.querySelector(`[data-f="${k}"]`);
     const finished = steps.filter(s => s.state === 'done' || s.state === 'skipped').length;
-    const doing = steps.find(s => s.state === 'doing');
-    const pct = steps.length ? Math.round(100 * (finished + (doing ? 0.5 : 0)) / steps.length) : 5;
-    const icon = s => s.state === 'done' ? '<span class="pg-icon ok">✓</span>'
-        : s.state === 'doing' ? '<span class="pg-icon spin"></span>'
-        : s.state === 'skipped' ? '<span class="pg-icon muted">–</span>' : '<span class="pg-icon muted">○</span>';
-    return `
-        <div class="pg">
-            <div class="pg-title">กำลังนำเข้า <b>${esc(filename)}</b></div>
-            <div class="wiz-progress"><div class="wiz-progress-fill" style="width:${pct}%"></div></div>
-            <div class="muted pg-count">${doing ? `ขั้นที่ ${steps.indexOf(doing) + 1} จาก ${steps.length}`
-                : steps.length && finished === steps.length ? 'เสร็จแล้ว' : 'กำลังเริ่ม…'}
-                · ผ่านไป ${Math.round((p && p.elapsed_s) || 0)} วินาที</div>
-            <ul class="pg-steps">${steps.map(s => `
-                <li class="pg-${s.state}">${icon(s)}
-                    <span>${esc(s.label)}${s.state === 'skipped' ? ' <span class="muted">(ไม่ต้องทำ)</span>' : ''}
-                    ${s.detail ? `<span class="muted"> · ${esc(s.detail)}</span>` : ''}
-                    ${s.state === 'doing' && s.elapsed_s >= 5 ? `<span class="muted"> · ${Math.round(s.elapsed_s)} วินาที</span>` : ''}</span>
-                </li>`).join('')}</ul>
-            ${doing && doing.key.startsWith('ai') ? `<p class="muted pg-note">ส่งให้ AI เฉพาะชื่อคอลัมน์และค่าตัวอย่าง ไม่มีชื่อหรือเลขบัตรประชาชน</p>` : ''}
-        </div>`;
+    const doingAt = steps.findIndex(s => s.state === 'doing');
+    const allDone = !!result || finished === steps.length;
+    const pct = allDone ? 100 : Math.max(4, Math.round(100 * (finished + (doingAt >= 0 ? 0.5 : 0)) / steps.length));
+    $f('fill').style.width = pct + '%';
+    root.classList.toggle('pg-running', !allDone);
+    root.classList.toggle('pg-done', allDone);
+    const elapsed = (p && p.elapsed_s) || 0;
+    $f('sub').textContent = allDone ? `นำเข้าเสร็จใน ${Math.round(elapsed)} วินาที`
+        : p ? `กำลังนำเข้า · ผ่านไป ${Math.round(elapsed)} วินาที` : 'กำลังส่งไฟล์…';
+    $f('counter').innerHTML = allDone ? `<b style="color:var(--green)">เสร็จ</b><span>ครบ ${steps.length} ขั้น</span>`
+        : doingAt >= 0 ? `<b>${doingAt + 1}<span style="display:inline;font-size:15px;color:var(--text-3)"> / ${steps.length}</span></b><span>ขั้นตอน</span>` : '';
+
+    steps.forEach(s => {
+        const li = root.querySelector(`[data-step="${CSS.escape(s.key)}"]`);
+        if (!li) return;
+        const cls = 'pg-step pg-s-' + s.state;
+        if (li.className !== cls) {
+            li.className = cls;
+            li.querySelector('.pg-dot').innerHTML = s.state === 'done' ? PG_CHECK : s.state === 'skipped' ? '–' : li.dataset.n;
+        }
+        const detail = s.state === 'skipped' ? 'ไม่ต้องทำในไฟล์นี้' : (s.detail || '');
+        const d = li.querySelector('.pg-detail');
+        if (d.textContent !== detail) d.textContent = detail;
+        const t = li.querySelector('.pg-time');
+        const showTime = (s.state === 'doing' || s.state === 'done') && s.elapsed_s != null && s.elapsed_s >= 1;
+        t.hidden = !showTime;
+        if (showTime) t.textContent = s.state === 'doing' ? `กำลังทำ · ${secs(s.elapsed_s)}` : secs(s.elapsed_s);
+    });
+
+    if (result) {
+        const q = Number(result.error_rows) || 0;
+        $f('result').innerHTML = `
+            ${result.stats && result.stats.approval_revoked ? `<div class="review-warn" style="margin-top:14px;"><b>การรับรองรอบนี้ถูกปลดแล้ว</b> เพราะไฟล์นี้เพิ่มผลตรวจใหม่เข้ามา</div>` : ''}
+            <div class="pg-summary">
+                <div class="pg-tile ok"><b>${(Number(result.success_rows) || 0).toLocaleString()}</b><span>ค่าที่บันทึกแล้ว</span></div>
+                <div class="pg-tile"><b>${(Number(result.stats && result.stats.extras) || 0).toLocaleString()}</b><span>ผลตรวจเพิ่มเติมของบริษัท</span></div>
+                <div class="pg-tile ${q ? 'warn' : 'ok'}"><b>${q}</b><span>คำถามรอตอบ</span></div>
+            </div>
+            <div class="pg-next">${q ? 'กำลังเปิดหน้าตอบคำถาม…' : 'เสร็จแล้ว ไม่มีคำถาม'}</div>`;
+    }
 }
 
 async function sendResults(file, resultId) {
     const box = document.getElementById(resultId);
     const zone = document.getElementById('resultZone');
-    box.innerHTML = progressHtml(null, file.name);
+    renderProgress(box, null, file.name);
     zone.hidden = true;                       // one file at a time: no second drop while this runs
     const fd = new FormData();
     fd.append('file', file);
@@ -600,21 +660,15 @@ async function sendResults(file, resultId) {
             if (++misses >= 30) { data = {success: false, error: 'ติดต่อระบบไม่ได้ — ไฟล์ยังประมวลผลต่อเบื้องหลัง ลองรีเฟรชหน้านี้ภายหลัง'}; break; }
             continue;
         }
-        if (data.status === 'processing') box.innerHTML = progressHtml(data.progress, file.name);
+        if (data.status === 'processing') renderProgress(box, data.progress, file.name);
     }
-    zone.hidden = false;
-    if (!data.success) { box.innerHTML = `<div class="review-warn">${esc(data.error || 'เกิดข้อผิดพลาด')}</div>`; return; }
-    const questions = Number(data.error_rows) || 0;
-    box.innerHTML = `
-        ${progressHtml(data.progress, file.name)}
-        ${data.stats && data.stats.approval_revoked ? `<div class="review-warn"><b>การรับรองรอบนี้ถูกปลดแล้ว</b> เพราะไฟล์นี้เพิ่มผลตรวจใหม่เข้ามา</div>` : ''}
-        <div class="result-stats">
-            <div class="result-stat">บันทึกแล้ว <strong>${Number(data.success_rows) || 0}</strong> ค่า</div>
-            <div class="result-stat">ผลตรวจเพิ่มเติมของบริษัท <strong>${Number(data.stats && data.stats.extras) || 0}</strong> ค่า</div>
-            <div class="result-stat">คำถามรอตอบ <strong>${questions}</strong> ข้อ</div>
-        </div>
-        <p class="muted" style="margin-top:8px;">${questions ? 'กำลังเปิดหน้าตอบคำถาม…' : 'เสร็จแล้ว ไม่มีคำถาม'}</p>`;
-    await new Promise(r => setTimeout(r, 1800));   // long enough to read the numbers
+    if (!data.success) {
+        zone.hidden = false;                          // let them try again
+        box.innerHTML = `<div class="review-warn">${esc(data.error || 'เกิดข้อผิดพลาด')}</div>`;
+        return;
+    }
+    renderProgress(box, data.progress, file.name, data);
+    await new Promise(r => setTimeout(r, 2200));   // long enough to read the numbers
     document.getElementById('resultModal').hidden = true;
     box.innerHTML = '';
     await renderDashboard();                        // header badge, numbers and tabs all catch up

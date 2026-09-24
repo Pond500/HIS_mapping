@@ -58,16 +58,25 @@ def step(file_id: int, key: str, detail: str | None = None) -> None:
             return
         for s in steps[:at]:
             if s["state"] == "doing":
-                s["state"], s["ended"] = "done", now
+                _close(s, now)
             elif s["state"] == "todo":
                 s["state"] = "skipped"      # e.g. no unknown columns: the AI steps never ran
         for s in steps[at + 1:]:
             if s["state"] == "doing":       # going back (the revision round): the later step did finish
-                s["state"], s["ended"] = "done", now
+                _close(s, now)
         s = steps[at]
+        again = s["state"] == "done"
+        if s["state"] == "doing":
+            _close(s, now)
         s["state"], s["started"], s["ended"] = "doing", now, None
         if detail is not None:
-            s["detail"] = detail
+            # a step run again keeps what its first run said: "10 ชื่อ · แก้ไขอีกรอบ 3 ชื่อ"
+            s["detail"] = f"{s['detail']} · {detail}" if again and s["detail"] else detail
+
+
+def _close(s: dict, now: float) -> None:
+    s["state"], s["ended"] = "done", now
+    s["spent"] = s.get("spent", 0.0) + (now - s["started"] if s["started"] else 0.0)
 
 
 def note(file_id: int, key: str, detail: str) -> None:
@@ -89,7 +98,7 @@ def finish(file_id: int) -> None:
             return
         for s in run["steps"]:
             if s["state"] == "doing":
-                s["state"], s["ended"] = "done", now
+                _close(s, now)
             elif s["state"] == "todo":
                 s["state"] = "skipped"
         run["finished"] = now
@@ -104,7 +113,9 @@ def get(file_id: int) -> dict | None:
         return {
             "filename": run["filename"],
             "elapsed_s": round((run["finished"] or now) - run["started"], 1),
+            # elapsed_s: every run of the step added up (the revision round included)
             "steps": [{"key": s["key"], "label": s["label"], "state": s["state"], "detail": s["detail"],
-                       "elapsed_s": round((s["ended"] or now) - s["started"], 1) if s["started"] else None}
+                       "elapsed_s": round(s.get("spent", 0.0) + (now - s["started"] if s["state"] == "doing" else 0.0), 1)
+                                     if s["started"] else None}
                       for s in run["steps"]],
         }
