@@ -21,6 +21,7 @@ Graph state holds no names or CIDs — only file id, labels, sample lab values, 
 """
 
 import os
+import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from typing import TypedDict
@@ -40,7 +41,8 @@ from app.models import (
 )
 from app.pipeline import normalize as N
 from app.pipeline.extract import observations
-from app.pipeline.mapper import DEPT_PREFIX, IDENTITY_PREFIX, Mapper, norm_label
+from app.pipeline import units as U
+from app.pipeline.mapper import DEPT_PREFIX, IDENTITY_PREFIX, Mapper, norm_label, split_unit
 from app.pipeline.profiler import file_title_date, profile_sheet
 from app.pipeline.reader import read_file
 from app.pipeline.run import company_id_of, process_file
@@ -177,9 +179,17 @@ def check_node(state: FileState) -> dict:
         ok, note = True, None
         if t in FIELDS_BY_COLUMN:
             f = FIELDS_BY_COLUMN[t]
+            stated = _stated_unit(it)
             if f.kind == "numeric":
                 if p["factor"] is None or not it["values"]:
                     ok, note = False, "ไม่มีค่าตัวเลขหรือหน่วยใช้ไม่ได้"
+                elif stated and not _same_factor(U.factor(t, stated), p["factor"]):
+                    # The file says its own unit ("Creatinine (mg/L)"). A model that reads
+                    # it as another unit gets a factor the file contradicts, and the plausible
+                    # range is too wide to notice: creatinine 6–12 passes as mg/dL when it
+                    # is mg/L, ten times too high. The file's word wins; a person decides.
+                    ok, note = False, (f"ไฟล์เขียนหน่วย {stated} แต่ AI ตอบหน่วย {p.get('unit') or '(ไม่ระบุ)'}"
+                                       f" — ตัวคูณไม่ตรงกับหน่วยในไฟล์")
                 else:
                     out = [v for v in it["values"] if not (f.lo <= v * p["factor"] <= f.hi)]
                     if out:
@@ -193,6 +203,20 @@ def check_node(state: FileState) -> dict:
         p["range_ok"], p["range_note"] = ok, note
         proposals[str(it["id"])] = p
     return {"proposals": proposals}
+
+
+def _stated_unit(it) -> str | None:
+    """The unit the file itself gives for an item: its unit column/row, or the brackets
+    in its header. Only a Latin unit counts — a Thai one ("เซลล์/ลบ.มม.") is for the
+    model to translate, and there is nothing in units.py to hold it to."""
+    unit = it.get("unit") or split_unit(str(it["label"]).strip())[1]
+    if not unit or not re.fullmatch(r"[A-Za-z0-9µμ%^/.·*×\s\-]+", unit):
+        return None
+    return unit
+
+
+def _same_factor(a, b) -> bool:
+    return a is not None and b is not None and abs(a - b) <= 1e-9 * max(abs(a), abs(b), 1.0)
 
 
 def _cat_bad(x) -> bool:

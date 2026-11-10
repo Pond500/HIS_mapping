@@ -595,7 +595,7 @@ function renderProgress(box, p, filename, result) {
         if (lab) lab.classList.toggle('on', s.state === 'doing');
     });
     if (result && !$f('result').innerHTML) {
-        const q = Number(result.error_rows) || 0, extras = Number(result.stats && result.stats.extras) || 0;
+        const q = Number(result.error_rows) || 0, extras = Number(result.stats && (result.stats.extras_total ?? result.stats.extras)) || 0;
         $f('result').innerHTML = `
             ${result.stats && result.stats.approval_revoked ? `<div class="review-warn" style="margin-top:20px;"><b>การรับรองรอบนี้ถูกปลดแล้ว</b> เพราะไฟล์นี้เพิ่มผลตรวจใหม่เข้ามา</div>` : ''}
             <div class="pg-summary">

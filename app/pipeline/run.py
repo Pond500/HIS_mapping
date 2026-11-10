@@ -13,7 +13,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import (
-    AgentDecision, CheckupBatch, CommentLabel, Conflict, Hospital, PendingReview, SourceFile,
+    AgentDecision, CheckupBatch, CommentLabel, Conflict, ExtraResult, Hospital, PendingReview, SourceFile,
+    ValueProvenance,
     WalkthroughSurvey,
 )
 from app.pipeline.extract import extract
@@ -90,6 +91,14 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
         stored = save(db, sf, ex)
         llm_cost = db.query(func.coalesce(func.sum(AgentDecision.cost_usd), 0)).filter(
             AgentDecision.source_file_id == sf.id).scalar()
+        db.flush()
+        # Everything this file has put in, over every run of it. `stored` counts only
+        # this run, and a file is run again after the AI reads its findings or a person
+        # answers a question, so the page said "19 stored" for a file that stored 24.
+        total_stored = db.query(func.count(ValueProvenance.id)).filter(
+            ValueProvenance.source_file_id == sf.id).scalar()
+        total_extras = db.query(func.count(ExtraResult.id)).filter(
+            ExtraResult.source_file_id == sf.id).scalar()
         kinds = {}
         for r in ex.reviews:
             kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
@@ -98,11 +107,13 @@ def process_file(db: Session, sf: SourceFile, evidence: dict | None = None,
             "observations": ex.stats["observations"],
             "cells_ok": ex.stats["cells_ok"],
             **stored,
+            "stored_total": total_stored,
+            "extras_total": total_extras,
             "reviews_by_kind": kinds,
             "llm_cost_usd": float(llm_cost or 0),
             # UI compatibility
             "total_rows": ex.stats["observations"],
-            "success_rows": stored["stored"],
+            "success_rows": total_stored,
             "error_rows": len(ex.reviews),
         }
         sf.errors = []
