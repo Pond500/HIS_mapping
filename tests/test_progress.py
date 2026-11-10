@@ -66,3 +66,15 @@ def test_comments_step_is_added_before_store_only_when_it_runs():
     progress.step(fid, "store")
     keys = [s["key"] for s in progress.get(fid)["steps"]]
     assert keys[-2:] == ["comments", "store"], keys
+
+
+def test_finished_only_when_the_run_ends():
+    # the upload page waits on this, not on the file's status: the first store already
+    # marks a file "awaiting_review" while the AI is still reading its findings
+    fid = 10_005
+    progress.start(fid, "f.xlsx")
+    progress.step(fid, "store")
+    progress.step(fid, "comments")
+    assert progress.get(fid)["finished"] is False
+    progress.finish(fid)
+    assert progress.get(fid)["finished"] is True

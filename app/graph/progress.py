@@ -112,6 +112,9 @@ def get(file_id: int) -> dict | None:
             return None
         return {
             "filename": run["filename"],
+            # the graph's own end, not the file's status: a file reads "awaiting_review"
+            # after its first store, while the AI is still reading its findings
+            "finished": run["finished"] is not None,
             "elapsed_s": round((run["finished"] or now) - run["started"], 1),
             # elapsed_s: every run of the step added up (the revision round included)
             "steps": [{"key": s["key"], "label": s["label"], "state": s["state"], "detail": s["detail"],

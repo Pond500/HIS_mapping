@@ -181,7 +181,10 @@ def upload_progress(file_id: int, user: AppUser = Depends(require_user)):
             raise HTTPException(404, "ไม่พบไฟล์")
         status_, errors = sf.status, list(sf.errors or [])
     p = progress.get(file_id)
-    if status_ == "processing":
+    # Still running if the run says so, whatever the status: the first store already sets
+    # "awaiting_review" for findings the AI is about to read, and answering then would
+    # show questions that vanish seconds later. Without a record (a restart), the status.
+    if status_ == "processing" or (p is not None and not p["finished"]):
         return {"success": True, "upload_id": file_id, "status": "processing", "progress": p}
     if status_ == "failed":
         return {"success": False, "upload_id": file_id, "status": "failed", "progress": p,
