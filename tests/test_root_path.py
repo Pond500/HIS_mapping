@@ -29,3 +29,19 @@ def test_url_adds_the_prefix(monkeypatch):
     from app import paths
     monkeypatch.setattr(paths, "ROOT_PATH", "/his_mapping")
     assert paths.url("/login") == "/his_mapping/login"
+
+
+def test_a_stripped_prefix_is_put_back(monkeypatch):
+    # the server's nginx strips /his_mapping; StaticFiles then 404'd every stylesheet
+    import asyncio
+    from app import paths
+    monkeypatch.setattr(paths, "ROOT_PATH", "/his_mapping")
+    seen = []
+
+    async def inner(scope, receive, send):
+        seen.append(scope["path"])
+
+    mw = paths.RestorePrefix(inner)
+    for p in ("/static/css/envocc.css", "/his_mapping/static/css/envocc.css", "/his_mapping"):
+        asyncio.run(mw({"type": "http", "path": p, "raw_path": p.encode()}, None, None))
+    assert seen == ["/his_mapping/static/css/envocc.css", "/his_mapping/static/css/envocc.css", "/his_mapping"]

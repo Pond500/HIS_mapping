@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.graph import service
-from app.paths import ROOT_PATH
+from app.paths import ROOT_PATH, RestorePrefix
 from app.routes import (
     accounts, api_v1, conflicts, dashboard, mapping, pages, registration, reviews, summary,
     manual, rounds, workplaces,
@@ -42,6 +42,7 @@ async def lifespan(_app: FastAPI):
 # root_path: served under a prefix behind nginx (app/paths.py); links and redirects carry it
 app = FastAPI(title="HIS Mapping", description="แปลงข้อมูล HIS → Template อาชีวอนามัย", lifespan=lifespan,
               root_path=ROOT_PATH)
+app.add_middleware(RestorePrefix)   # the proxy strips the prefix; mounts need it back
 
 # Static files & templates
 BASE_DIR = os.path.dirname(__file__)
