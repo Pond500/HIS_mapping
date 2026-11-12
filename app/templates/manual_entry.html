@@ -11,7 +11,7 @@
             คือหน่วยที่ระบบเก็บจริง และทุกการแก้จะบันทึกว่าใครแก้
         </p>
     </div>
-    <a class="btn" href="/">← กลับเมนูหลัก</a>
+    <a class="btn" href="{{ base }}/">← กลับเมนูหลัก</a>
 </div>
 
 <div class="card">
@@ -60,8 +60,8 @@ async function api(url, opts) {
 }
 
 async function boot() {
-    FIELDS = await api('/api/checkups/fields');
-    const rounds = await api('/api/rounds');
+    FIELDS = await api('{{ base }}/api/checkups/fields');
+    const rounds = await api('{{ base }}/api/rounds');
     $('pickRound').innerHTML = rounds.length
         ? '<option value="">— เลือกรอบตรวจ —</option>' + rounds.map(r =>
             `<option value="${r.id}">${esc(r.company)} · ${esc(r.checkup_type_name)} · นัด ${thaiDate(r.appoint_date)}</option>`).join('')
@@ -75,21 +75,21 @@ async function loadPeople() {
     $('formCard').hidden = true;
     const rid = $('pickRound').value;
     if (!rid) { $('pickPerson').innerHTML = '<option value="">— เลือกรอบก่อน —</option>'; return; }
-    const people = await api(`/api/rounds/${rid}/people`);
+    const people = await api(`{{ base }}/api/rounds/${rid}/people`);
     $('pickPerson').innerHTML = people.length
         ? '<option value="">— เลือกพนักงาน —</option>' + people.map(p =>
             `<option value="${p.employee_id}" data-checkup="${p.checkup_id || ''}">${esc(p.name)} · ${esc(p.department)}${p.checkup_id ? ' (มีผลแล้ว)' : ''}</option>`).join('')
         : '<option value="">ยังไม่มีใครในทะเบียนของสถานประกอบการนี้</option>';
     $('personHint').innerHTML = people.length
         ? 'คนที่ขึ้น “มีผลแล้ว” จะเปิดค่าเดิมขึ้นมาให้แก้'
-        : 'ต้อง <a href="/import-registry">นำเข้าทะเบียนพนักงาน</a> ของสถานประกอบการนี้ก่อน';
+        : 'ต้อง <a href="{{ base }}/import-registry">นำเข้าทะเบียนพนักงาน</a> ของสถานประกอบการนี้ก่อน';
 }
 
 async function loadPerson() {
     const opt = $('pickPerson').selectedOptions[0];
     if (!opt || !opt.value) { $('formCard').hidden = true; return; }
     const checkupId = opt.dataset.checkup;
-    const existing = checkupId ? await api('/api/checkups/' + checkupId) : {};
+    const existing = checkupId ? await api('{{ base }}/api/checkups/' + checkupId) : {};
     current = {round_id: Number($('pickRound').value), employee_id: Number(opt.value)};
     $('whoLabel').textContent = opt.textContent.replace(' (มีผลแล้ว)', '');
     $('saveNote').textContent = checkupId ? 'กำลังแก้ผลที่มีอยู่' : 'ยังไม่มีผลของคนนี้ในรอบนี้';
@@ -126,7 +126,7 @@ async function save() {
     });
     $('saveBtn').disabled = true;
     try {
-        const res = await api('/api/checkups', {
+        const res = await api('{{ base }}/api/checkups', {
             method: 'PUT', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({...current, values, comment: $('commentBox').value})});
         $('saveNote').textContent = res.changed

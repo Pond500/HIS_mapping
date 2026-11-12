@@ -67,12 +67,12 @@ async function renderSearch() {
             </div>
             <div id="results" style="margin-top:14px;"></div>
             <p class="muted" style="margin-top:12px;">
-                ไม่พบบริษัทที่ต้องการ? <a href="/workplaces">เพิ่มสถานประกอบการใหม่</a> ก่อน แล้วกลับมาค้นหาอีกครั้ง
+                ไม่พบบริษัทที่ต้องการ? <a href="{{ base }}/workplaces">เพิ่มสถานประกอบการใหม่</a> ก่อน แล้วกลับมาค้นหาอีกครั้ง
             </p>
         </div>`;
     async function search() {
         const q = document.getElementById('q').value.trim();
-        const list = await api('/api/companies' + (q ? '?search=' + encodeURIComponent(q) : ''));
+        const list = await api('{{ base }}/api/companies' + (q ? '?search=' + encodeURIComponent(q) : ''));
         document.getElementById('results').innerHTML = list.length ? list.map(c => `
             <div class="doc-item" style="margin-bottom:8px;">
                 <span>🏢 ${esc(c.name)}${c.branch_name ? ' — ' + esc(c.branch_name) : ''}
@@ -87,9 +87,9 @@ async function renderSearch() {
 
 async function openCompany(id) {
     view = 'company';
-    company = await api('/api/companies/' + id);
-    departments = await api(`/api/companies/${id}/departments`);
-    rounds = await api('/api/rounds?company_id=' + id);
+    company = await api('{{ base }}/api/companies/' + id);
+    departments = await api(`{{ base }}/api/companies/${id}/departments`);
+    rounds = await api('{{ base }}/api/rounds?company_id=' + id);
     render();
 }
 
@@ -120,7 +120,7 @@ function renderCompany() {
                         <td>${m.risks.map(([n, lvl, cls]) => `<span class="chip ${cls}" style="margin:2px 4px 2px 0;">${esc(n)} ${esc(lvl)}</span>`).join('')}</td>
                         <td class="muted">${m.checklist.join(' · ')}</td></tr>`;
                 }).join('')}</tbody></table></div>`
-                : `<p class="no-data">บริษัทนี้ยังไม่มีแผนก — เพิ่มได้ที่ <a href="/workplaces">ทะเบียนสถานประกอบการ</a></p>`}
+                : `<p class="no-data">บริษัทนี้ยังไม่มีแผนก — เพิ่มได้ที่ <a href="{{ base }}/workplaces">ทะเบียนสถานประกอบการ</a></p>`}
 
             <div class="band">รอบการตรวจสุขภาพ</div>
             ${rounds.length ? `<div class="table-wrap"><table>
@@ -166,7 +166,7 @@ function renderCompany() {
     document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => document.getElementById(b.dataset.close).hidden = true));
     document.querySelectorAll('[data-open-round]').forEach(b => b.addEventListener('click', () => openRound(Number(b.dataset.openRound))));
     document.getElementById('newRoundBtn').addEventListener('click', async () => {
-        const types = await api('/api/checkup-types');
+        const types = await api('{{ base }}/api/checkup-types');
         document.getElementById('newRoundType').innerHTML = types.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
         document.getElementById('newRoundModal').hidden = false;
     });
@@ -176,11 +176,11 @@ function renderCompany() {
             // A round needs a Walk Through survey to hang off (D23) — the questionnaire
             // itself is still a mockup, so reuse today's survey for this company if one
             // already exists this session, otherwise record a bare header.
-            let surveys = await api('/api/surveys?company_id=' + company.id);
+            let surveys = await api('{{ base }}/api/surveys?company_id=' + company.id);
             let survey = surveys[0];
-            if (!survey) survey = await api('/api/surveys', {method: 'POST',
+            if (!survey) survey = await api('{{ base }}/api/surveys', {method: 'POST',
                 body: JSON.stringify({company_id: company.id, survey_date: document.getElementById('newRoundDate').value})});
-            const r = await api('/api/rounds', {method: 'POST', body: JSON.stringify({
+            const r = await api('{{ base }}/api/rounds', {method: 'POST', body: JSON.stringify({
                 survey_id: survey.id, checkup_type: Number(document.getElementById('newRoundType').value),
                 appoint_date: document.getElementById('newRoundDate').value})});
             document.getElementById('newRoundModal').hidden = true;
@@ -199,8 +199,8 @@ let summaryData = null, reviewCount = 0;
 
 async function loadDashboardData() {
     const [s, reviews] = await Promise.all([
-        api('/api/summary?round_id=' + roundId),
-        api('/api/reviews?status=open&limit=5000&round_id=' + roundId),
+        api('{{ base }}/api/summary?round_id=' + roundId),
+        api('{{ base }}/api/reviews?status=open&limit=5000&round_id=' + roundId),
     ]);
     summaryData = s;
     reviewCount = reviews.length;
@@ -218,13 +218,13 @@ async function renderDashboard() {
                     <div class="muted">
                         รอบการตรวจ: ${esc(s.round.checkup_type)} วันที่ ${thaiDate(s.round.appoint_date)} · เลขทะเบียน ${esc(company.juristic_id)}
                         ${s.last_submission ? ` · <span class="chip ok">ส่งรายงานล่าสุด ${esc(new Date(s.last_submission.submitted_at).toLocaleString('th-TH'))}</span>
-                            <a id="downloadSubmission" href="/api/summary/download/${Number(s.last_submission.id)}">ดาวน์โหลดไฟล์ที่ส่ง</a>` : ''}
+                            <a id="downloadSubmission" href="{{ base }}/api/summary/download/${Number(s.last_submission.id)}">ดาวน์โหลดไฟล์ที่ส่ง</a>` : ''}
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                     ${reviewCount ? `<button class="btn btn-sm" id="reviewBtn" style="border-color:#f0a202;">🔔 งานที่ต้องตรวจ (${reviewCount})</button>` : ''}
-                    <a class="btn btn-sm" href="/api/registry/template">Template ทะเบียน</a>
-                    <a class="btn btn-sm" href="/api/results/template">Template ผลตรวจ</a>
+                    <a class="btn btn-sm" href="{{ base }}/api/registry/template">Template ทะเบียน</a>
+                    <a class="btn btn-sm" href="{{ base }}/api/results/template">Template ผลตรวจ</a>
                     <button class="btn btn-sm" id="addPeopleBtn">+ รายชื่อพนักงาน</button>
                     <button class="btn btn-sm btn-primary" id="addResultBtn">+ ผลตรวจสุขภาพ</button>
                 </div>
@@ -367,7 +367,7 @@ function overviewHtml(s) {
 }
 
 async function peopleHtml() {
-    const res = await api(`/api/employees?company_id=${company.id}&round_id=${roundId}&page=${peoplePage}&per_page=20&search=${encodeURIComponent(peopleSearch)}`);
+    const res = await api(`{{ base }}/api/employees?company_id=${company.id}&round_id=${roundId}&page=${peoplePage}&per_page=20&search=${encodeURIComponent(peopleSearch)}`);
     const rows = res.data || [];
     return `
         <div style="display:flex;gap:10px;margin:16px 0;flex-wrap:wrap;">
@@ -423,8 +423,8 @@ const GROUP_TH = {toxicology: 'สารพิษ', cbc: 'ความสมบ�
 let personFields = null;
 
 async function openPerson(id) {
-    if (!personFields) personFields = await api('/api/template/columns?all=true');
-    const e = await api('/api/employees/' + id);
+    if (!personFields) personFields = await api('{{ base }}/api/template/columns?all=true');
+    const e = await api('{{ base }}/api/employees/' + id);
     document.getElementById('personName').textContent = [e.first_name, e.last_name].filter(Boolean).join(' ') || e.cid;
     const rnd = (e.rounds || []).find(r => r.checkup_batch_id === roundId);
     const groups = {};
@@ -463,7 +463,7 @@ async function openPerson(id) {
         ${extrasHtml}
         <div id="personReviewsNote"></div>`;
     // คำถามค้างของคนนี้ในรอบนี้ — ตอบได้จากตรงนี้เลย (ผ่านพาเนล "งานที่ต้องตรวจ" เดียวกับปุ่ม 🔔)
-    const openReviews = await api('/api/reviews?status=open&limit=5000&round_id=' + roundId);
+    const openReviews = await api('{{ base }}/api/reviews?status=open&limit=5000&round_id=' + roundId);
     const mine = openReviews.filter(r => (r.payload || {}).cid === e.cid);
     if (mine.length) {
         document.getElementById('personReviewsNote').innerHTML = `
@@ -492,7 +492,7 @@ async function openReviewPanel() {
 async function refreshBadges() {
     // after answering something, the header badge and (if visible) the overview tab's
     // numbers should catch up without a full page reload
-    const reviews = await api('/api/reviews?status=open&limit=5000&round_id=' + roundId);
+    const reviews = await api('{{ base }}/api/reviews?status=open&limit=5000&round_id=' + roundId);
     reviewCount = reviews.length;
     const btn = document.getElementById('reviewBtn');
     if (btn) btn.textContent = `🔔 งานที่ต้องตรวจ (${reviewCount})`;
@@ -532,7 +532,7 @@ async function sendRegistry(file, resultId) {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('company_id', company.id);
-    const res = await fetch('/api/upload/registry', {method: 'POST', body: fd});
+    const res = await fetch('{{ base }}/api/upload/registry', {method: 'POST', body: fd});
     const data = await res.json();
     if (!data.success) { box.innerHTML = `<div class="review-warn">${esc(data.error)}</div>`; return; }
     box.innerHTML = `<div class="tile-grid">
@@ -541,8 +541,8 @@ async function sendRegistry(file, resultId) {
         <div class="tile"><div class="big">${data.updated}</div><div class="muted">เติมข้อมูลที่ขาด</div></div>
         <div class="tile"><div class="big">${data.reviews}</div><div class="muted">รอเจ้าหน้าที่ตัดสิน</div></div>
     </div>`;
-    company = await api('/api/companies/' + company.id);           // people count changed
-    departments = await api(`/api/companies/${company.id}/departments`);
+    company = await api('{{ base }}/api/companies/' + company.id);           // people count changed
+    departments = await api(`{{ base }}/api/companies/${company.id}/departments`);
     if (data.reviews) { document.getElementById('peopleModal').hidden = true; openReviewPanel(); }
 }
 
@@ -618,13 +618,13 @@ async function sendResults(file, resultId) {
     fd.append('background', 'true');
     let data;
     try {
-        data = await (await fetch('/api/upload', {method: 'POST', body: fd})).json();
+        data = await (await fetch('{{ base }}/api/upload', {method: 'POST', body: fd})).json();
     } catch (err) { data = {success: false, error: 'ส่งไฟล์ไม่สำเร็จ: ' + err.message}; }
     let misses = 0;
     while (data.success && data.status === 'processing') {
         await new Promise(r => setTimeout(r, 1000));
         try {
-            const res = await fetch(`/api/upload/${data.upload_id}/progress`);
+            const res = await fetch(`{{ base }}/api/upload/${data.upload_id}/progress`);
             if (!res.ok) throw new Error('HTTP ' + res.status);
             data = await res.json();
             misses = 0;
@@ -699,7 +699,7 @@ app.addEventListener('click', async e => {
         const btn = e.target;
         btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
         try {
-            await api('/api/summary/submit', {method: 'POST', body: JSON.stringify({
+            await api('{{ base }}/api/summary/submit', {method: 'POST', body: JSON.stringify({
                 round_id: roundId, confirm_open_work: !!document.getElementById('sendAnyway')?.checked})});
             // the whole dashboard, not just the tab: the header carries "sent" and the download link
             tab = 'ภาพรวม';

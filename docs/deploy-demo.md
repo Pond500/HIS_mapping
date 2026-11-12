@@ -87,11 +87,11 @@ docker compose exec app python scripts/create_user.py --role superadmin --email 
 ตรวจหลัง deploy (แทน `HOST` ด้วยชื่อเครื่อง และ `USER:PASS` ด้วยรหัสของ proxy):
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://HOST/login                          # ไม่มีรหัส proxy ต้องเป็น 401
-curl -s -o /dev/null -w "%{http_code}\n" -u USER:PASS https://HOST/login             # ต้องเป็น 200
-curl -s -o /dev/null -w "%{http_code}\n" -u USER:PASS -X POST https://HOST/api/legacy/upload   # ต้องเป็น 404 หรือ 403
-curl -s -o /dev/null -w "%{http_code}\n" -u USER:PASS https://HOST/api/reviews       # ไม่ล็อกอินแอป ต้องเป็น 401
-curl -s -o /dev/null -w "%{http_code}\n" -u USER:PASS https://HOST/api/v1/files      # ต้องเป็น 404 (ปิดอยู่)
+curl -s -o /dev/null -w "%{http_code}\n" https://HOST/his_mapping/login                          # ไม่มีรหัส proxy ต้องเป็น 401
+curl -s -o /dev/null -w "%{http_code}\n" -u USER:PASS https://HOST/his_mapping/login             # ต้องเป็น 200
+curl -s -o /dev/null -w "%{http_code}\n" -u USER:PASS -X POST https://HOST/his_mapping/api/legacy/upload   # ต้องเป็น 404 หรือ 403
+curl -s -o /dev/null -w "%{http_code}\n" -u USER:PASS https://HOST/his_mapping/api/reviews       # ไม่ล็อกอินแอป ต้องเป็น 401
+curl -s -o /dev/null -w "%{http_code}\n" -u USER:PASS https://HOST/his_mapping/api/v1/files      # ต้องเป็น 404 (ปิดอยู่)
 ```
 
 จากนั้นเข้าเว็บ ล็อกอิน ไล่กด 3 การ์ดในเมนูหลัก ถ้าทุกหน้าเปิดได้ ถือว่าผ่าน

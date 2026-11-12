@@ -10,7 +10,7 @@
             คนละไฟล์กับผลตรวจ และ<b>ต้องนำเข้าก่อน</b> เพราะผลตรวจของคนที่ไม่มีในทะเบียนจะถูกพักไว้
         </p>
     </div>
-    <a class="btn" href="/">← กลับเมนูหลัก</a>
+    <a class="btn" href="{{ base }}/">← กลับเมนูหลัก</a>
 </div>
 
 <div class="card">
@@ -85,7 +85,7 @@ const HOSP_KEY = 'hospitalPick';   // shared with the results page, so one choic
 async function loadHospitals() {
     if (!IS_SUPERADMIN) return;
     try {
-        const d = await (await fetch('/api/hospitals')).json();
+        const d = await (await fetch('{{ base }}/api/hospitals')).json();
         for (const h of (d.hospitals || [])) {
             const o = document.createElement('option');
             o.value = h.code;
@@ -104,11 +104,11 @@ if (IS_SUPERADMIN) $('hospitalPick').addEventListener('change', e => {
 
 async function boot() {
     loadHospitals();
-    const r = await fetch('/api/companies');
+    const r = await fetch('{{ base }}/api/companies');
     const companies = await r.json();
     if (!companies.length) {
         $('companyHint').innerHTML =
-            'ยังไม่มีสถานประกอบการในระบบ — เพิ่มที่หน้า <a href="/workplaces">ทะเบียนสถานประกอบการ</a> ก่อน';
+            'ยังไม่มีสถานประกอบการในระบบ — เพิ่มที่หน้า <a href="{{ base }}/workplaces">ทะเบียนสถานประกอบการ</a> ก่อน';
         return;
     }
     $('companyPick').insertAdjacentHTML('beforeend', companies.map(c =>
@@ -120,7 +120,7 @@ $('companyPick').addEventListener('change', e => {
     // Every person must land in a department, so a workplace with none cannot take a file yet.
     if (opt && opt.dataset.depts === '0') {
         $('companyHint').innerHTML =
-            'สถานประกอบการนี้ยังไม่มีแผนก — ต้องเพิ่มแผนกที่หน้า <a href="/workplaces">ทะเบียนสถานประกอบการ</a> ก่อน ' +
+            'สถานประกอบการนี้ยังไม่มีแผนก — ต้องเพิ่มแผนกที่หน้า <a href="{{ base }}/workplaces">ทะเบียนสถานประกอบการ</a> ก่อน ' +
             'เพราะทะเบียนของกรมฯ ผูกพนักงานกับแผนกเสมอ';
     } else {
         $('companyHint').textContent =
@@ -157,7 +157,7 @@ async function send(file) {
     fd.append('file', file);
     fd.append('company_id', companyId);
     if (IS_SUPERADMIN) fd.append('hospital', $('hospitalPick').value);
-    const res = await fetch('/api/upload/registry', {method: 'POST', body: fd});
+    const res = await fetch('{{ base }}/api/upload/registry', {method: 'POST', body: fd});
     const data = await res.json();
 
     $('progressSection').style.display = 'none';
@@ -179,8 +179,8 @@ async function send(file) {
         </div>`;
     $('resultNext').innerHTML = data.reviews
         ? `<p class="review-warn">มี ${data.reviews} รายการที่ระบบไม่ยอมเดา
-             <a href="/reviews?file=${data.upload_id}">ไปตรวจรายการ</a></p>`
-        : `<p>ทะเบียนพร้อมแล้ว ขั้นถัดไปคือ <a href="/import">นำเข้าผลตรวจ</a></p>`;
+             <a href="{{ base }}/reviews?file=${data.upload_id}">ไปตรวจรายการ</a></p>`
+        : `<p>ทะเบียนพร้อมแล้ว ขั้นถัดไปคือ <a href="{{ base }}/import">นำเข้าผลตรวจ</a></p>`;
 }
 
 boot();

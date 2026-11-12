@@ -8,7 +8,7 @@
         <p class="page-sub">ส่งไฟล์ผลตรวจจากระบบ HIS หน้าตาแบบไหนก็ได้ ระบบจะอ่านและแปลงให้เอง
             ส่วนที่ไม่แน่ใจจะส่งให้เจ้าหน้าที่ตรวจก่อนบันทึก</p>
     </div>
-    <a class="btn" href="/">← กลับเมนูหลัก</a>
+    <a class="btn" href="{{ base }}/">← กลับเมนูหลัก</a>
 </div>
 
 <div class="card">
@@ -82,11 +82,11 @@
 
     // A results file only means something inside a round: that is where its date
     // comes from and whose register its people are looked up in (D23).
-    api('/api/rounds').then(rounds => {
+    api('{{ base }}/api/rounds').then(rounds => {
         if (!rounds.length) {
             document.getElementById('roundHint').innerHTML =
-                'ยังไม่มีรอบตรวจ — สร้างที่หน้า <a href="/rounds">รอบตรวจสุขภาพ</a> ก่อน ' +
-                '(และต้องมี <a href="/workplaces">สถานประกอบการ</a> กับ <a href="/walkthrough">การสำรวจ</a> ก่อนหน้านั้น)';
+                'ยังไม่มีรอบตรวจ — สร้างที่หน้า <a href="{{ base }}/rounds">รอบตรวจสุขภาพ</a> ก่อน ' +
+                '(และต้องมี <a href="{{ base }}/workplaces">สถานประกอบการ</a> กับ <a href="{{ base }}/walkthrough">การสำรวจ</a> ก่อนหน้านั้น)';
             return;
         }
         for (const r of rounds) {
@@ -98,7 +98,7 @@
     }).catch(() => { /* the upload itself refuses without a round */ });
 
     if (IS_SUPERADMIN) {
-        api('/api/hospitals').then(d => {
+        api('{{ base }}/api/hospitals').then(d => {
             for (const h of (d.hospitals || [])) {
                 const o = document.createElement('option');
                 o.value = h.code;
@@ -155,8 +155,8 @@
         if (IS_SUPERADMIN) form.append('hospital', pick.value);
 
         try {
-            const res = await fetch('/api/upload', { method: 'POST', body: form });
-            if (res.status === 401) { location.href = '/login'; return; }
+            const res = await fetch('{{ base }}/api/upload', { method: 'POST', body: form });
+            if (res.status === 401) { location.href = '{{ base }}/login'; return; }
             const data = await res.json();
             if (data.success) {
                 const waiting = data.status === 'awaiting_review';
@@ -192,8 +192,8 @@
             <div class="result-stat">บันทึกแล้ว <strong>${Number(data.success_rows) || 0}</strong></div>
             <div class="result-stat">มีปัญหา <strong>${Number(data.error_rows) || 0}</strong></div>`;
         next.innerHTML = state === 'waiting'
-            ? `<a class="btn btn-primary" href="/reviews">ไปตรวจรายการ →</a>`
-            : `<a class="btn" href="/reviews">ดูงานที่ต้องตรวจ →</a>`;
+            ? `<a class="btn btn-primary" href="{{ base }}/reviews">ไปตรวจรายการ →</a>`
+            : `<a class="btn" href="{{ base }}/reviews">ดูงานที่ต้องตรวจ →</a>`;
     }
 </script>
 {% endblock %}

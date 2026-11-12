@@ -9,8 +9,8 @@
             เมื่อครบถ้วนแล้วเตรียมชุดเอกสารเพื่อส่งกรมควบคุมโรค</p>
     </div>
     <div class="head-actions">
-        <a class="btn" href="/people">ข้อมูลพนักงาน</a>
-        <a class="btn" href="/">เมนูหลัก</a>
+        <a class="btn" href="{{ base }}/people">ข้อมูลพนักงาน</a>
+        <a class="btn" href="{{ base }}/">เมนูหลัก</a>
     </div>
 </div>
 
@@ -89,12 +89,12 @@
             <b>ยังมีงานค้างอยู่ในหน้างานที่ต้องตรวจ</b>
             <ul style="margin:8px 0 8px 18px;">${bits.join('')}</ul>
             ${blocking ? `<b>ระบบไม่ให้ส่งจนกว่าจะเคลียร์</b> เพราะไฟล์ที่ส่งจะมีค่าที่ยังรอตัดสินหรือขาดไป ·
-            <a href="/reviews">ไปเคลียร์งานค้าง</a>
+            <a href="{{ base }}/reviews">ไปเคลียร์งานค้าง</a>
             ${inModal ? `<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:600;">
                 <input type="checkbox" id="sendAnyway" style="width:auto;margin-top:4px;"
                        onchange="document.getElementById('confirmSend').disabled = !this.checked">
                 <span>ฉันรับทราบว่ายังมีงานค้าง และต้องการส่งทั้งที่ยังค้าง (ระบบจะบันทึกชื่อผู้ยืนยันไว้)</span></label>` : ''}`
-              : `ส่งได้ · แต่ถ้าเคลียร์ก่อน ไฟล์ที่ส่งจะครบกว่านี้ · <a href="/reviews">ไปเคลียร์</a>`}
+              : `ส่งได้ · แต่ถ้าเคลียร์ก่อน ไฟล์ที่ส่งจะครบกว่านี้ · <a href="{{ base }}/reviews">ไปเคลียร์</a>`}
         </div>`;
     }
 
@@ -103,7 +103,7 @@
         : '—';
 
     async function boot() {
-        OPT = await api('/api/summary/options');
+        OPT = await api('{{ base }}/api/summary/options');
         const sel = document.getElementById('pickRound');
         sel.innerHTML = OPT.rounds.map(r =>
             `<option value="${r.id}">${esc(r.company)} · ${esc(r.checkup_type)} · นัด ${thaiDate(r.appoint_date)} (${r.people} คน)</option>`
@@ -115,7 +115,7 @@
     async function load() {
         const roundId = document.getElementById('pickRound').value;
         if (!roundId) { document.getElementById('content').innerHTML = empty(); return; }
-        DATA = await api('/api/summary?round_id=' + roundId);
+        DATA = await api('{{ base }}/api/summary?round_id=' + roundId);
         document.getElementById('scopeNote').textContent =
             `${esc(DATA.hospital ? DATA.hospital.code : '')} · ${DATA.people.toLocaleString()} คนในรอบนี้`;
         render();
@@ -199,7 +199,7 @@
                 ${esc(new Date(d.last_submission.submitted_at).toLocaleString('th-TH'))}
                 โดย ${esc(d.last_submission.submitted_by)} · ${d.last_submission.people} คน</div>` : ''}
             <div class="row-buttons">
-                <a class="btn" href="/api/export">ดาวน์โหลดไฟล์ 45 คอลัมน์</a>
+                <a class="btn" href="{{ base }}/api/export">ดาวน์โหลดไฟล์ 45 คอลัมน์</a>
                 <button class="btn btn-primary" onclick="openSend()">ส่งรายงานผลตรวจ →</button>
             </div>
         </div>
@@ -213,7 +213,7 @@
     }
 
     async function loadHistory() {
-        const rows = await api('/api/summary/submissions');
+        const rows = await api('{{ base }}/api/summary/submissions');
         document.getElementById('historyRows').innerHTML = rows.length ? rows.map(r => `<tr>
             <td>${r.year + 543}</td><td>${r.people.toLocaleString()}</td>
             <td>${esc(r.submitted_by)}</td>
@@ -250,7 +250,7 @@
         const btn = document.getElementById('confirmSend');
         btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
         try {
-            await api('/api/summary/submit', {
+            await api('{{ base }}/api/summary/submit', {
                 method: 'POST',
                 body: JSON.stringify({
                     round_id: Number(document.getElementById('pickRound').value),

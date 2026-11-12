@@ -21,7 +21,7 @@
     const app = document.getElementById('app');
 
     async function load() {
-        const res = await api('/api/registration');
+        const res = await api('{{ base }}/api/registration');
         SPEC = res.steps; TIMELINE = res.timeline; REG = res.current; HISTORY = res.history;
         if (REG && EDITABLE.includes(REG.status) && !editing) step = 0;
         render();
@@ -43,7 +43,7 @@
             </div>
             ${historyCard()}`;
         document.getElementById('startBtn').addEventListener('click', async () => {
-            REG = await api('/api/registration', { method: 'POST' });
+            REG = await api('{{ base }}/api/registration', { method: 'POST' });
             editing = true; step = 0; render();
         });
     }
@@ -62,7 +62,7 @@
                                 <td>${thaiDate(r.approved_at)}</td>
                                 <td>${thaiDate(r.expires_on)}</td>
                                 <td>${r.has_certificate
-                                        ? `<a class="btn btn-sm btn-green" href="/api/registration/${r.id}/file?certificate=true">โหลดใบขึ้นทะเบียน</a>`
+                                        ? `<a class="btn btn-sm btn-green" href="{{ base }}/api/registration/${r.id}/file?certificate=true">โหลดใบขึ้นทะเบียน</a>`
                                         : '—'}</td>
                             </tr>`).join('')
                             : `<tr><td colspan="5" class="center muted" style="padding:28px;">ไม่พบข้อมูลประวัติการลงทะเบียน</td></tr>`}
@@ -107,7 +107,7 @@
                     ${REG.status === 'draft' ? `<button class="btn btn-danger btn-sm" id="cancelBtn" style="margin-top:10px;">ยกเลิกการลงทะเบียนปัจจุบัน</button>` : ''}
                 ` : ''}
                 ${REG.has_certificate ? `
-                    <a class="btn btn-green" style="margin-top:18px;" href="/api/registration/${REG.id}/file?certificate=true">
+                    <a class="btn btn-green" style="margin-top:18px;" href="{{ base }}/api/registration/${REG.id}/file?certificate=true">
                         โหลดใบขึ้นทะเบียน</a>
                     <div class="muted" style="margin-top:6px;">
                         ${REG.certificate_downloaded ? 'โหลดไปแล้ว หากต้องการอีกครั้งติดต่อหน่วยงานที่รับขึ้นทะเบียน' : 'โหลดได้ 1 ครั้ง'}
@@ -120,7 +120,7 @@
         const cancel = document.getElementById('cancelBtn');
         if (cancel) cancel.addEventListener('click', async () => {
             if (!confirm('ยกเลิกแบบร่างนี้ทั้งหมด ใช่หรือไม่?')) return;
-            await api(`/api/registration/${REG.id}/cancel`, { method: 'POST' });
+            await api(`{{ base }}/api/registration/${REG.id}/cancel`, { method: 'POST' });
             REG = null; editing = false; load();
         });
     }
@@ -262,7 +262,7 @@
         if (!docs.length) return `<div class="muted">ยังไม่มีเอกสาร</div>`;
         return docs.map(d => `
             <div class="doc-item">
-                <a href="/api/registration/${REG.id}/file?sha256=${esc(d.sha256)}" target="_blank">📄 ${esc(d.filename)}</a>
+                <a href="{{ base }}/api/registration/${REG.id}/file?sha256=${esc(d.sha256)}" target="_blank">📄 ${esc(d.filename)}</a>
                 <button class="btn btn-sm btn-danger" data-del-doc="${esc(key)}" data-sha="${esc(d.sha256)}"
                         ${personIndex === undefined ? '' : `data-person-index="${personIndex}"`}>ลบ</button>
             </div>`).join('');
@@ -320,7 +320,7 @@
     async function saveStep() {
         const s = SPEC[step];
         if (s.summary) return;
-        REG = await api(`/api/registration/${REG.id}/step/${s.id}`, {
+        REG = await api(`{{ base }}/api/registration/${REG.id}/step/${s.id}`, {
             method: 'PATCH', body: JSON.stringify({ values: collect() }),
         });
     }
@@ -330,7 +330,7 @@
         err.hidden = true;
         await saveStep();
         try {
-            REG = await api(`/api/registration/${REG.id}/submit`, { method: 'POST' });
+            REG = await api(`{{ base }}/api/registration/${REG.id}/submit`, { method: 'POST' });
             editing = false;
             alert('ยื่นลงทะเบียนสำเร็จ ท่านสามารถตรวจสอบสถานะได้ที่หน้านี้');
             load();
@@ -353,7 +353,7 @@
                 fd.append('file', input.files[0]);
                 if (input.dataset.personIndex !== undefined) fd.append('person', input.dataset.personIndex);
                 try {
-                    const res = await fetch(`/api/registration/${REG.id}/documents`, { method: 'POST', body: fd });
+                    const res = await fetch(`{{ base }}/api/registration/${REG.id}/documents`, { method: 'POST', body: fd });
                     const body = await res.json();
                     if (!res.ok) throw new Error((body.detail && body.detail.message) || 'อัปโหลดไม่สำเร็จ');
                     REG = body.registration;
@@ -368,7 +368,7 @@
                 await saveStep();
                 const q = new URLSearchParams({ key: btn.dataset.delDoc, sha256: btn.dataset.sha });
                 if (btn.dataset.personIndex !== undefined) q.set('person', btn.dataset.personIndex);
-                REG = await api(`/api/registration/${REG.id}/documents?` + q, { method: 'DELETE' });
+                REG = await api(`{{ base }}/api/registration/${REG.id}/documents?` + q, { method: 'DELETE' });
                 render();
             });
         });
@@ -380,7 +380,7 @@
                 const key = btn.dataset.addPerson;
                 const values = collect();
                 values[key] = [...(values[key] || []), { title: '', name: '', surname: '', documents: {} }];
-                REG = await api(`/api/registration/${REG.id}/step/${SPEC[step].id}`, {
+                REG = await api(`{{ base }}/api/registration/${REG.id}/step/${SPEC[step].id}`, {
                     method: 'PATCH', body: JSON.stringify({ values }),
                 });
                 render();
@@ -392,7 +392,7 @@
                 const key = btn.dataset.delPerson, i = Number(btn.dataset.index);
                 const values = collect();
                 values[key] = (values[key] || []).filter((_, k) => k !== i);
-                REG = await api(`/api/registration/${REG.id}/step/${SPEC[step].id}`, {
+                REG = await api(`{{ base }}/api/registration/${REG.id}/step/${SPEC[step].id}`, {
                     method: 'PATCH', body: JSON.stringify({ values }),
                 });
                 render();

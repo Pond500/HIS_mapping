@@ -78,7 +78,7 @@ const thaiDate = iso => {
 };
 
 async function boot() {
-    [companies, types] = await Promise.all([api('/api/companies'), api('/api/checkup-types')]);
+    [companies, types] = await Promise.all([api('{{ base }}/api/companies'), api('{{ base }}/api/checkup-types')]);
     const opts = companies.map(c =>
         `<option value="${c.id}">${esc(c.name)}${c.branch_name ? ' — ' + esc(c.branch_name) : ''}</option>`).join('');
     document.getElementById('filterCompany').insertAdjacentHTML('beforeend', opts);
@@ -90,7 +90,7 @@ async function boot() {
 
 async function load() {
     const cid = document.getElementById('filterCompany').value;
-    const rounds = await api('/api/rounds' + (cid ? '?company_id=' + cid : ''));
+    const rounds = await api('{{ base }}/api/rounds' + (cid ? '?company_id=' + cid : ''));
     document.getElementById('count').textContent = rounds.length ? `ทั้งหมด ${rounds.length} รอบ` : '';
     const rows = document.getElementById('rows');
     if (!rounds.length) {
@@ -118,7 +118,7 @@ async function load() {
         </tr>`).join('');
     rows.querySelectorAll('[data-approve]').forEach(b => b.addEventListener('click', async () => {
         try {
-            await api(`/api/rounds/${b.dataset.approve}/approve`, {
+            await api(`{{ base }}/api/rounds/${b.dataset.approve}/approve`, {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({approved: b.dataset.on !== '1'})});
             load();
@@ -128,7 +128,7 @@ async function load() {
 
 async function loadSurveys() {
     const cid = document.getElementById('rCompany').value;
-    surveys = cid ? await api('/api/surveys?company_id=' + cid) : [];
+    surveys = cid ? await api('{{ base }}/api/surveys?company_id=' + cid) : [];
     const sel = document.getElementById('rSurvey');
     sel.innerHTML = surveys.map(s =>
         `<option value="${s.id}">สำรวจเมื่อ ${thaiDate(s.survey_date)}${s.surveyed_by ? ' — ' + esc(s.surveyed_by) : ''}</option>`).join('');
@@ -151,7 +151,7 @@ document.getElementById('addBtn').addEventListener('click', async () => {
 document.getElementById('roundForm').addEventListener('submit', async e => {
     e.preventDefault();
     try {
-        await api('/api/rounds', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        await api('{{ base }}/api/rounds', {method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 survey_id: Number(document.getElementById('rSurvey').value),
                 checkup_type: Number(document.getElementById('rType').value),

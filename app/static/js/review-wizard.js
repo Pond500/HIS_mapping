@@ -16,6 +16,9 @@
  * empty (the standalone page sees everything). `onChange` fires after anything
  * is saved, so the host page can refresh its own badge/count.
  */
+// served under a prefix behind nginx (app/paths.py): window.BASE is set in base.html
+const BASE_URL = window.BASE || '';
+
 function mountReviewWizard(root, opts) {
     opts = opts || {};
     const extraQuery = opts.extraQuery ? '&' + opts.extraQuery : '';
@@ -101,7 +104,7 @@ function mountReviewWizard(root, opts) {
     const companyColumnsCache = {};   // company_id -> [{id, name, kind, unit}]
     async function companyColumns(companyId) {
         if (!companyId) return [];
-        if (!companyColumnsCache[companyId]) companyColumnsCache[companyId] = await api(`/api/companies/${companyId}/extra-columns`);
+        if (!companyColumnsCache[companyId]) companyColumnsCache[companyId] = await api(BASE_URL + `/api/companies/${companyId}/extra-columns`);
         return companyColumnsCache[companyId];
     }
     let idx = 0;
@@ -111,10 +114,10 @@ function mountReviewWizard(root, opts) {
 
     async function load() {
         const [reviews, columns, regColumns, files] = await Promise.all([
-            api('/api/reviews?status=open&limit=5000' + extraQuery),
-            templateColumns.length ? templateColumns : api('/api/template/columns'),
-            registryColumns.length ? registryColumns : api('/api/registry/columns'),
-            api('/api/upload-logs'),
+            api(BASE_URL + '/api/reviews?status=open&limit=5000' + extraQuery),
+            templateColumns.length ? templateColumns : api(BASE_URL + '/api/template/columns'),
+            registryColumns.length ? registryColumns : api(BASE_URL + '/api/registry/columns'),
+            api(BASE_URL + '/api/upload-logs'),
         ]);
         templateColumns = columns;
         registryColumns = regColumns;
@@ -676,7 +679,7 @@ function mountReviewWizard(root, opts) {
         let failure = null;
         for (const [fid, decisions] of Object.entries(byFile)) {
             try {
-                await api(`/api/files/${fid}/decisions`, {method: 'POST',
+                await api(BASE_URL + `/api/files/${fid}/decisions`, {method: 'POST',
                     body: JSON.stringify({decisions, by: 'reviewer'})});
                 saved.push(fid);
             } catch (e) { failure = {fid, message: e.message}; break; }
@@ -706,14 +709,14 @@ function mountReviewWizard(root, opts) {
             {review_id: r.id, action: 'dismiss'}));
         try {
             for (const [fid, decisions] of Object.entries(byFile))
-                await api(`/api/files/${fid}/decisions`, {method: 'POST', body: JSON.stringify({decisions, by: 'reviewer'})});
+                await api(BASE_URL + `/api/files/${fid}/decisions`, {method: 'POST', body: JSON.stringify({decisions, by: 'reviewer'})});
         } catch (e) { alert(e.message); }
         await load();
         await loadConflicts();
     }
 
     async function loadConflicts() {
-        const rows = await api('/api/conflicts?status=open&limit=5000' + extraQuery);
+        const rows = await api(BASE_URL + '/api/conflicts?status=open&limit=5000' + extraQuery);
         const pill = $('rwConflictCount');
         pill.textContent = rows.length; pill.hidden = !rows.length;
         $('rwConflictEmpty').hidden = rows.length > 0;
@@ -745,12 +748,12 @@ function mountReviewWizard(root, opts) {
     }
 
     async function resolveConflict(id, action) {
-        await api(`/api/conflicts/${id}/resolve`, {method: 'POST', body: JSON.stringify({action, by: 'reviewer'})});
+        await api(BASE_URL + `/api/conflicts/${id}/resolve`, {method: 'POST', body: JSON.stringify({action, by: 'reviewer'})});
         loadConflicts();
     }
     async function acceptAllConflicts(fid) {
         if (!confirm('ใช้ค่าใหม่ทั้งไฟล์? ค่าเดิมจะถูกแทนที่ และบันทึกไว้ในประวัติ')) return;
-        await api(`/api/files/${fid}/conflicts/accept-all`, {method: 'POST', body: JSON.stringify({by: 'reviewer'})});
+        await api(BASE_URL + `/api/files/${fid}/conflicts/accept-all`, {method: 'POST', body: JSON.stringify({by: 'reviewer'})});
         loadConflicts();
     }
 

@@ -32,7 +32,7 @@
         <b>ยังเป็นตัวอย่างหน้าจอ ไม่ได้ต่อฐานข้อมูล</b>
         ดูได้ที่หน้าตัวอย่าง แต่สิ่งที่กดในนั้นยังไม่ถูกบันทึก
     </p>
-    <a class="btn" href="/walkthrough-mock">เปิดตัวอย่างหน้าจอ</a>
+    <a class="btn" href="{{ base }}/walkthrough-mock">เปิดตัวอย่างหน้าจอ</a>
 </div>
 
 <div class="modal-back" id="surveyModal" hidden>
@@ -78,7 +78,7 @@ const thaiDate = iso => iso
     : '—';
 
 async function boot() {
-    companies = await api('/api/companies');
+    companies = await api('{{ base }}/api/companies');
     const opts = companies.map(c =>
         `<option value="${c.id}">${esc(c.name)}${c.branch_name ? ' — ' + esc(c.branch_name) : ''}</option>`).join('');
     document.getElementById('filterCompany').insertAdjacentHTML('beforeend', opts);
@@ -88,7 +88,7 @@ async function boot() {
 
 async function load() {
     const cid = document.getElementById('filterCompany').value;
-    const surveys = await api('/api/surveys' + (cid ? '?company_id=' + cid : ''));
+    const surveys = await api('{{ base }}/api/surveys' + (cid ? '?company_id=' + cid : ''));
     document.getElementById('count').textContent = surveys.length ? `ทั้งหมด ${surveys.length} รายการ` : '';
     const rows = document.getElementById('rows');
     if (!surveys.length) {
@@ -119,7 +119,7 @@ document.getElementById('addBtn').addEventListener('click', () => {
 document.getElementById('surveyForm').addEventListener('submit', async e => {
     e.preventDefault();
     try {
-        await api('/api/surveys', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        await api('{{ base }}/api/surveys', {method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 company_id: Number(document.getElementById('sCompany').value),
                 survey_date: document.getElementById('sDate').value,

@@ -45,7 +45,7 @@
 
         <div style="display:flex;gap:10px;margin-top:8px;">
             <button class="btn btn-primary" type="submit" id="save">บันทึก</button>
-            <a class="btn" href="/">กลับเมนูหลัก</a>
+            <a class="btn" href="{{ base }}/">กลับเมนูหลัก</a>
         </div>
     </form>
 </div>
@@ -68,7 +68,7 @@
         };
         if (pw.value) body.password = pw.value;
         try {
-            await api('/api/auth/profile', { method: 'PATCH', body: JSON.stringify(body) });
+            await api('{{ base }}/api/auth/profile', { method: 'PATCH', body: JSON.stringify(body) });
             ok.hidden = false;
             pw.value = '';
             setTimeout(() => location.reload(), 700);

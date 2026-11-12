@@ -9,7 +9,7 @@
 
 <div class="menu-grid">
     {% for item in menu %}
-    <a class="menu-card" href="{{ item.href }}">
+    <a class="menu-card" href="{{ base }}{{ item.href }}">
         <span class="menu-icon">🖥</span>
         <span>{{ item.label }}</span>
     </a>
@@ -20,7 +20,7 @@
 <div class="menu-divider">สำหรับเจ้าหน้าที่</div>
 <div class="menu-grid">
     {% for item in staff_menu %}
-    <a class="menu-card" href="{{ item.href }}">
+    <a class="menu-card" href="{{ base }}{{ item.href }}">
         <span class="menu-icon">👥</span>
         <span>{{ item.label }}</span>
     </a>

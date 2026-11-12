@@ -2,6 +2,7 @@
 <html lang="th">
 
 <head>
+    <script>window.BASE = {{ base | tojson }};</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม{% endblock %}</title>
@@ -28,8 +29,8 @@
                 <div class="dropdown">
                     <button class="menu-btn" id="userMenuBtn" aria-label="เมนูผู้ใช้">⋮</button>
                     <div class="dropdown-list" id="userMenu" hidden>
-                        <a href="/">เมนูหลัก</a>
-                        <a href="/profile">โปรไฟล์</a>
+                        <a href="{{ base }}/">เมนูหลัก</a>
+                        <a href="{{ base }}/profile">โปรไฟล์</a>
                         <button type="button" id="logoutBtn">Logout</button>
                     </div>
                 </div>
@@ -54,7 +55,7 @@
                 const d = body && body.detail;
                 throw new Error((d && d.message) || (typeof d === 'string' ? d : '') || 'เกิดข้อผิดพลาด');
             }
-            if (res.redirected || res.status === 401) location.href = '/login';
+            if (res.redirected || res.status === 401) location.href = '{{ base }}/login';
             return body;
         }
         const menuBtn = document.getElementById('userMenuBtn');
@@ -62,8 +63,8 @@
         menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
         document.addEventListener('click', () => { menu.hidden = true; });
         document.getElementById('logoutBtn').addEventListener('click', async () => {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            location.href = '/login';
+            await fetch('{{ base }}/api/auth/logout', { method: 'POST' });
+            location.href = '{{ base }}/login';
         });
     </script>
     {% block scripts %}{% endblock %}

@@ -2,6 +2,7 @@
 <html lang="th">
 
 <head>
+    <script>window.BASE = {{ base | tojson }};</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>เข้าสู่ระบบ — ระบบควบคุมโรคจากการประกอบอาชีพและสิ่งแวดล้อม</title>
@@ -58,14 +59,15 @@
             err.hidden = true;
             submit.disabled = true;
             try {
-                const res = await fetch('/api/auth/login', {
+                const res = await fetch('{{ base }}/api/auth/login', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username: document.getElementById('username').value, password: pw.value }),
                 });
                 const body = await res.json();
                 if (!res.ok) throw new Error((body.detail && body.detail.message) || 'เข้าสู่ระบบไม่สำเร็จ');
                 const next = new URLSearchParams(location.search).get('next') || '/';
-                location.href = next.startsWith('/') ? next : '/';
+                // next is a path inside the app; the prefix (behind nginx) goes in front
+                location.href = window.BASE + (next.startsWith('/') && !next.startsWith('//') ? next : '/');
             } catch (e2) {
                 err.textContent = e2.message;
                 err.hidden = false;

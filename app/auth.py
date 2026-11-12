@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import AppUser
+from app.paths import ROOT_PATH
 
 COOKIE = "envocc_session"
 SESSION_MINUTES = int(os.environ.get("SESSION_MINUTES", "60"))
@@ -115,11 +116,11 @@ def read_token(token: str) -> int | None:
 
 def set_session(response: Response, user_id: int) -> None:
     response.set_cookie(COOKIE, make_token(user_id), max_age=SESSION_MINUTES * 60,
-                        httponly=True, samesite="lax", path="/")
+                        httponly=True, samesite="lax", path=ROOT_PATH or "/")
 
 
 def clear_session(response: Response) -> None:
-    response.delete_cookie(COOKIE, path="/")
+    response.delete_cookie(COOKIE, path=ROOT_PATH or "/")
 
 
 # ---------------------------------------------------------------------------

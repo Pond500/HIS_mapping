@@ -122,7 +122,7 @@
 
     async function load() {
         const q = document.getElementById('search').value.trim();
-        users = await api('/api/users?q=' + encodeURIComponent(q));
+        users = await api('{{ base }}/api/users?q=' + encodeURIComponent(q));
         document.getElementById('count').textContent = `ทั้งหมด ${users.length} รายการ`;
         document.getElementById('rows').innerHTML = users.map(u => `
             <tr>
@@ -162,7 +162,7 @@
         const hosp = document.getElementById('addHospital');
         if (hosp && hosp.value.trim()) body.hospital = hosp.value.trim();
         try {
-            const res = await api('/api/users', { method: 'POST', body: JSON.stringify(body) });
+            const res = await api('{{ base }}/api/users', { method: 'POST', body: JSON.stringify(body) });
             show('addModal', false);
             document.getElementById('pwText').textContent = `${res.user.username}  /  ${res.password}`;
             show('pwModal', true);
@@ -198,7 +198,7 @@
         const pw = document.getElementById('editPassword').value;
         if (pw) body.password = pw;
         try {
-            await api('/api/users/' + id, { method: 'PATCH', body: JSON.stringify(body) });
+            await api('{{ base }}/api/users/' + id, { method: 'PATCH', body: JSON.stringify(body) });
             show('editModal', false);
             load();
         } catch (e2) { err.textContent = e2.message; err.hidden = false; }
@@ -207,7 +207,7 @@
     async function deactivate(id) {
         const u = users.find(x => x.id === id);
         if (!confirm(`ปิดการใช้งานบัญชี ${u ? u.username : ''} ใช่หรือไม่? ประวัติการทำงานยังอยู่`)) return;
-        try { await api('/api/users/' + id, { method: 'DELETE' }); load(); }
+        try { await api('{{ base }}/api/users/' + id, { method: 'DELETE' }); load(); }
         catch (e) { alert(e.message); }
     }
 

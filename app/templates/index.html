@@ -2,6 +2,7 @@
 <html lang="th">
 
 <head>
+    <script>window.BASE = {{ base | tojson }};</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HIS Mapping</title>
@@ -319,7 +320,7 @@
             formData.append('hospital', document.getElementById('hospitalCode').value.trim() || 'UNSPECIFIED');
 
             try {
-                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const res = await fetch('{{ base }}/api/upload', { method: 'POST', body: formData });
                 const data = await res.json();
                 if (data.success) {
                     const waiting = data.status === 'awaiting_review';
@@ -367,8 +368,8 @@
         async function refreshDashboard() {
             try {
                 const [statsRes, empRes] = await Promise.all([
-                    fetch('/api/stats').then(r => r.json()),
-                    fetch(`/api/employees?page=${currentPage}&per_page=20&search=${encodeURIComponent(searchQuery)}`).then(r => r.json()),
+                    fetch('{{ base }}/api/stats').then(r => r.json()),
+                    fetch(`{{ base }}/api/employees?page=${currentPage}&per_page=20&search=${encodeURIComponent(searchQuery)}`).then(r => r.json()),
                 ]);
                 renderStats(statsRes);
                 renderCharts(statsRes.abnormal_counts);
@@ -535,7 +536,7 @@
 
         async function loadLogs() {
             try {
-                const logs = await fetch('/api/upload-logs').then(r => r.json());
+                const logs = await fetch('{{ base }}/api/upload-logs').then(r => r.json());
                 const tbody = document.getElementById('logsBody');
                 const empty = document.getElementById('logsEmpty');
                 if (!logs || logs.length === 0) {
@@ -566,13 +567,13 @@
         // ══════════════════════════════════════
 
         function exportExcel() {
-            window.location.href = '/api/export';
+            window.location.href = '{{ base }}/api/export';
         }
 
         async function deleteAll() {
             if (!confirm('ลบข้อมูลทั้งหมดจริงหรือไม่? ย้อนกลับไม่ได้')) return;
             try {
-                await fetch('/api/employees', { method: 'DELETE' });
+                await fetch('{{ base }}/api/employees', { method: 'DELETE' });
                 loadLogs();
                 alert('ลบข้อมูลทั้งหมดแล้ว');
             } catch (err) {
@@ -586,7 +587,7 @@
 
         async function loadMappings() {
             try {
-                const mappings = await fetch('/api/mappings/').then(r => r.json());
+                const mappings = await fetch('{{ base }}/api/mappings/').then(r => r.json());
                 document.getElementById('mappingsBody').innerHTML = mappings.map((m, i) => `
                     <tr>
                         <td>${i + 1}</td>
@@ -606,7 +607,7 @@
             const factor = document.getElementById('mapUnitFactor').value || 1.0;
             if (!name || !col) { alert('กรุณากรอกชื่อ lab และคอลัมน์'); return; }
             try {
-                const res = await fetch('/api/mappings/', {
+                const res = await fetch('{{ base }}/api/mappings/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ his_lab_name: name, template_column: col, unit_factor: parseFloat(factor) }),
@@ -627,7 +628,7 @@
         async function deleteMapping(id) {
             if (!confirm('ลบการจับคู่นี้?')) return;
             try {
-                await fetch('/api/mappings/' + id, { method: 'DELETE' });
+                await fetch('{{ base }}/api/mappings/' + id, { method: 'DELETE' });
                 loadMappings();
             } catch (err) { }
         }
@@ -651,7 +652,7 @@
 
         async function refreshReviewCount() {
             try {
-                const items = await fetch('/api/reviews?status=open').then(r => r.json());
+                const items = await fetch('{{ base }}/api/reviews?status=open').then(r => r.json());
                 const pill = document.getElementById('reviewCount');
                 pill.textContent = items.length;
                 pill.hidden = items.length === 0;
@@ -659,8 +660,8 @@
         }
 
         async function loadReviews() {
-            if (!templateColumns) templateColumns = await fetch('/api/template/columns').then(r => r.json());
-            const items = await fetch('/api/reviews?status=open').then(r => r.json());
+            if (!templateColumns) templateColumns = await fetch('{{ base }}/api/template/columns').then(r => r.json());
+            const items = await fetch('{{ base }}/api/reviews?status=open').then(r => r.json());
             document.getElementById('reviewEmpty').hidden = items.length > 0;
             const byFile = {};
             items.forEach(r => (byFile[r.source_file_id] = byFile[r.source_file_id] || []).push(r));
@@ -798,7 +799,7 @@
             if (noTarget) { alert('มีรายการที่เลือก “เลือกคอลัมน์เอง” แต่ยังไม่ได้เลือกคอลัมน์'); return; }
             const btn = block.querySelector('.review-foot .btn');
             if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก…'; }
-            const res = await fetch(`/api/files/${fid}/decisions`, {
+            const res = await fetch(`{{ base }}/api/files/${fid}/decisions`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ decisions }),
             });
@@ -817,7 +818,7 @@
 
         async function refreshConflictCount() {
             try {
-                const items = await fetch('/api/conflicts?status=open').then(r => r.json());
+                const items = await fetch('{{ base }}/api/conflicts?status=open').then(r => r.json());
                 const pill = document.getElementById('conflictCount');
                 pill.textContent = items.length;
                 pill.hidden = items.length === 0;
@@ -825,7 +826,7 @@
         }
 
         async function loadConflicts() {
-            const items = await fetch('/api/conflicts?status=open').then(r => r.json());
+            const items = await fetch('{{ base }}/api/conflicts?status=open').then(r => r.json());
             document.getElementById('conflictEmpty').hidden = items.length > 0;
             const byFile = {};
             items.forEach(c => (byFile[c.source_file_id] = byFile[c.source_file_id] || []).push(c));
@@ -858,7 +859,7 @@
         }
 
         async function resolveConflict(id, action) {
-            const res = await fetch(`/api/conflicts/${id}/resolve`, {
+            const res = await fetch(`{{ base }}/api/conflicts/${id}/resolve`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
             if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
             loadConflicts();
@@ -866,7 +867,7 @@
 
         async function acceptAllConflicts(fid) {
             if (!confirm('ใช้ค่าใหม่จากไฟล์นี้ทั้งหมด? ค่าเดิมจะถูกเก็บไว้ในประวัติ')) return;
-            const res = await fetch(`/api/files/${fid}/conflicts/accept-all`, {
+            const res = await fetch(`{{ base }}/api/files/${fid}/conflicts/accept-all`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
             if (!res.ok) alert((await res.json()).detail || 'บันทึกไม่สำเร็จ');
             loadConflicts();
@@ -880,7 +881,7 @@
         const CALC_FIELDS = ['cHosp', 'cFiles', 'cPeople', 'cMin', 'cReview'];
 
         async function loadMetrics() {
-            try { metrics = await fetch('/api/metrics').then(r => r.json()); } catch (e) { return; }
+            try { metrics = await fetch('{{ base }}/api/metrics').then(r => r.json()); } catch (e) { return; }
             const m = metrics, pct = v => v == null ? '—' : (v * 100).toFixed(1) + '%';
             const card = (cls, label, value, sub) => `<div class="stat-card ${cls}"><div class="stat-label">${label}</div>
                 <div class="stat-value">${value}</div><div class="stat-sub">${sub}</div></div>`;

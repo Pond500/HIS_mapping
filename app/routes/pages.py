@@ -18,11 +18,13 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from starlette._utils import get_route_path
 from sqlalchemy.orm import Session
 
 from app import auth
 from app.auth import get_db
 from app.models import AppUser, Hospital
+from app.paths import ROOT_PATH, url
 
 router = APIRouter(tags=["pages"])
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,16 +40,18 @@ def asset(path: str) -> str:
     try:
         st = os.stat(full)
     except OSError:
-        return f"/static/{path}"
+        return url(f"/static/{path}")
     key = (full, st.st_mtime_ns, st.st_size)
     if _asset_cache.get(full, (None,))[0] != key:
         with open(full, "rb") as fh:
             _asset_cache[full] = (key, hashlib.sha256(fh.read()).hexdigest()[:10])
-    return f"/static/{path}?v={_asset_cache[full][1]}"
+    return url(f"/static/{path}?v={_asset_cache[full][1]}")
 
 
 _asset_cache: dict[str, tuple] = {}
 templates.env.globals["asset"] = asset
+# the prefix every root-relative link in a template starts with (app/paths.py)
+templates.env.globals["base"] = ROOT_PATH
 
 # The main menu is the manual's, and only the manual's: three cards plus the
 # staff section (หน้าเมนูหลัก, p.4). Everything this project added lives inside
@@ -103,15 +107,20 @@ def _guard(request: Request, response: Response):
     """Returns (user, None) or (None, redirect to the sign-in page)."""
     user = auth.current_user(request, response)
     if user is None:
-        nxt = request.url.path
-        return None, RedirectResponse(f"/login?next={nxt}", status_code=303)
+        nxt = get_route_path(request.scope)     # without the prefix: login.html adds it back
+        return None, RedirectResponse(url(f"/login?next={nxt}"), status_code=303)
     return user, None
+
+
+def _local(next: str) -> str:
+    """A path inside this app, or the menu: "//host" and "https://..." would leave it."""
+    return next if next.startswith("/") and not next.startswith("//") else "/"
 
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, response: Response, next: str = "/"):
     if auth.current_user(request, response) is not None:
-        return RedirectResponse(next or "/", status_code=303)
+        return RedirectResponse(url(_local(next)), status_code=303)
     return templates.TemplateResponse(request, "login.html", {"next": next})
 
 
@@ -141,7 +150,7 @@ def users_page(request: Request, response: Response, db: Session = Depends(get_d
     if redirect:
         return redirect
     if user.role not in ("superadmin", "admin"):
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse(url("/"), status_code=303)
     page = templates.TemplateResponse(request, "users.html", _ctx(request, user, db, active="users"))
     page.headers.update(response.headers)
     return page
